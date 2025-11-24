@@ -1,0 +1,70 @@
+{
+    "app": {
+        "title": "TSuperMachine",
+        "toolbar": {
+            "note": "Note",
+            "calculator": "Calculator",
+            "cad3d": "3D CAD",
+            "cad2d": "2D Drawing",
+            "spreadsheet": "Spreadsheet",
+            "todo": "Todo List",
+            "settings": "Settings",
+            "image": "Image",
+            "pdf": "PDF",
+            "presentation": "Presentation"
+        },
+        "settings": {
+            "title": "Settings",
+            "theme": "Theme",
+            "language": "Language",
+            "themes": {
+                "light": "Light",
+                "dark": "Dark",
+                "custom": "Custom"
+            },
+            "customTheme": {
+                "title": "Custom Theme",
+                "primary": "Primary Color",
+                "secondary": "Secondary Color",
+                "background": "Background",
+                "surface": "Surface",
+                "text": "Text",
+                "border": "Border"
+            },
+            "customLanguage": {
+                "title": "Custom Language",
+                "upload": "Upload Language File",
+                "download": "Download Template"
+            }
+        },
+        "widgets": {
+            "note": {
+                "placeholder": "Type your notes here..."
+            },
+            "calculator": {
+                "placeholder": "Enter formula (e.g., 5 * sin(45 deg))",
+                "empty": "Enter a formula"
+            },
+            "todo": {
+                "placeholder": "Add a new task...",
+                "empty": "No tasks yet. Add one below!",
+                "completed": "completed"
+            },
+            "image": {
+                "upload": "Upload",
+                "empty": "Click Upload to add an image"
+            },
+            "pdf": {
+                "upload": "Upload PDF",
+                "empty": "Click Upload to add a PDF"
+            },
+            "presentation": {
+                "addSlide": "Add Slide",
+                "present": "Present",
+                "exit": "Exit Presentation",
+                "titlePlaceholder": "Slide Title",
+                "contentPlaceholder": "Slide content..."
+            }
+        }
+    }
+}

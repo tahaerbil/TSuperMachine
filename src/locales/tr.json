@@ -1,0 +1,70 @@
+{
+    "app": {
+        "title": "TSuperMachine",
+        "toolbar": {
+            "note": "Not",
+            "calculator": "Hesap Makinesi",
+            "cad3d": "3D CAD",
+            "cad2d": "2D Çizim",
+            "spreadsheet": "Tablo",
+            "todo": "Yapılacaklar",
+            "settings": "Ayarlar",
+            "image": "Resim",
+            "pdf": "PDF",
+            "presentation": "Slayt"
+        },
+        "settings": {
+            "title": "Ayarlar",
+            "theme": "Tema",
+            "language": "Dil",
+            "themes": {
+                "light": "Açık",
+                "dark": "Koyu",
+                "custom": "Özel"
+            },
+            "customTheme": {
+                "title": "Özel Tema",
+                "primary": "Ana Renk",
+                "secondary": "İkincil Renk",
+                "background": "Arkaplan",
+                "surface": "Yüzey",
+                "text": "Metin",
+                "border": "Kenarlık"
+            },
+            "customLanguage": {
+                "title": "Özel Dil",
+                "upload": "Dil Dosyası Yükle",
+                "download": "Şablonu İndir"
+            }
+        },
+        "widgets": {
+            "note": {
+                "placeholder": "Notlarınızı buraya yazın..."
+            },
+            "calculator": {
+                "placeholder": "Formül girin (örn: 5 * sin(45 deg))",
+                "empty": "Formül girin"
+            },
+            "todo": {
+                "placeholder": "Yeni görev ekle...",
+                "empty": "Henüz görev yok. Aşağıdan ekleyin!",
+                "completed": "tamamlandı"
+            },
+            "image": {
+                "upload": "Yükle",
+                "empty": "Resim eklemek için Yükle'ye tıklayın"
+            },
+            "pdf": {
+                "upload": "PDF Yükle",
+                "empty": "PDF eklemek için Yükle'ye tıklayın"
+            },
+            "presentation": {
+                "addSlide": "Slayt Ekle",
+                "present": "Sunum",
+                "exit": "Sunumdan Çık",
+                "titlePlaceholder": "Slayt Başlığı",
+                "contentPlaceholder": "Slayt içeriği..."
+            }
+        }
+    }
+}

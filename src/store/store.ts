@@ -1,0 +1,86 @@
+import { create } from 'zustand';
+
+export type WidgetType = 'NOTE' | 'CALCULATOR' | 'CAD_3D' | 'CAD_2D' | 'SPREADSHEET' | 'TODO' | 'SETTINGS' | 'IMAGE' | 'PDF' | 'PRESENTATION';
+
+export interface Widget {
+    id: string;
+    type: WidgetType;
+    position: { x: number; y: number };
+    size: { width: number; height: number };
+    title: string;
+    data?: any;
+    zIndex: number;
+}
+
+interface AppState {
+    widgets: Widget[];
+    canvas: {
+        scale: number;
+        offset: { x: number; y: number };
+    };
+    activeWidgetId: string | null;
+
+    // Actions
+    addWidget: (type: WidgetType, position?: { x: number; y: number }) => void;
+    removeWidget: (id: string) => void;
+    updateWidget: (id: string, updates: Partial<Widget>) => void;
+    setCanvasOffset: (offset: { x: number; y: number }) => void;
+    setCanvasScale: (scale: number) => void;
+    setActiveWidget: (id: string | null) => void;
+    bringToFront: (id: string) => void;
+}
+
+export const useStore = create<AppState>((set) => ({
+    widgets: [],
+    canvas: {
+        scale: 1,
+        offset: { x: 0, y: 0 },
+    },
+    activeWidgetId: null,
+
+    addWidget: (type, position = { x: 100, y: 100 }) => set((state) => {
+        const id = crypto.randomUUID();
+        const maxZ = state.widgets.length > 0 ? Math.max(...state.widgets.map(w => w.zIndex)) : 0;
+
+        const newWidget: Widget = {
+            id,
+            type,
+            position,
+            size: { width: 300, height: 200 }, // Default size
+            title: type.charAt(0) + type.slice(1).toLowerCase().replace('_', ' '),
+            zIndex: maxZ + 1,
+        };
+
+        return {
+            widgets: [...state.widgets, newWidget],
+            activeWidgetId: id
+        };
+    }),
+
+    removeWidget: (id) => set((state) => ({
+        widgets: state.widgets.filter((w) => w.id !== id),
+        activeWidgetId: state.activeWidgetId === id ? null : state.activeWidgetId
+    })),
+
+    updateWidget: (id, updates) => set((state) => ({
+        widgets: state.widgets.map((w) => w.id === id ? { ...w, ...updates } : w)
+    })),
+
+    setCanvasOffset: (offset) => set((state) => ({
+        canvas: { ...state.canvas, offset }
+    })),
+
+    setCanvasScale: (scale) => set((state) => ({
+        canvas: { ...state.canvas, scale }
+    })),
+
+    setActiveWidget: (id) => set({ activeWidgetId: id }),
+
+    bringToFront: (id) => set((state) => {
+        const maxZ = state.widgets.length > 0 ? Math.max(...state.widgets.map(w => w.zIndex)) : 0;
+        return {
+            widgets: state.widgets.map(w => w.id === id ? { ...w, zIndex: maxZ + 1 } : w),
+            activeWidgetId: id
+        };
+    }),
+}));
