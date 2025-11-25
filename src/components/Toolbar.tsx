@@ -5,7 +5,7 @@ import { Calculator, StickyNote, FileSpreadsheet, Box, PenTool, CheckSquare, Set
 import { useTranslation } from 'react-i18next';
 
 export const Toolbar: React.FC = () => {
-    const { addWidget } = useStore();
+    const { addWidget, canvas } = useStore();
     const { t } = useTranslation();
 
     const tools: { type: WidgetType; icon: React.ReactNode; label: string }[] = [
@@ -22,6 +22,29 @@ export const Toolbar: React.FC = () => {
         { type: 'SETTINGS', icon: <Settings size={20} />, label: t('app.toolbar.settings') },
     ];
 
+    const handleAddWidget = (type: WidgetType) => {
+        // Calculate viewport center in canvas coordinates
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Center of viewport in screen coordinates
+        const screenCenterX = viewportWidth / 2;
+        const screenCenterY = viewportHeight / 2;
+
+        // Convert to canvas coordinates (accounting for offset and scale)
+        const canvasCenterX = (screenCenterX - canvas.offset.x) / canvas.scale;
+        const canvasCenterY = (screenCenterY - canvas.offset.y) / canvas.scale;
+
+        // Offset by half the default widget size so it's truly centered
+        const defaultWidth = 300;
+        const defaultHeight = 200;
+
+        addWidget(type, {
+            x: canvasCenterX - defaultWidth / 2,
+            y: canvasCenterY - defaultHeight / 2
+        });
+    };
+
     return (
         <div
             className="fixed left-4 top-1/2 -translate-y-1/2 shadow-lg rounded-xl p-2 flex flex-col gap-2 border z-50"
@@ -35,7 +58,7 @@ export const Toolbar: React.FC = () => {
                     key={tool.type}
                     className="p-3 hover:bg-blue-50 rounded-lg transition-colors flex flex-col items-center gap-1 group relative"
                     style={{ color: 'var(--color-text)' }}
-                    onClick={() => addWidget(tool.type)}
+                    onClick={() => handleAddWidget(tool.type)}
                     title={tool.label}
                 >
                     {tool.icon}

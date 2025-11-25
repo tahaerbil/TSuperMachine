@@ -7,8 +7,10 @@ import { Toolbar } from './Toolbar';
 import { CAD2DCanvas } from './CAD2DCanvas';
 import { LayersPanel } from './LayersPanel';
 import { PropertiesPanel } from './PropertiesPanel';
+import { useStore } from '../../../store/store';
 
 export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, initialShapes = [], initialLayers, isMaximized = false }) => {
+    const { zoomSensitivity } = useStore();
     // State Management
     const {
         tool, setTool,
@@ -121,15 +123,21 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, initialShapes = []
 
     const handleWheel = (e: any) => {
         e.evt.preventDefault();
-        const scaleBy = 1.1;
+
+        // Percentage-based zoom with user-configurable sensitivity
         const stage = e.target.getStage();
         const oldScale = stage.scaleX();
+
+        const baseFactor = 1.05; // Base 5% change per scroll
+        const adjustedFactor = 1 + ((baseFactor - 1) * zoomSensitivity);
+        const direction = e.evt.deltaY < 0 ? adjustedFactor : 1 / adjustedFactor;
+        const newScale = Math.max(0.1, Math.min(5, oldScale * direction));
+
+        // Get mouse position for zoom centering
         const mousePointTo = {
             x: stage.getPointerPosition().x / oldScale - stage.x() / oldScale,
             y: stage.getPointerPosition().y / oldScale - stage.y() / oldScale,
         };
-
-        const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
 
         setStageScale(newScale);
         setStagePos({

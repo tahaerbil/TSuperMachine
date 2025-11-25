@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../../store/store';
+import { useTranslation } from 'react-i18next';
 
 interface NoteWidgetProps {
     id: string;
@@ -9,6 +10,7 @@ interface NoteWidgetProps {
 export const NoteWidget: React.FC<NoteWidgetProps> = ({ id, initialContent = '' }) => {
     const [content, setContent] = useState(initialContent);
     const { updateWidget } = useStore();
+    const { t } = useTranslation();
 
     // Debounce save to store
     useEffect(() => {
@@ -26,7 +28,7 @@ export const NoteWidget: React.FC<NoteWidgetProps> = ({ id, initialContent = '' 
                     backgroundColor: 'var(--color-surface)',
                     color: 'var(--color-text)'
                 }}
-                placeholder="Type your notes here..."
+                placeholder={t('app.widgets.note.placeholder')}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 onMouseDown={(e) => e.stopPropagation()} // Prevent dragging when clicking text area

@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { useThemeStore, applyTheme } from '../../store/themeStore';
 import type { ThemeMode } from '../../store/themeStore';
 import { getAvailableLanguages, addCustomLanguage } from '../../i18n';
-import { Palette, Globe, Upload, Download } from 'lucide-react';
+import { Palette, Globe, Upload, Download, Maximize2 } from 'lucide-react';
+import { useStore } from '../../store/store';
 
 export const SettingsWidget: React.FC = () => {
     const { t, i18n } = useTranslation();
     const { mode, customTheme, setMode, setCustomTheme } = useThemeStore();
-    const [activeTab, setActiveTab] = useState<'theme' | 'language'>('theme');
+    const { zoomSensitivity, setZoomSensitivity } = useStore();
+    const [activeTab, setActiveTab] = useState<'theme' | 'language' | 'canvas'>('theme');
 
     const handleThemeChange = (newMode: ThemeMode) => {
         setMode(newMode);
@@ -78,10 +80,47 @@ export const SettingsWidget: React.FC = () => {
                     <Globe size={16} />
                     {t('app.settings.language')}
                 </button>
+                <button
+                    className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 ${activeTab === 'canvas' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'
+                        }`}
+                    onClick={() => setActiveTab('canvas')}
+                >
+                    <Maximize2 size={16} />
+                    {t('app.settings.canvas')}
+                </button>
             </div>
 
             {/* Content */}
             <div className="flex-1 overflow-auto p-4">
+                {activeTab === 'canvas' && (
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                {t('app.settings.canvasSettings.zoomSpeed')}
+                            </label>
+                            <div className="space-y-3">
+                                <input
+                                    type="range"
+                                    min="0.5"
+                                    max="2"
+                                    step="0.1"
+                                    value={zoomSensitivity}
+                                    onChange={(e) => setZoomSensitivity(parseFloat(e.target.value))}
+                                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <div className="flex justify-between text-xs text-gray-500">
+                                    <span>{t('app.settings.canvasSettings.slower')} (0.5x)</span>
+                                    <span className="font-semibold text-blue-600">{zoomSensitivity.toFixed(1)}x</span>
+                                    <span>{t('app.settings.canvasSettings.faster')} (2x)</span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    {t('app.settings.canvasSettings.description')}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {activeTab === 'theme' && (
                     <div className="space-y-4">
                         <div>

@@ -18,7 +18,7 @@ import { AlignmentToolbar } from './AlignmentToolbar';
 
 
 export const Canvas: React.FC = () => {
-    const { widgets, canvas, setCanvasOffset, setCanvasScale, selectedWidgetIds, selectAll, clearSelection, removeWidget, selectMultiple } = useStore();
+    const { widgets, canvas, setCanvasOffset, setCanvasScale, selectedWidgetIds, selectAll, clearSelection, removeWidget, selectMultiple, zoomSensitivity } = useStore();
     const containerRef = useRef<HTMLDivElement>(null);
     const isDragging = useRef(false);
     const lastMousePos = useRef({ x: 0, y: 0 });
@@ -30,31 +30,33 @@ export const Canvas: React.FC = () => {
 
     const handleWheel = (e: React.WheelEvent) => {
         // If any widget is maximized, do not zoom the canvas.
-        // Let the event propagate to the widget (or just ignore it at canvas level).
         if (widgets.some(w => w.isMaximized)) {
             return;
         }
 
-        if (e.ctrlKey || e.metaKey) {
-            e.preventDefault();
-            const zoomSensitivity = 0.001;
-            const newScale = Math.max(0.1, Math.min(5, canvas.scale - e.deltaY * zoomSensitivity));
-            setCanvasScale(newScale);
-        } else {
-            // Pan with scroll if not zooming? Or just let native scroll happen if we had scrollbars (we don't)
-            // Better to use wheel for panning if no modifier?
-            // Standard CAD: Wheel = Zoom, Middle Click Drag = Pan.
-            // Let's stick to Wheel = Zoom (without modifier for CAD feel) or Modifier + Wheel = Zoom.
-            // Let's do: Wheel = Zoom (standard for maps/CAD often, or Ctrl+Wheel).
-            // Let's do Ctrl+Wheel for Zoom to avoid accidental zooming while scrolling content.
-            // Actually, for an infinite canvas without scrollbars, Wheel usually pans vertically, Shift+Wheel horizontally.
-            // But let's implement Middle Click Drag for Pan.
+        e.preventDefault();
 
-            // For now, let's just support Zoom with Wheel (no modifier needed if we prevent default)
-            const zoomSensitivity = 0.001;
-            const newScale = Math.max(0.1, Math.min(5, canvas.scale - e.deltaY * zoomSensitivity));
-            setCanvasScale(newScale);
-        }
+        // Percentage-based zoom with user-configurable sensitivity
+        const baseFactor = 1.05; // Base 5% change per scroll
+        const adjustedFactor = 1 + ((baseFactor - 1) * zoomSensitivity);
+        const direction = e.deltaY < 0 ? adjustedFactor : 1 / adjustedFactor;
+        const newScale = Math.max(0.1, Math.min(5, canvas.scale * direction));
+
+        // Get mouse position relative to canvas
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Calculate the point in canvas coordinates before zoom
+        const pointX = (mouseX - canvas.offset.x) / canvas.scale;
+        const pointY = (mouseY - canvas.offset.y) / canvas.scale;
+
+        // Calculate new offset to keep the point under the mouse
+        const newOffsetX = mouseX - pointX * newScale;
+        const newOffsetY = mouseY - pointY * newScale;
+
+        setCanvasScale(newScale);
+        setCanvasOffset({ x: newOffsetX, y: newOffsetY });
     };
 
     const handleMouseDown = (e: React.MouseEvent) => {

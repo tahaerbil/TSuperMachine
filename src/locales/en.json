@@ -18,6 +18,7 @@
             "title": "Settings",
             "theme": "Theme",
             "language": "Language",
+            "canvas": "Canvas",
             "themes": {
                 "light": "Light",
                 "dark": "Dark",
@@ -36,6 +37,12 @@
                 "title": "Custom Language",
                 "upload": "Upload Language File",
                 "download": "Download Template"
+            },
+            "canvasSettings": {
+                "zoomSpeed": "Zoom Speed",
+                "slower": "Slower",
+                "faster": "Faster",
+                "description": "Adjust how fast the canvas zooms in and out with mouse wheel"
             }
         },
         "widgets": {

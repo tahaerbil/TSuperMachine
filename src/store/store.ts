@@ -28,6 +28,7 @@ interface AppState {
         modified: string;
         author: string;
     } | null;
+    zoomSensitivity: number; // 1.0 = normal, higher = faster, lower = slower
 
     // Actions
     addWidget: (type: WidgetType, position?: { x: number; y: number }) => void;
@@ -46,6 +47,7 @@ interface AppState {
     clearSelection: () => void;
     toggleWidgetSelection: (id: string) => void;
     selectAll: () => void;
+    setZoomSensitivity: (sensitivity: number) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -59,6 +61,7 @@ export const useStore = create<AppState>((set) => ({
     lastSelectedId: null,
     projectName: 'Untitled Project',
     projectMetadata: null,
+    zoomSensitivity: 1.0, // Default: normal speed
 
     addWidget: (type, position = { x: 100, y: 100 }) => set((state) => {
         const id = crypto.randomUUID();
@@ -175,6 +178,8 @@ export const useStore = create<AppState>((set) => ({
         selectedWidgetIds: state.widgets.map(w => w.id),
         lastSelectedId: state.widgets[state.widgets.length - 1]?.id || null
     })),
+
+    setZoomSensitivity: (sensitivity) => set({ zoomSensitivity: sensitivity }),
 }));
 
 
