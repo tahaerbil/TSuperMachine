@@ -11,7 +11,8 @@
             "settings": "Settings",
             "image": "Image",
             "pdf": "PDF",
-            "presentation": "Presentation"
+            "presentation": "Presentation",
+            "project": "Project"
         },
         "settings": {
             "title": "Settings",
@@ -64,6 +65,21 @@
                 "exit": "Exit Presentation",
                 "titlePlaceholder": "Slide Title",
                 "contentPlaceholder": "Slide content..."
+            },
+            "project": {
+                "title": "Project",
+                "name": "Project Name",
+                "new": "New Project",
+                "save": "Save Project",
+                "saveAs": "Save As...",
+                "load": "Load Project",
+                "clear": "Clear All Widgets",
+                "recent": "Recent Projects",
+                "currentFile": "Current File:",
+                "saved": "Project saved successfully!",
+                "loaded": "Project loaded successfully!",
+                "confirmNew": "Are you sure? All unsaved changes will be lost.",
+                "confirmClear": "Are you sure you want to clear all widgets?"
             }
         }
     }

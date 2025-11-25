@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type WidgetType = 'NOTE' | 'CALCULATOR' | 'CAD_3D' | 'CAD_2D' | 'SPREADSHEET' | 'TODO' | 'SETTINGS' | 'IMAGE' | 'PDF' | 'PRESENTATION';
+export type WidgetType = 'NOTE' | 'CALCULATOR' | 'CAD_3D' | 'CAD_2D' | 'SPREADSHEET' | 'TODO' | 'SETTINGS' | 'IMAGE' | 'PDF' | 'PRESENTATION' | 'PROJECT';
 
 export interface Widget {
     id: string;
@@ -19,6 +19,12 @@ interface AppState {
         offset: { x: number; y: number };
     };
     activeWidgetId: string | null;
+    projectName: string;
+    projectMetadata: {
+        created: string;
+        modified: string;
+        author: string;
+    } | null;
 
     // Actions
     addWidget: (type: WidgetType, position?: { x: number; y: number }) => void;
@@ -28,6 +34,10 @@ interface AppState {
     setCanvasScale: (scale: number) => void;
     setActiveWidget: (id: string | null) => void;
     bringToFront: (id: string) => void;
+    clearAllWidgets: () => void;
+    loadProjectState: (widgets: Widget[], canvas: { scale: number; offset: { x: number; y: number } }) => void;
+    setProjectName: (name: string) => void;
+    setProjectMetadata: (metadata: { created: string; modified: string; author: string }) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -37,6 +47,8 @@ export const useStore = create<AppState>((set) => ({
         offset: { x: 0, y: 0 },
     },
     activeWidgetId: null,
+    projectName: 'Untitled Project',
+    projectMetadata: null,
 
     addWidget: (type, position = { x: 100, y: 100 }) => set((state) => {
         const id = crypto.randomUUID();
@@ -83,4 +95,20 @@ export const useStore = create<AppState>((set) => ({
             activeWidgetId: id
         };
     }),
+
+    clearAllWidgets: () => set({
+        widgets: [],
+        activeWidgetId: null
+    }),
+
+    loadProjectState: (widgets, canvas) => set({
+        widgets,
+        canvas,
+        activeWidgetId: null
+    }),
+
+    setProjectName: (name) => set({ projectName: name }),
+
+    setProjectMetadata: (metadata) => set({ projectMetadata: metadata }),
 }));
+

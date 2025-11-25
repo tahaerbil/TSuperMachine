@@ -12,6 +12,7 @@ import { PDFViewerWidget } from './widgets/PDFViewerWidget';
 import { PresentationWidget } from './widgets/PresentationWidget';
 import { CAD2DWidget } from './widgets/CAD2DWidget';
 import { CAD3DWidget } from './widgets/CAD3DWidget';
+import { ProjectMenuWidget } from './widgets/ProjectMenuWidget';
 
 
 
@@ -109,6 +110,7 @@ export const Canvas: React.FC = () => {
                         {widget.type === 'IMAGE' && <ImageViewerWidget id={widget.id} initialImage={widget.data?.image} />}
                         {widget.type === 'PDF' && <PDFViewerWidget id={widget.id} initialPDF={widget.data?.pdf} />}
                         {widget.type === 'PRESENTATION' && <PresentationWidget id={widget.id} initialSlides={widget.data?.slides} />}
+                        {widget.type === 'PROJECT' && <ProjectMenuWidget />}
                     </WidgetContainer>
                 ))}
             </div>

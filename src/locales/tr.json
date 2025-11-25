@@ -11,7 +11,8 @@
             "settings": "Ayarlar",
             "image": "Resim",
             "pdf": "PDF",
-            "presentation": "Slayt"
+            "presentation": "Sunum",
+            "project": "Proje"
         },
         "settings": {
             "title": "Ayarlar",
@@ -64,6 +65,21 @@
                 "exit": "Sunumdan Çık",
                 "titlePlaceholder": "Slayt Başlığı",
                 "contentPlaceholder": "Slayt içeriği..."
+            },
+            "project": {
+                "title": "Proje",
+                "name": "Proje Adı",
+                "new": "Yeni Proje",
+                "save": "Projeyi Kaydet",
+                "saveAs": "Farklı Kaydet...",
+                "load": "Proje Yükle",
+                "clear": "Tüm Widget'ları Temizle",
+                "recent": "Son Projeler",
+                "currentFile": "Geçerli Dosya:",
+                "saved": "Proje başarıyla kaydedildi!",
+                "loaded": "Proje başarıyla yüklendi!",
+                "confirmNew": "Emin misiniz? Kaydedilmemiş tüm değişiklikler kaybolacak.",
+                "confirmClear": "Tüm widget'ları silmek istediğinizden emin misiniz?"
             }
         }
     }

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useStore } from '../store/store';
 import type { WidgetType } from '../store/store';
-import { Calculator, StickyNote, FileSpreadsheet, Box, PenTool, CheckSquare, Settings, Image, FileText, Presentation } from 'lucide-react';
+import { Calculator, StickyNote, FileSpreadsheet, Box, PenTool, CheckSquare, Settings, Image, FileText, Presentation, FolderKanban } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export const Toolbar: React.FC = () => {
@@ -18,6 +18,7 @@ export const Toolbar: React.FC = () => {
         { type: 'IMAGE', icon: <Image size={20} />, label: t('app.toolbar.image') },
         { type: 'PDF', icon: <FileText size={20} />, label: t('app.toolbar.pdf') },
         { type: 'PRESENTATION', icon: <Presentation size={20} />, label: t('app.toolbar.presentation') },
+        { type: 'PROJECT', icon: <FolderKanban size={20} />, label: t('app.toolbar.project') },
         { type: 'SETTINGS', icon: <Settings size={20} />, label: t('app.toolbar.settings') },
     ];
 
