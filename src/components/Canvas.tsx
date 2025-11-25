@@ -29,6 +29,12 @@ export const Canvas: React.FC = () => {
     const [isLassoing, setIsLassoing] = useState(false);
 
     const handleWheel = (e: React.WheelEvent) => {
+        // If any widget is maximized, do not zoom the canvas.
+        // Let the event propagate to the widget (or just ignore it at canvas level).
+        if (widgets.some(w => w.isMaximized)) {
+            return;
+        }
+
         if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             const zoomSensitivity = 0.001;
@@ -52,6 +58,11 @@ export const Canvas: React.FC = () => {
     };
 
     const handleMouseDown = (e: React.MouseEvent) => {
+        // If any widget is maximized, do not allow canvas panning.
+        if (widgets.some(w => w.isMaximized)) {
+            return;
+        }
+
         // Pan: Only on middle-click or Alt+Left-click
         if (e.button === 1 || (e.button === 0 && e.altKey)) {
             isDragging.current = true;
@@ -116,6 +127,13 @@ export const Canvas: React.FC = () => {
         const handleKeyDown = (e: KeyboardEvent) => {
             // Ignore if typing in input/textarea
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+                return;
+            }
+
+            // If any widget is maximized, disable global canvas shortcuts.
+            // This prevents accidental deletion or selection of the maximized widget (or others)
+            // while trying to interact with the widget's internal content.
+            if (widgets.some(w => w.isMaximized)) {
                 return;
             }
 
@@ -202,7 +220,7 @@ export const Canvas: React.FC = () => {
                     pointerEvents: 'none', // Allow clicks to pass through to canvas
                 }}
             >
-                {widgets.map(widget => (
+                {widgets.filter(w => !w.isMaximized).map(widget => (
                     <WidgetContainer key={widget.id} widget={widget}>
                         {widget.type === 'NOTE' && <NoteWidget id={widget.id} initialContent={widget.data?.content} />}
                         {widget.type === 'CALCULATOR' && <CalculatorWidget />}
@@ -219,8 +237,25 @@ export const Canvas: React.FC = () => {
                 ))}
             </div>
 
+            {/* Maximized Widgets (Rendered outside transformed container) */}
+            {widgets.filter(w => w.isMaximized).map(widget => (
+                <WidgetContainer key={widget.id} widget={widget}>
+                    {widget.type === 'NOTE' && <NoteWidget id={widget.id} initialContent={widget.data?.content} />}
+                    {widget.type === 'CALCULATOR' && <CalculatorWidget />}
+                    {widget.type === 'CAD_3D' && <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />}
+                    {widget.type === 'CAD_2D' && <CAD2DWidget id={widget.id} initialShapes={widget.data?.shapes} initialLayers={widget.data?.layers} isMaximized={widget.isMaximized} />}
+                    {widget.type === 'SPREADSHEET' && <SpreadsheetWidget id={widget.id} initialData={widget.data?.spreadsheet} isMaximized={widget.isMaximized} />}
+                    {widget.type === 'TODO' && <TodoWidget id={widget.id} initialTodos={widget.data?.todos} />}
+                    {widget.type === 'SETTINGS' && <SettingsWidget />}
+                    {widget.type === 'IMAGE' && <ImageViewerWidget id={widget.id} initialImage={widget.data?.image} />}
+                    {widget.type === 'PDF' && <PDFViewerWidget id={widget.id} initialPDF={widget.data?.pdf} />}
+                    {widget.type === 'PRESENTATION' && <PresentationWidget id={widget.id} initialSlides={widget.data?.slides} />}
+                    {widget.type === 'PROJECT' && <ProjectMenuWidget />}
+                </WidgetContainer>
+            ))}
+
             {/* Selection Counter */}
-            {selectedWidgetIds.length > 1 && (
+            {selectedWidgetIds.length > 1 && !widgets.some(w => w.isMaximized) && (
                 <div
                     className="fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg border flex items-center gap-2"
                     style={{
@@ -245,7 +280,7 @@ export const Canvas: React.FC = () => {
             )}
 
             {/* Lasso Selection Rectangle */}
-            {isLassoing && lassoStart && lassoEnd && (
+            {isLassoing && lassoStart && lassoEnd && !widgets.some(w => w.isMaximized) && (
                 <div
                     className="fixed pointer-events-none"
                     style={{
@@ -261,7 +296,7 @@ export const Canvas: React.FC = () => {
             )}
 
             {/* Alignment Toolbar */}
-            <AlignmentToolbar />
+            {!widgets.some(w => w.isMaximized) && <AlignmentToolbar />}
         </div>
     );
 };

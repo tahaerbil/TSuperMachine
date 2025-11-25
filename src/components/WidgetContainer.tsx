@@ -23,8 +23,8 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
     return (
         <Rnd
             scale={isMaximized ? 1 : canvas.scale}
-            size={isMaximized ? { width: '90%', height: '90%' } : { width: widget.size.width, height: widget.size.height }}
-            position={isMaximized ? { x: window.innerWidth * 0.05, y: window.innerHeight * 0.05 } : { x: widget.position.x, y: widget.position.y }}
+            size={isMaximized ? { width: '100%', height: '100%' } : { width: widget.size.width, height: widget.size.height }}
+            position={isMaximized ? { x: 0, y: 0 } : { x: widget.position.x, y: widget.position.y }}
             disableDragging={isMaximized}
             enableResizing={!isMaximized}
             onDrag={(_e, d) => {

@@ -517,12 +517,14 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, initialShapes = []
 
     const handleExportDXF = () => {
         try {
-            const d = new Drawing();
+            const d = new Drawing() as any;
+
+            // Define colors (unused for now but kept for reference if needed later)
+            // const colors = { ... }; 
 
             // Add Layers
             layers.forEach(l => {
-                d.addLayer(l.name, Drawing.ACI.BLACK, 'CONTINUOUS');
-                // Note: dxf-writer might not support all layer properties easily, keeping it simple
+                d.addLayer(l.name, (Drawing as any).ACI.BLACK, 'CONTINUOUS');
             });
 
             // Add Entities
@@ -542,20 +544,23 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, initialShapes = []
                     const w = s.width || 0;
                     const h = -(s.height || 0); // Invert Height because Y is inverted
 
-                    // dxf-writer polyline expects array of [x, y]
-                    // And we need to handle the Y inversion correctly. 
-                    // Canvas: (x,y) is top-left. DXF: (x,y) is bottom-left usually.
-                    // Let's just flip all Y coordinates.
-
                     // Rect points in Canvas: (x,y) -> (x+w, y) -> (x+w, y+h) -> (x, y+h)
                     // Inverted Y: (x,-y) -> (x+w, -y) -> (x+w, -(y+h)) -> (x, -(y+h))
+                    // Using local vars: (x, y) -> (x+w, y) -> (x+w, y+h) -> (x, y+h) 
+                    // Wait, y is already inverted. h is inverted.
+                    // So: (x, y) -> (x+w, y) -> (x+w, y+h) -> (x, y+h) is correct logic for inverted space?
+                    // Let's trace:
+                    // Top-Left: x, -s.y  => x, y
+                    // Top-Right: x+s.w, -s.y => x+w, y
+                    // Bottom-Right: x+s.w, -(s.y+s.h) => x+w, -(s.y) - s.h => x+w, y+h
+                    // Bottom-Left: x, -(s.y+s.h) => x, y+h
 
                     d.drawPolyline([
-                        [x, - (s.y || 0)],
-                        [x + (s.width || 0), - (s.y || 0)],
-                        [x + (s.width || 0), - ((s.y || 0) + (s.height || 0))],
-                        [x, - ((s.y || 0) + (s.height || 0))],
-                        [x, - (s.y || 0)] // Close it
+                        [x, y],
+                        [x + w, y],
+                        [x + w, y + h],
+                        [x, y + h],
+                        [x, y] // Close it
                     ]).setLayer(layerName);
 
                 } else if (s.type === 'text') {
@@ -598,21 +603,21 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, initialShapes = []
                 });
             } else if (shape.type === 'rectangle') {
                 const x = shape.x || 0;
-                const y = shape.y || 0;
-                const w = shape.width || 0;
-                const h = shape.height || 0;
+                const _y = shape.y || 0;
+                const _w = shape.width || 0;
+                const _h = shape.height || 0;
                 // Corners (Endpoints)
-                points.push({ x: x, y: y, type: 'endpoint' });
-                points.push({ x: x + w, y: y, type: 'endpoint' });
-                points.push({ x: x + w, y: y + h, type: 'endpoint' });
-                points.push({ x: x, y: y + h, type: 'endpoint' });
+                points.push({ x: x, y: _y, type: 'endpoint' });
+                points.push({ x: x + _w, y: _y, type: 'endpoint' });
+                points.push({ x: x + _w, y: _y + _h, type: 'endpoint' });
+                points.push({ x: x, y: _y + _h, type: 'endpoint' });
                 // Midpoints
-                points.push({ x: x + w / 2, y: y, type: 'midpoint' });
-                points.push({ x: x + w, y: y + h / 2, type: 'midpoint' });
-                points.push({ x: x + w / 2, y: y + h, type: 'midpoint' });
-                points.push({ x: x, y: y + h / 2, type: 'midpoint' });
+                points.push({ x: x + _w / 2, y: _y, type: 'midpoint' });
+                points.push({ x: x + _w, y: _y + _h / 2, type: 'midpoint' });
+                points.push({ x: x + _w / 2, y: _y + _h, type: 'midpoint' });
+                points.push({ x: x, y: _y + _h / 2, type: 'midpoint' });
                 // Center
-                points.push({ x: x + w / 2, y: y + h / 2, type: 'center' });
+                points.push({ x: x + _w / 2, y: _y + _h / 2, type: 'center' });
             } else if (shape.type === 'circle') {
                 const x = shape.x || 0;
                 const y = shape.y || 0;
@@ -962,7 +967,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, initialShapes = []
             <div className="h-12 border-b border-gray-200 bg-gray-50 flex items-center px-4 gap-2">
                 <button
                     onClick={() => setTool('select')}
-                    className={`p-2 rounded ${tool === 'select' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-600'}`}
+                    className={`p-1.5 rounded ${tool === 'select' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-600'}`}
                     title="Select Tool"
                 >
                     <MousePointer2 size={16} />
@@ -970,28 +975,28 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, initialShapes = []
                 <div className="h-6 w-px bg-gray-300 mx-1" />
                 <button
                     onClick={() => setTool('line')}
-                    className={`p-2 rounded ${tool === 'line' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-600'}`}
+                    className={`p-1.5 rounded ${tool === 'line' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-600'}`}
                     title="Line Tool"
                 >
                     <Minus size={16} className="rotate-45" />
                 </button>
                 <button
                     onClick={() => setTool('rectangle')}
-                    className={`p-2 rounded ${tool === 'rectangle' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-600'}`}
+                    className={`p-1.5 rounded ${tool === 'rectangle' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-600'}`}
                     title="Rectangle Tool"
                 >
                     <Square size={16} />
                 </button>
                 <button
                     onClick={() => setTool('circle')}
-                    className={`p-2 rounded ${tool === 'circle' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-600'}`}
+                    className={`p-1.5 rounded ${tool === 'circle' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-600'}`}
                     title="Circle Tool"
                 >
                     <CircleIcon size={16} />
                 </button>
                 <button
                     onClick={() => setTool('text')}
-                    className={`p-2 rounded ${tool === 'text' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-600'}`}
+                    className={`p-1.5 rounded ${tool === 'text' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-600'}`}
                     title="Text Tool"
                 >
                     <Type size={16} />
@@ -1001,14 +1006,14 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, initialShapes = []
 
                 <button
                     onClick={() => setSnapToGrid(!snapToGrid)}
-                    className={`p-2 rounded ${snapToGrid ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-600'}`}
+                    className={`p-1.5 rounded ${snapToGrid ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-600'}`}
                     title="Snap to Grid"
                 >
                     <GridIcon size={16} />
                 </button>
                 <button
                     onClick={() => setSnapToObjects(!snapToObjects)}
-                    className={`p-2 rounded ${snapToObjects ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-600'}`}
+                    className={`p-1.5 rounded ${snapToObjects ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-600'}`}
                     title="Object Snap (OSNAP)"
                 >
                     <Magnet size={16} />
@@ -1219,7 +1224,7 @@ const getCurrentLength = (shape: Shape) => {
     } else if (shape.type === 'circle') {
         return Math.round(shape.radius || 0).toString();
     } else if (shape.type === 'rectangle') {
-        return `${Math.round(Math.abs(shape.width || 0))} x ${Math.round(Math.abs(shape.height || 0))}`;
+        return `${Math.round(Math.abs(shape.width || 0))} x ${Math.round(Math.abs(shape.height || 0))} `;
     }
     return '';
 };
