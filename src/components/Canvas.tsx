@@ -10,7 +10,7 @@ import { SpreadsheetWidget } from './widgets/SpreadsheetWidget';
 import { ImageViewerWidget } from './widgets/ImageViewerWidget';
 import { PDFViewerWidget } from './widgets/PDFViewerWidget';
 import { PresentationWidget } from './widgets/PresentationWidget';
-import { CAD2DWidget } from './widgets/CAD2D';
+import { CAD2DWidget } from './widgets/CAD2D/CAD2DWidget';
 import { CAD3DWidget } from './widgets/CAD3DWidget';
 import { ProjectMenuWidget } from './widgets/ProjectMenuWidget';
 import { AlignmentToolbar } from './AlignmentToolbar';
@@ -28,7 +28,7 @@ export const Canvas: React.FC = () => {
     const [lassoEnd, setLassoEnd] = useState<{ x: number; y: number } | null>(null);
     const [isLassoing, setIsLassoing] = useState(false);
 
-    const handleWheel = (e: React.WheelEvent) => {
+    const handleWheel = (e: WheelEvent) => {
         // If any widget is maximized, do not zoom the canvas.
         if (widgets.some(w => w.isMaximized)) {
             return;
@@ -43,7 +43,7 @@ export const Canvas: React.FC = () => {
         const newScale = Math.max(0.1, Math.min(5, canvas.scale * direction));
 
         // Get mouse position relative to canvas
-        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        const rect = (containerRef.current as HTMLElement).getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
@@ -58,6 +58,22 @@ export const Canvas: React.FC = () => {
         setCanvasScale(newScale);
         setCanvasOffset({ x: newOffsetX, y: newOffsetY });
     };
+
+    // Use ref to access latest handleWheel without re-attaching listener
+    const handleWheelRef = useRef(handleWheel);
+    handleWheelRef.current = handleWheel;
+
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        const onWheel = (e: WheelEvent) => {
+            handleWheelRef.current(e);
+        };
+
+        container.addEventListener('wheel', onWheel, { passive: false });
+        return () => container.removeEventListener('wheel', onWheel);
+    }, []);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         // If any widget is maximized, do not allow canvas panning.
@@ -147,6 +163,7 @@ export const Canvas: React.FC = () => {
 
             // Escape: Clear selection
             if (e.key === 'Escape') {
+                e.preventDefault();
                 clearSelection();
             }
 
@@ -191,7 +208,6 @@ export const Canvas: React.FC = () => {
         <div
             ref={containerRef}
             className="w-full h-full overflow-hidden relative cursor-crosshair"
-            onWheel={handleWheel}
             onMouseDown={(e) => {
                 handleMouseDown(e);
                 handleCanvasMouseDown(e);
@@ -227,7 +243,8 @@ export const Canvas: React.FC = () => {
                         {widget.type === 'NOTE' && <NoteWidget id={widget.id} initialContent={widget.data?.content} />}
                         {widget.type === 'CALCULATOR' && <CalculatorWidget />}
                         {widget.type === 'CAD_3D' && <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />}
-                        {widget.type === 'CAD_2D' && <CAD2DWidget id={widget.id} initialShapes={widget.data?.shapes} initialLayers={widget.data?.layers} />}
+                        {widget.type === 'CAD_3D' && <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />}
+                        {widget.type === 'CAD_2D' && <CAD2DWidget id={widget.id} isMaximized={widget.isMaximized} />}
                         {widget.type === 'SPREADSHEET' && <SpreadsheetWidget id={widget.id} initialData={widget.data?.spreadsheet} isMaximized={widget.isMaximized} />}
                         {widget.type === 'TODO' && <TodoWidget id={widget.id} initialTodos={widget.data?.todos} />}
                         {widget.type === 'SETTINGS' && <SettingsWidget />}
@@ -245,7 +262,7 @@ export const Canvas: React.FC = () => {
                     {widget.type === 'NOTE' && <NoteWidget id={widget.id} initialContent={widget.data?.content} />}
                     {widget.type === 'CALCULATOR' && <CalculatorWidget />}
                     {widget.type === 'CAD_3D' && <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />}
-                    {widget.type === 'CAD_2D' && <CAD2DWidget id={widget.id} initialShapes={widget.data?.shapes} initialLayers={widget.data?.layers} isMaximized={widget.isMaximized} />}
+                    {widget.type === 'CAD_2D' && <CAD2DWidget id={widget.id} isMaximized={widget.isMaximized} />}
                     {widget.type === 'SPREADSHEET' && <SpreadsheetWidget id={widget.id} initialData={widget.data?.spreadsheet} isMaximized={widget.isMaximized} />}
                     {widget.type === 'TODO' && <TodoWidget id={widget.id} initialTodos={widget.data?.todos} />}
                     {widget.type === 'SETTINGS' && <SettingsWidget />}

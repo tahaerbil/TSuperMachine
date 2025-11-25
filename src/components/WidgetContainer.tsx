@@ -86,7 +86,9 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                 position: isMaximized ? 'fixed' : 'absolute',
             }}
             className={clsx(
-                "flex flex-col bg-white rounded-lg shadow-xl border overflow-hidden",
+                "flex flex-col rounded-lg shadow-xl border overflow-hidden",
+                // Dynamic background based on widget type
+                (widget.type === 'CAD_2D' || widget.type === 'CAD_3D') ? "bg-[#1e1e1e]" : "bg-white",
                 isSelected
                     ? "border-blue-500 shadow-2xl ring-2 ring-blue-500/50"
                     : isActive
@@ -130,7 +132,10 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-auto">
+            <div
+                className="w-full overflow-hidden relative"
+                style={{ height: 'calc(100% - 32px)' }} // Explicit height: Total - Header(32px)
+            >
                 {children}
             </div>
         </Rnd>

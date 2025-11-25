@@ -67,11 +67,16 @@ export const useStore = create<AppState>((set) => ({
         const id = crypto.randomUUID();
         const maxZ = state.widgets.length > 0 ? Math.max(...state.widgets.map(w => w.zIndex)) : 0;
 
+        let defaultSize = { width: 300, height: 200 };
+        if (type === 'CAD_2D' || type === 'CAD_3D' || type === 'SPREADSHEET') {
+            defaultSize = { width: 800, height: 600 };
+        }
+
         const newWidget: Widget = {
             id,
             type,
             position,
-            size: { width: 300, height: 200 }, // Default size
+            size: defaultSize,
             title: type.charAt(0) + type.slice(1).toLowerCase().replace('_', ' '),
             zIndex: maxZ + 1,
             isMaximized: false,

@@ -4,9 +4,9 @@
         "toolbar": {
             "note": "Not",
             "calculator": "Hesap Makinesi",
-            "cad3d": "3D CAD",
+            "cad3d": "3D Modelleme",
             "cad2d": "2D Çizim",
-            "spreadsheet": "Tablo",
+            "spreadsheet": "Hesap Tablosu",
             "todo": "Yapılacaklar",
             "settings": "Ayarlar",
             "image": "Resim",
