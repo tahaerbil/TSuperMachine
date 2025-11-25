@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Rnd } from 'react-rnd';
-import { X, Maximize2 } from 'lucide-react';
+import { X, Maximize2, Minimize2 } from 'lucide-react';
 import { useStore } from '../store/store';
 import type { Widget } from '../store/store';
 import clsx from 'clsx';
@@ -15,33 +15,51 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
     const isActive = activeWidgetId === widget.id;
     const isSelected = selectedWidgetIds.includes(widget.id);
 
+    const isMaximized = widget.isMaximized || false;
+
+    // Track last position for smooth bulk move
+    const lastPosRef = useRef({ x: widget.position.x, y: widget.position.y });
+
     return (
         <Rnd
-            scale={canvas.scale}
-            size={{ width: widget.size.width, height: widget.size.height }}
-            position={{ x: widget.position.x, y: widget.position.y }}
-            onDragStop={(_e, d) => {
-                // If this widget is selected, move all selected widgets
+            scale={isMaximized ? 1 : canvas.scale}
+            size={isMaximized ? { width: '90%', height: '90%' } : { width: widget.size.width, height: widget.size.height }}
+            position={isMaximized ? { x: window.innerWidth * 0.05, y: window.innerHeight * 0.05 } : { x: widget.position.x, y: widget.position.y }}
+            disableDragging={isMaximized}
+            enableResizing={!isMaximized}
+            onDrag={(_e, d) => {
+                if (isMaximized) return;
+                // Real-time bulk move during drag
                 if (isSelected && selectedWidgetIds.length > 1) {
-                    const deltaX = d.x - widget.position.x;
-                    const deltaY = d.y - widget.position.y;
+                    const deltaX = d.x - lastPosRef.current.x;
+                    const deltaY = d.y - lastPosRef.current.y;
 
-                    selectedWidgetIds.forEach(id => {
-                        const w = widgets.find(w => w.id === id);
-                        if (w) {
-                            updateWidget(id, {
-                                position: {
-                                    x: w.position.x + deltaX,
-                                    y: w.position.y + deltaY
+                    if (deltaX !== 0 || deltaY !== 0) {
+                        selectedWidgetIds.forEach(id => {
+                            if (id !== widget.id) { // Don't update the dragged widget, react-rnd handles it
+                                const w = widgets.find(w => w.id === id);
+                                if (w) {
+                                    updateWidget(id, {
+                                        position: {
+                                            x: w.position.x + deltaX,
+                                            y: w.position.y + deltaY
+                                        }
+                                    });
                                 }
-                            });
-                        }
-                    });
-                } else {
-                    updateWidget(widget.id, { position: { x: d.x, y: d.y } });
+                            }
+                        });
+                        lastPosRef.current = { x: d.x, y: d.y };
+                    }
                 }
             }}
+            onDragStop={(_e, d) => {
+                if (isMaximized) return;
+                // Final position update
+                updateWidget(widget.id, { position: { x: d.x, y: d.y } });
+                lastPosRef.current = { x: d.x, y: d.y };
+            }}
             onResizeStop={(_e, _direction, ref, _delta, position) => {
+                if (isMaximized) return;
                 updateWidget(widget.id, {
                     size: { width: parseInt(ref.style.width), height: parseInt(ref.style.height) },
                     position: position,
@@ -62,11 +80,13 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                 bringToFront(widget.id);
             }}
             style={{
-                zIndex: widget.zIndex,
-                pointerEvents: 'auto' // Re-enable pointer events for widgets
+                zIndex: isMaximized ? 9999 : widget.zIndex,
+                pointerEvents: 'auto', // Re-enable pointer events for widgets
+                transition: 'border-color 0.2s, box-shadow 0.2s', // Only animate border and shadow, not position
+                position: isMaximized ? 'fixed' : 'absolute',
             }}
             className={clsx(
-                "flex flex-col bg-white rounded-lg shadow-xl border overflow-hidden transition-all",
+                "flex flex-col bg-white rounded-lg shadow-xl border overflow-hidden",
                 isSelected
                     ? "border-blue-500 shadow-2xl ring-2 ring-blue-500/50"
                     : isActive
@@ -87,21 +107,22 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                 <span className="text-xs font-medium">{widget.title}</span>
                 <div className="flex items-center gap-1">
                     <button
-                        className="p-1 hover:bg-gray-200 rounded hover:text-gray-700"
-                        style={{ color: 'var(--color-text)' }}
                         onClick={(e) => {
                             e.stopPropagation();
-                            // TODO: Implement maximize
+                            updateWidget(widget.id, { isMaximized: !isMaximized });
                         }}
+                        className="p-1 hover:bg-gray-200 rounded transition-colors"
+                        style={{ color: 'var(--color-text)' }}
                     >
-                        <Maximize2 size={12} />
+                        {isMaximized ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
                     </button>
                     <button
-                        className="p-1 hover:bg-red-100 rounded text-gray-500 hover:text-red-600"
                         onClick={(e) => {
                             e.stopPropagation();
                             removeWidget(widget.id);
                         }}
+                        className="p-1 hover:bg-red-100 hover:text-red-600 rounded transition-colors"
+                        style={{ color: 'var(--color-text)' }}
                     >
                         <X size={12} />
                     </button>
@@ -109,10 +130,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
             </div>
 
             {/* Content */}
-            <div
-                className="flex-1 overflow-auto relative"
-                style={{ backgroundColor: 'var(--color-surface)' }}
-            >
+            <div className="flex-1 overflow-auto">
                 {children}
             </div>
         </Rnd>

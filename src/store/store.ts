@@ -10,6 +10,7 @@ export interface Widget {
     title: string;
     data?: any;
     zIndex: number;
+    isMaximized?: boolean;
 }
 
 interface AppState {
@@ -70,6 +71,7 @@ export const useStore = create<AppState>((set) => ({
             size: { width: 300, height: 200 }, // Default size
             title: type.charAt(0) + type.slice(1).toLowerCase().replace('_', ' '),
             zIndex: maxZ + 1,
+            isMaximized: false,
         };
 
         return {

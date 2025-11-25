@@ -187,6 +187,7 @@ export const Canvas: React.FC = () => {
                 backgroundSize: `${50 * canvas.scale}px ${50 * canvas.scale}px`,
                 backgroundImage: `linear-gradient(to right, var(--color-border) 1px, transparent 1px), linear-gradient(to bottom, var(--color-border) 1px, transparent 1px)`,
                 backgroundPosition: `${canvas.offset.x}px ${canvas.offset.y}px`,
+                userSelect: isLassoing ? 'none' : 'auto', // Prevent text selection only during lasso drag
             }}
         >
             <div
@@ -207,7 +208,7 @@ export const Canvas: React.FC = () => {
                         {widget.type === 'CALCULATOR' && <CalculatorWidget />}
                         {widget.type === 'CAD_3D' && <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />}
                         {widget.type === 'CAD_2D' && <CAD2DWidget id={widget.id} initialShapes={widget.data?.shapes} />}
-                        {widget.type === 'SPREADSHEET' && <SpreadsheetWidget id={widget.id} initialData={widget.data?.spreadsheet} />}
+                        {widget.type === 'SPREADSHEET' && <SpreadsheetWidget id={widget.id} initialData={widget.data?.spreadsheet} isMaximized={widget.isMaximized} />}
                         {widget.type === 'TODO' && <TodoWidget id={widget.id} initialTodos={widget.data?.todos} />}
                         {widget.type === 'SETTINGS' && <SettingsWidget />}
                         {widget.type === 'IMAGE' && <ImageViewerWidget id={widget.id} initialImage={widget.data?.image} />}
