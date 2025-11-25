@@ -21,6 +21,48 @@ void Engine::deleteEntity(unsigned int id) {
     db.deleteEntity(id);
 }
 
+
+
+int Engine::hitTest(double x, double y, double threshold) {
+    const auto& entities = db.getEntities();
+    // Iterate in reverse to select top-most entity first
+    for (auto it = entities.rbegin(); it != entities.rend(); ++it) {
+        const auto& entity = *it;
+        if (entity->visible && entity->hitTest(x, y, threshold)) {
+            return entity->id;
+        }
+    }
+    return -1;
+}
+
+void Engine::selectEntity(unsigned int id) {
+    auto entity = db.getEntity(id);
+    if (entity) {
+        entity->selected = !entity->selected; // Toggle selection
+    }
+}
+
+void Engine::deselectAll() {
+    const auto& entities = db.getEntities();
+    for (const auto& entity : entities) {
+        entity->selected = false;
+    }
+}
+
+void Engine::deleteSelected() {
+    const auto& entities = db.getEntities();
+    std::vector<unsigned int> idsToDelete;
+    for (const auto& entity : entities) {
+        if (entity->selected) {
+            idsToDelete.push_back(entity->id);
+        }
+    }
+    
+    for (unsigned int id : idsToDelete) {
+        db.deleteEntity(id);
+    }
+}
+
 const std::vector<float>& Engine::getRenderBuffer() {
     renderBuffer.clear();
     
@@ -28,11 +70,10 @@ const std::vector<float>& Engine::getRenderBuffer() {
     for (const auto& entity : entities) {
         if (!entity->visible) continue;
 
-        // Format: [Type, Data..., Color]
-        // Stride is currently variable but we'll standardize it or use a header
-        // For now, let's use a fixed stride of 6 floats for simplicity in this PoC
-        // LINE:   [0, x1, y1, x2, y2, color]
-        // CIRCLE: [1, cx, cy, r,  0,  color]
+        // Format: [Type, Data..., Color, Selected]
+        // Stride is now 7 floats
+        // LINE:   [0, x1, y1, x2, y2, color, selected]
+        // CIRCLE: [1, cx, cy, r,  0,  color, selected]
         
         renderBuffer.push_back(static_cast<float>(entity->getType()));
         
@@ -52,7 +93,37 @@ const std::vector<float>& Engine::getRenderBuffer() {
         
         // Color (packed float or just R channel for now - simplistic)
         renderBuffer.push_back(0.0f); 
+        
+        // Selected Flag (1.0 = Selected, 0.0 = Not Selected)
+        renderBuffer.push_back(entity->selected ? 1.0f : 0.0f);
     }
     
     return renderBuffer;
+}
+
+SnapPoint Engine::findClosestSnapPoint(double x, double y, double threshold) {
+    SnapPoint bestSnap;
+    bestSnap.type = SnapType::NONE;
+    bestSnap.p = {x, y}; // Default to cursor pos if no snap
+    
+    double minDistance = threshold;
+
+    const auto& entities = db.getEntities();
+    for (const auto& entity : entities) {
+        if (!entity->visible) continue;
+        
+        std::vector<SnapPoint> snaps = entity->getSnapPoints();
+        for (const auto& snap : snaps) {
+            double dx = snap.p.x - x;
+            double dy = snap.p.y - y;
+            double dist = std::sqrt(dx*dx + dy*dy);
+            
+            if (dist < minDistance) {
+                minDistance = dist;
+                bestSnap = snap;
+            }
+        }
+    }
+    
+    return bestSnap;
 }

@@ -21,4 +21,13 @@ public:
     // Rendering
     // Returns a flat buffer for JS to consume: [Type, Data..., Color...]
     const std::vector<float>& getRenderBuffer();
+
+    // Snapping
+    SnapPoint findClosestSnapPoint(double x, double y, double threshold);
+
+    // Selection
+    int hitTest(double x, double y, double threshold); // Returns Entity ID or -1
+    void selectEntity(unsigned int id);
+    void deselectAll();
+    void deleteSelected();
 };

@@ -10,11 +10,32 @@ val getRenderBufferWrapper(Engine& engine) {
 }
 
 EMSCRIPTEN_BINDINGS(cad_engine) {
+    enum_<SnapType>("SnapType")
+        .value("NONE", SnapType::NONE)
+        .value("ENDPOINT", SnapType::ENDPOINT)
+        .value("MIDPOINT", SnapType::MIDPOINT)
+        .value("CENTER", SnapType::CENTER)
+        .value("QUADRANT", SnapType::QUADRANT)
+        .value("INTERSECTION", SnapType::INTERSECTION);
+
+    value_object<Point>("Point")
+        .field("x", &Point::x)
+        .field("y", &Point::y);
+
+    value_object<SnapPoint>("SnapPoint")
+        .field("p", &SnapPoint::p)
+        .field("type", &SnapPoint::type);
+
     class_<Engine>("Engine")
         .constructor<>()
         .function("addLine", &Engine::addLine)
         .function("addCircle", &Engine::addCircle)
         .function("clear", &Engine::clear)
         .function("deleteEntity", &Engine::deleteEntity)
-        .function("getRenderBuffer", &getRenderBufferWrapper);
+        .function("getRenderBuffer", &getRenderBufferWrapper)
+        .function("findClosestSnapPoint", &Engine::findClosestSnapPoint)
+        .function("hitTest", &Engine::hitTest)
+        .function("selectEntity", &Engine::selectEntity)
+        .function("deselectAll", &Engine::deselectAll)
+        .function("deleteSelected", &Engine::deleteSelected);
 }

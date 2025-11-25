@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { cadEngine } from './CADEngine';
+import { cadEngine, SnapType, type SnapPoint } from './CADEngine';
 import { WasmCanvas } from './WasmCanvas';
 import { CommandLine, type CommandLineRef } from './CommandLine';
 
@@ -27,6 +27,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
     const [commandState, setCommandState] = useState<CommandState>({ type: 'IDLE' });
     const [previewLine, setPreviewLine] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
     const [previewCircle, setPreviewCircle] = useState<{ cx: number, cy: number, r: number } | null>(null);
+    const [activeSnap, setActiveSnap] = useState<SnapPoint | null>(null);
 
     const commandLineRef = useRef<CommandLineRef>(null);
 
@@ -134,13 +135,19 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
             return;
         }
 
-        // Left Click -> Command Logic
+        // Left Click -> Command Logic or Selection
         if (e.button === 0) {
             const rect = containerRef.current.getBoundingClientRect();
             const screenX = e.clientX - rect.left;
             const screenY = e.clientY - rect.top;
-            const worldX = (screenX - offset.x) / scale;
-            const worldY = (screenY - offset.y) / scale;
+            let worldX = (screenX - offset.x) / scale;
+            let worldY = (screenY - offset.y) / scale;
+
+            // Use Snap Point if active
+            if (activeSnap && activeSnap.type !== SnapType.NONE) {
+                worldX = activeSnap.p.x;
+                worldY = activeSnap.p.y;
+            }
 
             if (commandState.type === 'LINE') {
                 if (commandState.step === 'START') {
@@ -180,12 +187,59 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                     setCommandHistory(prev => [...prev, "Circle created."]);
                 }
             } else {
-                // IDLE: Just add a test point for now
-                // cadEngine.addCircle(worldX, worldY, 5 / scale);
-                // setEngineVersion(v => v + 1);
+                // IDLE State - Selection
+                // Use a tolerance of 10 pixels converted to world units
+                const selectionTolerance = 10 / scale;
+                const hitId = cadEngine.hitTest(worldX, worldY, selectionTolerance);
+
+                if (hitId !== -1) {
+                    cadEngine.selectEntity(hitId);
+                    setEngineVersion(v => v + 1); // Trigger re-render
+                }
             }
         }
+
+        // Ensure focus returns to CLI after interaction
+        if (isMaximized) {
+            setTimeout(() => commandLineRef.current?.focus(), 10);
+        }
     };
+
+    // Handle Keyboard Events (Delete & Escape)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                // Only delete if we are not in a text input (except our CLI which we might want to allow)
+                // But for safety, let's check if the active element is not a text input
+                const activeTag = document.activeElement?.tagName.toLowerCase();
+                if (activeTag === 'input' || activeTag === 'textarea') {
+                    return;
+                }
+
+                if (isEngineReady) {
+                    cadEngine.deleteSelected();
+                    setEngineVersion(v => v + 1);
+                }
+            } else if (e.key === 'Escape') {
+                // Cancel current command or Deselect All
+                if (commandState.type !== 'IDLE') {
+                    setCommandState({ type: 'IDLE' });
+                    setCurrentPrompt("Command:");
+                    setPreviewLine(null);
+                    setPreviewCircle(null);
+                } else {
+                    // If no command is active, clear selection
+                    if (isEngineReady) {
+                        cadEngine.deselectAll();
+                        setEngineVersion(v => v + 1);
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isEngineReady, commandState]);
 
     const handleMouseMove = (e: React.MouseEvent) => {
         // Pan Logic
@@ -201,8 +255,29 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
         const rect = containerRef.current.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
         const screenY = e.clientY - rect.top;
-        const worldX = (screenX - offset.x) / scale;
-        const worldY = (screenY - offset.y) / scale;
+        let worldX = (screenX - offset.x) / scale;
+        let worldY = (screenY - offset.y) / scale;
+
+        // Calculate Snapping
+        // Threshold in pixels (e.g., 15px) converted to world units
+        const snapThreshold = 15 / scale;
+        let snap: SnapPoint | null = null;
+
+        if (isEngineReady) {
+            try {
+                snap = cadEngine.findClosestSnapPoint(worldX, worldY, snapThreshold);
+            } catch (e) {
+                // Ignore if engine not ready or error
+            }
+        }
+
+        if (snap && snap.type !== SnapType.NONE) {
+            setActiveSnap(snap);
+            worldX = snap.p.x;
+            worldY = snap.p.y;
+        } else {
+            setActiveSnap(null);
+        }
 
         // Preview Logic
         if (commandState.type === 'LINE' && commandState.step === 'END') {
@@ -238,7 +313,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
 
     const handleCommand = (cmd: string) => {
         const command = cmd.trim().toUpperCase();
-        setCommandHistory(prev => [...prev, `Command: ${cmd}`]);
+        setCommandHistory(prev => [...prev, `Command: ${cmd} `]);
 
         if (command === 'LINE') {
             setCommandState({ type: 'LINE', step: 'START' });

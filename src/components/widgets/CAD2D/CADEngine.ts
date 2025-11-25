@@ -1,4 +1,25 @@
 // Type definitions for the Emscripten module
+export const SnapType = {
+    NONE: 0,
+    ENDPOINT: 1,
+    MIDPOINT: 2,
+    CENTER: 3,
+    QUADRANT: 4,
+    INTERSECTION: 5
+} as const;
+
+export type SnapType = typeof SnapType[keyof typeof SnapType];
+
+export interface Point {
+    x: number;
+    y: number;
+}
+
+export interface SnapPoint {
+    p: Point;
+    type: SnapType;
+}
+
 interface CADModule {
     Engine: {
         new(): CppEngine;
@@ -11,6 +32,11 @@ interface CppEngine {
     clear(): void;
     deleteEntity(id: number): void;
     getRenderBuffer(): Float32Array;
+    findClosestSnapPoint(x: number, y: number, threshold: number): SnapPoint;
+    hitTest(x: number, y: number, threshold: number): number;
+    selectEntity(id: number): void;
+    deselectAll(): void;
+    deleteSelected(): void;
     delete(): void; // C++ destructor
 }
 
@@ -71,6 +97,38 @@ export class CADEngine {
     getRenderBuffer(): Float32Array {
         if (!this.engine) throw new Error('Engine not initialized');
         return this.engine.getRenderBuffer();
+    }
+
+    findClosestSnapPoint(x: number, y: number, threshold: number): SnapPoint {
+        if (!this.engine) throw new Error('Engine not initialized');
+        const rawSnap = this.engine.findClosestSnapPoint(x, y, threshold);
+
+        // Embind returns an enum object (with a .value property) for the type field
+        // We need to convert it to a simple number to match our TS definition
+        return {
+            p: rawSnap.p,
+            type: (rawSnap.type as any).value
+        };
+    }
+
+    hitTest(x: number, y: number, threshold: number): number {
+        if (!this.engine) throw new Error('Engine not initialized');
+        return this.engine.hitTest(x, y, threshold);
+    }
+
+    selectEntity(id: number): void {
+        if (!this.engine) throw new Error('Engine not initialized');
+        this.engine.selectEntity(id);
+    }
+
+    deselectAll(): void {
+        if (!this.engine) throw new Error('Engine not initialized');
+        this.engine.deselectAll();
+    }
+
+    deleteSelected(): void {
+        if (!this.engine) throw new Error('Engine not initialized');
+        this.engine.deleteSelected();
     }
 
     destroy(): void {
