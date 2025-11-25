@@ -10,7 +10,7 @@ import { SpreadsheetWidget } from './widgets/SpreadsheetWidget';
 import { ImageViewerWidget } from './widgets/ImageViewerWidget';
 import { PDFViewerWidget } from './widgets/PDFViewerWidget';
 import { PresentationWidget } from './widgets/PresentationWidget';
-import { CAD2DWidget } from './widgets/CAD2DWidget';
+import { CAD2DWidget } from './widgets/CAD2D';
 import { CAD3DWidget } from './widgets/CAD3DWidget';
 import { ProjectMenuWidget } from './widgets/ProjectMenuWidget';
 import { AlignmentToolbar } from './AlignmentToolbar';
