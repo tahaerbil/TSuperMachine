@@ -207,7 +207,7 @@ export const Canvas: React.FC = () => {
                         {widget.type === 'NOTE' && <NoteWidget id={widget.id} initialContent={widget.data?.content} />}
                         {widget.type === 'CALCULATOR' && <CalculatorWidget />}
                         {widget.type === 'CAD_3D' && <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />}
-                        {widget.type === 'CAD_2D' && <CAD2DWidget id={widget.id} initialShapes={widget.data?.shapes} />}
+                        {widget.type === 'CAD_2D' && <CAD2DWidget id={widget.id} initialShapes={widget.data?.shapes} initialLayers={widget.data?.layers} />}
                         {widget.type === 'SPREADSHEET' && <SpreadsheetWidget id={widget.id} initialData={widget.data?.spreadsheet} isMaximized={widget.isMaximized} />}
                         {widget.type === 'TODO' && <TodoWidget id={widget.id} initialTodos={widget.data?.todos} />}
                         {widget.type === 'SETTINGS' && <SettingsWidget />}
