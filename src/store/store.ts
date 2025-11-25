@@ -19,6 +19,8 @@ interface AppState {
         offset: { x: number; y: number };
     };
     activeWidgetId: string | null;
+    selectedWidgetIds: string[];
+    lastSelectedId: string | null;
     projectName: string;
     projectMetadata: {
         created: string;
@@ -38,6 +40,11 @@ interface AppState {
     loadProjectState: (widgets: Widget[], canvas: { scale: number; offset: { x: number; y: number } }) => void;
     setProjectName: (name: string) => void;
     setProjectMetadata: (metadata: { created: string; modified: string; author: string }) => void;
+    selectWidget: (id: string, mode: 'single' | 'add' | 'range') => void;
+    selectMultiple: (ids: string[]) => void;
+    clearSelection: () => void;
+    toggleWidgetSelection: (id: string) => void;
+    selectAll: () => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -47,6 +54,8 @@ export const useStore = create<AppState>((set) => ({
         offset: { x: 0, y: 0 },
     },
     activeWidgetId: null,
+    selectedWidgetIds: [],
+    lastSelectedId: null,
     projectName: 'Untitled Project',
     projectMetadata: null,
 
@@ -110,5 +119,60 @@ export const useStore = create<AppState>((set) => ({
     setProjectName: (name) => set({ projectName: name }),
 
     setProjectMetadata: (metadata) => set({ projectMetadata: metadata }),
+
+    selectWidget: (id, mode) => set((state) => {
+        if (mode === 'single') {
+            return {
+                selectedWidgetIds: [id],
+                lastSelectedId: id,
+                activeWidgetId: id
+            };
+        } else if (mode === 'add') {
+            const isSelected = state.selectedWidgetIds.includes(id);
+            return {
+                selectedWidgetIds: isSelected
+                    ? state.selectedWidgetIds.filter(wid => wid !== id)
+                    : [...state.selectedWidgetIds, id],
+                lastSelectedId: id
+            };
+        } else if (mode === 'range') {
+            if (!state.lastSelectedId) {
+                return { selectedWidgetIds: [id], lastSelectedId: id };
+            }
+            const lastIndex = state.widgets.findIndex(w => w.id === state.lastSelectedId);
+            const currentIndex = state.widgets.findIndex(w => w.id === id);
+            const start = Math.min(lastIndex, currentIndex);
+            const end = Math.max(lastIndex, currentIndex);
+            const rangeIds = state.widgets.slice(start, end + 1).map(w => w.id);
+            return { selectedWidgetIds: rangeIds };
+        }
+        return state;
+    }),
+
+    selectMultiple: (ids) => set({
+        selectedWidgetIds: ids,
+        lastSelectedId: ids[ids.length - 1] || null
+    }),
+
+    clearSelection: () => set({
+        selectedWidgetIds: [],
+        lastSelectedId: null
+    }),
+
+    toggleWidgetSelection: (id) => set((state) => {
+        const isSelected = state.selectedWidgetIds.includes(id);
+        return {
+            selectedWidgetIds: isSelected
+                ? state.selectedWidgetIds.filter(wid => wid !== id)
+                : [...state.selectedWidgetIds, id],
+            lastSelectedId: id
+        };
+    }),
+
+    selectAll: () => set((state) => ({
+        selectedWidgetIds: state.widgets.map(w => w.id),
+        lastSelectedId: state.widgets[state.widgets.length - 1]?.id || null
+    })),
 }));
+
 

@@ -11,8 +11,9 @@ interface WidgetContainerProps {
 }
 
 export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, children }) => {
-    const { updateWidget, removeWidget, bringToFront, activeWidgetId, canvas } = useStore();
+    const { updateWidget, removeWidget, bringToFront, activeWidgetId, canvas, selectedWidgetIds, selectWidget, widgets } = useStore();
     const isActive = activeWidgetId === widget.id;
+    const isSelected = selectedWidgetIds.includes(widget.id);
 
     return (
         <Rnd
@@ -20,7 +21,25 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
             size={{ width: widget.size.width, height: widget.size.height }}
             position={{ x: widget.position.x, y: widget.position.y }}
             onDragStop={(_e, d) => {
-                updateWidget(widget.id, { position: { x: d.x, y: d.y } });
+                // If this widget is selected, move all selected widgets
+                if (isSelected && selectedWidgetIds.length > 1) {
+                    const deltaX = d.x - widget.position.x;
+                    const deltaY = d.y - widget.position.y;
+
+                    selectedWidgetIds.forEach(id => {
+                        const w = widgets.find(w => w.id === id);
+                        if (w) {
+                            updateWidget(id, {
+                                position: {
+                                    x: w.position.x + deltaX,
+                                    y: w.position.y + deltaY
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    updateWidget(widget.id, { position: { x: d.x, y: d.y } });
+                }
             }}
             onResizeStop={(_e, _direction, ref, _delta, position) => {
                 updateWidget(widget.id, {
@@ -28,11 +47,31 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                     position: position,
                 });
             }}
-            onMouseDown={() => bringToFront(widget.id)}
-            style={{ zIndex: widget.zIndex }}
+            onMouseDown={(e) => {
+                // Handle selection
+                if (e.ctrlKey || e.metaKey) {
+                    // Ctrl/Cmd+Click: Toggle selection
+                    selectWidget(widget.id, 'add');
+                } else if (e.shiftKey) {
+                    // Shift+Click: Range selection
+                    selectWidget(widget.id, 'range');
+                } else {
+                    // Normal click: Single selection
+                    selectWidget(widget.id, 'single');
+                }
+                bringToFront(widget.id);
+            }}
+            style={{
+                zIndex: widget.zIndex,
+                pointerEvents: 'auto' // Re-enable pointer events for widgets
+            }}
             className={clsx(
-                "flex flex-col bg-white rounded-lg shadow-xl border overflow-hidden transition-shadow",
-                isActive ? "border-blue-500 shadow-2xl ring-1 ring-blue-500/20" : "border-gray-200"
+                "flex flex-col bg-white rounded-lg shadow-xl border overflow-hidden transition-all",
+                isSelected
+                    ? "border-blue-500 shadow-2xl ring-2 ring-blue-500/50"
+                    : isActive
+                        ? "border-blue-400 shadow-2xl ring-1 ring-blue-400/20"
+                        : "border-gray-200"
             )}
             dragHandleClassName="widget-header"
         >
