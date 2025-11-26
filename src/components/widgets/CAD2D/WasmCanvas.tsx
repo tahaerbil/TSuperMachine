@@ -53,6 +53,24 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
         ctx.moveTo(0, -10000); ctx.lineTo(0, 10000); // Y Axis
         ctx.stroke();
 
+        // Draw Origin Marker (AutoCAD style crosshair)
+        const originSize = 20 / scale; // Size in world units
+        ctx.strokeStyle = '#FF0000'; // Red for origin
+        ctx.lineWidth = 2 / scale;
+        ctx.beginPath();
+        // Horizontal line
+        ctx.moveTo(-originSize, 0);
+        ctx.lineTo(originSize, 0);
+        // Vertical line
+        ctx.moveTo(0, -originSize);
+        ctx.lineTo(0, originSize);
+        ctx.stroke();
+
+        // Draw small circle at origin
+        ctx.beginPath();
+        ctx.arc(0, 0, 3 / scale, 0, Math.PI * 2);
+        ctx.stroke();
+
         // Draw C++ Buffer
         const buffer = cadEngine.getRenderBuffer();
         if (buffer.length > 0) {

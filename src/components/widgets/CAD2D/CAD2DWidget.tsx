@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { cadEngine, SnapType, type SnapPoint } from './CADEngine';
 import { WasmCanvas } from './WasmCanvas';
 import { CommandLine, type CommandLineRef } from './CommandLine';
+import { CommandParser } from './CommandParser';
 
 interface CAD2DWidgetProps {
     id?: string;
@@ -22,12 +23,19 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
         | { type: 'LINE', step: 'START' }
         | { type: 'LINE', step: 'END', p1: { x: number, y: number } }
         | { type: 'CIRCLE', step: 'CENTER' }
-        | { type: 'CIRCLE', step: 'RADIUS', center: { x: number, y: number } };
+        | { type: 'CIRCLE', step: 'RADIUS', center: { x: number, y: number } }
+        | { type: 'ERASE' }; // Selection mode for erasing entities
 
     const [commandState, setCommandState] = useState<CommandState>({ type: 'IDLE' });
     const [previewLine, setPreviewLine] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
     const [previewCircle, setPreviewCircle] = useState<{ cx: number, cy: number, r: number } | null>(null);
     const [activeSnap, setActiveSnap] = useState<SnapPoint | null>(null);
+    const [commandHistory, setCommandHistory] = useState<string[]>([
+        "Welcome to TSuperMachine CAD",
+        "Type 'LINE' or 'CIRCLE' to start drawing.",
+        "Type 'HELP' for commands."
+    ]);
+    const [currentPrompt, setCurrentPrompt] = useState("Command:");
 
     const commandLineRef = useRef<CommandLineRef>(null);
 
@@ -83,6 +91,15 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
 
     // Pan/Zoom Handlers
     const handleWheel = (e: WheelEvent) => {
+        // Check if the wheel event is happening over the terminal
+        const target = e.target as HTMLElement;
+        const isOverTerminal = target.closest('.command-line-container');
+
+        if (isOverTerminal) {
+            // Let the terminal handle its own scrolling
+            return;
+        }
+
         e.preventDefault();
         e.stopPropagation(); // Prevent parent canvas zoom
 
@@ -186,6 +203,15 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                     setCurrentPrompt("Command");
                     setCommandHistory(prev => [...prev, "Circle created."]);
                 }
+            } else if (commandState.type === 'ERASE') {
+                // ERASE State - Select entities to delete
+                const selectionTolerance = 10 / scale;
+                const hitId = cadEngine.hitTest(worldX, worldY, selectionTolerance);
+
+                if (hitId !== -1) {
+                    cadEngine.selectEntity(hitId);
+                    setEngineVersion(v => v + 1); // Trigger re-render
+                }
             } else {
                 // IDLE State - Selection
                 // Use a tolerance of 10 pixels converted to world units
@@ -208,17 +234,47 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
     // Handle Keyboard Events (Delete & Escape)
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Delete' || e.key === 'Backspace') {
-                // Only delete if we are not in a text input (except our CLI which we might want to allow)
-                // But for safety, let's check if the active element is not a text input
+            if (e.key === 'Delete') {
                 const activeTag = document.activeElement?.tagName.toLowerCase();
+
+                // Allow deletion if:
+                // 1. Not in an input/textarea, OR
+                // 2. In CLI input but it's empty (so Delete key deletes entities instead)
                 if (activeTag === 'input' || activeTag === 'textarea') {
-                    return;
+                    // Check if it's our CLI input and if it's empty
+                    const cliInput = commandLineRef.current?.getInputElement();
+                    const isCliInput = document.activeElement === cliInput;
+                    const inputValue = (document.activeElement as HTMLInputElement)?.value || '';
+
+                    if (!isCliInput || inputValue.length > 0) {
+                        return; // Don't delete entities if typing in input
+                    }
                 }
 
                 if (isEngineReady) {
-                    cadEngine.deleteSelected();
-                    setEngineVersion(v => v + 1);
+                    // Check if any entities are selected
+                    const buffer = cadEngine.getRenderBuffer();
+                    let hasSelection = false;
+                    const STRIDE = 7;
+                    for (let i = 0; i < buffer.length; i += STRIDE) {
+                        if (buffer[i + 6] > 0.5) { // Check selected flag
+                            hasSelection = true;
+                            break;
+                        }
+                    }
+
+                    if (hasSelection) {
+                        // Delete selected entities immediately
+                        cadEngine.deleteSelected();
+                        setEngineVersion(v => v + 1);
+                    } else {
+                        // No selection: Start ERASE command
+                        setCommandState({ type: 'ERASE' });
+                        setCurrentPrompt("Select objects to erase:");
+                        setCommandHistory(prev => [...prev, "ERASE command started. Select objects and press Space to delete."]);
+                        // Update last command so Space key can repeat ERASE
+                        commandLineRef.current?.setLastCommand('ERASE');
+                    }
                 }
             } else if (e.key === 'Escape') {
                 // Cancel current command or Deselect All
@@ -234,12 +290,125 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                         setEngineVersion(v => v + 1);
                     }
                 }
+            } else if (e.key === ' ') {
+                // Space key during ERASE command completes the deletion
+                if (commandState.type === 'ERASE') {
+                    e.preventDefault();
+                    if (isEngineReady) {
+                        cadEngine.deleteSelected();
+                        setEngineVersion(v => v + 1);
+                        setCommandState({ type: 'IDLE' });
+                        setCurrentPrompt("Command:");
+                        setCommandHistory(prev => [...prev, "Selected entities erased."]);
+                    }
+                }
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isEngineReady, commandState]);
+
+    // Handle Command Line Input
+    const handleCommand = (input: string) => {
+        const action = CommandParser.parse(input);
+
+        setCommandHistory(prev => [...prev, `> ${input}`]);
+
+        switch (action.type) {
+            case 'START_COMMAND':
+                if (action.command === 'LINE') {
+                    setCommandState({ type: 'LINE', step: 'START' });
+                    setCurrentPrompt("Specify first point:");
+                    setCommandHistory(prev => [...prev, "LINE command started."]);
+                } else if (action.command === 'CIRCLE') {
+                    setCommandState({ type: 'CIRCLE', step: 'CENTER' });
+                    setCurrentPrompt("Specify center point for circle:");
+                    setCommandHistory(prev => [...prev, "CIRCLE command started."]);
+                } else if (action.command === 'ERASE') {
+                    // Start ERASE command (selection mode)
+                    setCommandState({ type: 'ERASE' });
+                    setCurrentPrompt("Select objects to erase:");
+                    setCommandHistory(prev => [...prev, "ERASE command started. Select objects and press Space to delete."]);
+                }
+                break;
+
+            case 'ENTER_POINT':
+                if (action.point) {
+                    let p = action.point;
+
+                    // Handle Relative Coordinates
+                    if (p.isRelative && lastMousePos.current) {
+                        // Note: Ideally we should track the 'last entered point' for relative coords
+                        // For now, let's use the last known mouse position or 0,0 if not available
+                        // A better approach is to store 'lastPoint' in state
+                    }
+
+                    // Inject point into current command logic
+                    // We can reuse a logic similar to handleMouseDown but with explicit coords
+                    processPointInput(p.x, p.y);
+                }
+                break;
+
+            case 'ENTER_VALUE':
+                if (action.value !== undefined) {
+                    processValueInput(action.value);
+                }
+                break;
+
+            case 'CANCEL':
+                setCommandState({ type: 'IDLE' });
+                setCurrentPrompt("Command:");
+                setPreviewLine(null);
+                setPreviewCircle(null);
+                if (isEngineReady) cadEngine.deselectAll();
+                setCommandHistory(prev => [...prev, "*Cancel*"]);
+                break;
+
+            case 'UNKNOWN':
+                setCommandHistory(prev => [...prev, "Unknown command."]);
+                break;
+        }
+    };
+
+    // Helper to process point input (shared between Mouse and CLI)
+    const processPointInput = (x: number, y: number) => {
+        if (!isEngineReady) return;
+
+        if (commandState.type === 'LINE') {
+            if (commandState.step === 'START') {
+                setCommandState({ type: 'LINE', step: 'END', p1: { x, y } });
+                setCurrentPrompt("Specify next point:");
+                setPreviewLine({ x1: x, y1: y, x2: x, y2: y });
+            } else if (commandState.step === 'END') {
+                cadEngine.addLine(commandState.p1.x, commandState.p1.y, x, y);
+                setEngineVersion(v => v + 1);
+                setCommandState({ type: 'LINE', step: 'END', p1: { x, y } });
+                setPreviewLine({ x1: x, y1: y, x2: x, y2: y });
+                setCurrentPrompt("Specify next point:");
+            }
+        } else if (commandState.type === 'CIRCLE') {
+            if (commandState.step === 'CENTER') {
+                setCommandState({ type: 'CIRCLE', step: 'RADIUS', center: { x, y } });
+                setCurrentPrompt("Specify radius of circle:");
+                setPreviewCircle({ cx: x, cy: y, r: 0 });
+            }
+        }
+    };
+
+    // Helper to process value input (Radius, Length)
+    const processValueInput = (val: number) => {
+        if (!isEngineReady) return;
+
+        if (commandState.type === 'CIRCLE' && commandState.step === 'RADIUS') {
+            cadEngine.addCircle(commandState.center.x, commandState.center.y, val);
+            setEngineVersion(v => v + 1);
+            setCommandState({ type: 'IDLE' });
+            setPreviewCircle(null);
+            setCurrentPrompt("Command:");
+            setCommandHistory(prev => [...prev, `Circle created with radius ${val}`]);
+        }
+    };
 
     const handleMouseMove = (e: React.MouseEvent) => {
         // Pan Logic
@@ -258,12 +427,12 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
         let worldX = (screenX - offset.x) / scale;
         let worldY = (screenY - offset.y) / scale;
 
-        // Calculate Snapping
+        // Calculate Snapping (only when a command is active)
         // Threshold in pixels (e.g., 15px) converted to world units
         const snapThreshold = 15 / scale;
         let snap: SnapPoint | null = null;
 
-        if (isEngineReady) {
+        if (isEngineReady && commandState.type !== 'IDLE') {
             try {
                 snap = cadEngine.findClosestSnapPoint(worldX, worldY, snapThreshold);
             } catch (e) {
@@ -271,7 +440,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
             }
         }
 
-        if (snap && snap.type !== SnapType.NONE) {
+        if (snap && snap.type !== SnapType.NONE && commandState.type !== 'IDLE') {
             setActiveSnap(snap);
             worldX = snap.p.x;
             worldY = snap.p.y;
@@ -303,39 +472,6 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
         isPanning.current = false;
     };
 
-    // Command Line State
-    const [commandHistory, setCommandHistory] = useState<string[]>([
-        "Welcome to TSuperMachine CAD",
-        "Type 'LINE' or 'CIRCLE' to start drawing.",
-        "Type 'HELP' for commands."
-    ]);
-    const [currentPrompt, setCurrentPrompt] = useState("Command");
-
-    const handleCommand = (cmd: string) => {
-        const command = cmd.trim().toUpperCase();
-        setCommandHistory(prev => [...prev, `Command: ${cmd} `]);
-
-        if (command === 'LINE') {
-            setCommandState({ type: 'LINE', step: 'START' });
-            setCurrentPrompt("Specify first point");
-            setCommandHistory(prev => [...prev, "LINE"]);
-            setPreviewCircle(null);
-        } else if (command === 'CIRCLE') {
-            setCommandState({ type: 'CIRCLE', step: 'CENTER' });
-            setCurrentPrompt("Specify center point for circle");
-            setCommandHistory(prev => [...prev, "CIRCLE"]);
-            setPreviewLine(null);
-        } else if (command === 'CANCEL') {
-            setCommandState({ type: 'IDLE' });
-            setPreviewLine(null);
-            setPreviewCircle(null);
-            setCurrentPrompt("Command");
-            setCommandHistory(prev => [...prev, "*Cancel*"]);
-        } else {
-            setCommandHistory(prev => [...prev, "Unknown command."]);
-        }
-    };
-
     return (
         <div
             ref={containerRef}
@@ -365,6 +501,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                         version={engineVersion}
                         previewLine={previewLine}
                         previewCircle={previewCircle}
+                        activeSnap={activeSnap}
                     />
                 )}
             </div>
