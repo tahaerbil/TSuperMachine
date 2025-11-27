@@ -26,7 +26,11 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
         | { type: 'CIRCLE', step: 'RADIUS', center: { x: number, y: number } }
         | { type: 'POLYLINE', points: { x: number, y: number }[] }
         | { type: 'RECTANGLE', step: 'START' }
+        | { type: 'RECTANGLE', step: 'START' }
         | { type: 'RECTANGLE', step: 'END', p1: { x: number, y: number } }
+        | { type: 'ARC', step: 'CENTER' }
+        | { type: 'ARC', step: 'START', center: { x: number, y: number } }
+        | { type: 'ARC', step: 'END', center: { x: number, y: number }, radius: number, startAngle: number }
         | { type: 'ERASE' }; // Selection mode for erasing entities
 
     const [commandState, setCommandState] = useState<CommandState>({ type: 'IDLE' });
@@ -34,6 +38,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
     const [previewCircle, setPreviewCircle] = useState<{ cx: number, cy: number, r: number } | null>(null);
     const [previewPolyline, setPreviewPolyline] = useState<{ x: number, y: number }[] | null>(null);
     const [previewRectangle, setPreviewRectangle] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
+    const [previewArc, setPreviewArc] = useState<{ cx: number, cy: number, r: number, start: number, end: number } | null>(null);
     const [activeSnap, setActiveSnap] = useState<SnapPoint | null>(null);
     const [commandHistory, setCommandHistory] = useState<string[]>([
         "Welcome to TSuperMachine CAD",
@@ -230,6 +235,46 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                     setCurrentPrompt("Command:");
                     setCommandHistory(prev => [...prev, "Rectangle created."]);
                 }
+            } else if (commandState.type === 'ARC') {
+                if (commandState.step === 'CENTER') {
+                    setCommandState({ type: 'ARC', step: 'START', center: { x: worldX, y: worldY } });
+                    setCurrentPrompt("Specify start point of arc:");
+                    // Preview 0-radius circle
+                    setPreviewArc({ cx: worldX, cy: worldY, r: 0, start: 0, end: 2 * Math.PI });
+                } else if (commandState.step === 'START') {
+                    const dx = worldX - commandState.center.x;
+                    const dy = worldY - commandState.center.y;
+                    const radius = Math.sqrt(dx * dx + dy * dy);
+                    const startAngle = Math.atan2(dy, dx);
+
+                    setCommandState({
+                        type: 'ARC',
+                        step: 'END',
+                        center: commandState.center,
+                        radius,
+                        startAngle
+                    });
+                    setCurrentPrompt("Specify end point of arc:");
+                    // Preview arc from start to current mouse (full circle initially)
+                    setPreviewArc({
+                        cx: commandState.center.x,
+                        cy: commandState.center.y,
+                        r: radius,
+                        start: startAngle,
+                        end: startAngle // Will update in move
+                    });
+                } else if (commandState.step === 'END') {
+                    const dx = worldX - commandState.center.x;
+                    const dy = worldY - commandState.center.y;
+                    const endAngle = Math.atan2(dy, dx);
+
+                    cadEngine.addArc(commandState.center.x, commandState.center.y, commandState.radius, commandState.startAngle, endAngle);
+                    setEngineVersion(v => v + 1);
+                    setCommandState({ type: 'IDLE' });
+                    setPreviewArc(null);
+                    setCurrentPrompt("Command:");
+                    setCommandHistory(prev => [...prev, "Arc created."]);
+                }
             } else if (commandState.type === 'ERASE') {
                 // ERASE State - Select entities to delete
                 const selectionTolerance = 10 / scale;
@@ -282,8 +327,22 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                     hasSelection = true;
                     break;
                 }
+            } else if (type === 2) { // ARC
+                // Stride: type(1) + center(2) + radius(1) + start(1) + end(1) + color(1) + selected(1) = 8
+                stride = 8;
+                if (buffer[i + 7] > 0.5) {
+                    hasSelection = true;
+                    break;
+                }
+            } else if (type === 5) { // RECTANGLE
+                // Stride: type(1) + p1(2) + p2(2) + color(1) + selected(1) = 7
+                stride = 7;
+                if (buffer[i + 6] > 0.5) {
+                    hasSelection = true;
+                    break;
+                }
             } else {
-                // LINE, CIRCLE, RECTANGLE
+                // LINE, CIRCLE (Stride 7)
                 if (buffer[i + 6] > 0.5) {
                     hasSelection = true;
                     break;
@@ -424,6 +483,10 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                     setCommandState({ type: 'RECTANGLE', step: 'START' });
                     setCurrentPrompt("Specify first corner point:");
                     setCommandHistory(prev => [...prev, "RECTANGLE command started."]);
+                } else if (action.command === 'ARC') {
+                    setCommandState({ type: 'ARC', step: 'CENTER' });
+                    setCurrentPrompt("Specify center point of arc:");
+                    setCommandHistory(prev => [...prev, "ARC command started."]);
                 } else if (action.command === 'ERASE') {
                     // Start ERASE command (selection mode)
                     setCommandState({ type: 'ERASE' });
@@ -462,6 +525,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                 setPreviewCircle(null);
                 setPreviewRectangle(null);
                 setPreviewPolyline(null);
+                setPreviewArc(null);
                 if (isEngineReady) cadEngine.deselectAll();
                 setCommandHistory(prev => [...prev, "*Cancel*"]);
                 break;
@@ -605,6 +669,25 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                 x2: worldX,
                 y2: worldY
             });
+        } else if (commandState.type === 'ARC') {
+            if (commandState.step === 'START') {
+                const dx = worldX - commandState.center.x;
+                const dy = worldY - commandState.center.y;
+                const radius = Math.sqrt(dx * dx + dy * dy);
+                // Show full circle as preview for radius
+                setPreviewArc({ cx: commandState.center.x, cy: commandState.center.y, r: radius, start: 0, end: 2 * Math.PI });
+            } else if (commandState.step === 'END') {
+                const dx = worldX - commandState.center.x;
+                const dy = worldY - commandState.center.y;
+                const endAngle = Math.atan2(dy, dx);
+                setPreviewArc({
+                    cx: commandState.center.x,
+                    cy: commandState.center.y,
+                    r: commandState.radius,
+                    start: commandState.startAngle,
+                    end: endAngle
+                });
+            }
         }
     };
 
@@ -643,6 +726,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                         previewCircle={previewCircle}
                         previewPolyline={previewPolyline}
                         previewRectangle={previewRectangle}
+                        previewArc={previewArc}
                         activeSnap={activeSnap}
                     />
                 )}

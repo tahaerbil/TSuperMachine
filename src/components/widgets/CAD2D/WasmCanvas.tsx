@@ -11,10 +11,11 @@ interface WasmCanvasProps {
     previewCircle?: { cx: number, cy: number, r: number } | null;
     previewPolyline?: { x: number, y: number }[] | null;
     previewRectangle?: { x1: number, y1: number, x2: number, y2: number } | null;
+    previewArc?: { cx: number, cy: number, r: number, start: number, end: number } | null;
     activeSnap?: SnapPoint | null;
 }
 
-export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, activeSnap }) => {
+export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, previewArc, activeSnap }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -118,8 +119,11 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
                     ctx.moveTo(cx + r, cy);
                     ctx.arc(cx, cy, r, 0, Math.PI * 2);
                     ctx.stroke();
-                } else if (type === 5) { // RECTANGLE
-                    isSelected = buffer[i + 6] > 0.5;
+                } else if (type === 2) { // ARC
+                    // Stride: type(1) + center(2) + radius(1) + start(1) + end(1) + color(1) + selected(1) = 8
+                    stride = 8;
+                    isSelected = buffer[i + 7] > 0.5;
+
                     if (isSelected) {
                         ctx.strokeStyle = '#00FFFF';
                         ctx.lineWidth = 2 / scale;
@@ -130,16 +134,13 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
                         ctx.setLineDash([]);
                     }
 
-                    const x1 = buffer[i + 1];
-                    const y1 = buffer[i + 2];
-                    const x2 = buffer[i + 3];
-                    const y2 = buffer[i + 4];
-
-                    ctx.moveTo(x1, y1);
-                    ctx.lineTo(x2, y1);
-                    ctx.lineTo(x2, y2);
-                    ctx.lineTo(x1, y2);
-                    ctx.closePath();
+                    ctx.beginPath();
+                    // Note: Canvas arc angles are clockwise? No, default is clockwise=false (counter-clockwise)
+                    // But C++ might be using standard math (CCW).
+                    // Let's assume CCW for now.
+                    ctx.beginPath();
+                    // Draw Counter-Clockwise (Standard CAD)
+                    ctx.arc(buffer[i + 1], buffer[i + 2], buffer[i + 3], buffer[i + 4], buffer[i + 5], true);
                     ctx.stroke();
                 } else if (type === 3) { // POLYLINE
                     const numPoints = buffer[i + 1];
@@ -180,6 +181,28 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
 
                     // Calculate stride: type(1) + numPoints(1) + closed(1) + points(numPoints*2) + color(1) + selected(1)
                     stride = 3 + numPoints * 2 + 2;
+                } else if (type === 5) { // RECTANGLE
+                    // Stride: type(1) + p1(2) + p2(2) + color(1) + selected(1) = 7
+                    stride = 7;
+                    isSelected = buffer[i + 6] > 0.5;
+
+                    if (isSelected) {
+                        ctx.strokeStyle = '#00FFFF';
+                        ctx.lineWidth = 2 / scale;
+                        ctx.setLineDash([4 / scale, 4 / scale]);
+                    } else {
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 1 / scale;
+                        ctx.setLineDash([]);
+                    }
+
+                    ctx.beginPath();
+                    const x1 = buffer[i + 1];
+                    const y1 = buffer[i + 2];
+                    const x2 = buffer[i + 3];
+                    const y2 = buffer[i + 4];
+                    ctx.rect(x1, y1, x2 - x1, y2 - y1);
+                    ctx.stroke();
                 }
 
                 i += stride;
@@ -257,6 +280,27 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
             ctx.setLineDash([]); // Reset dash
         }
 
+        // Preview Arc
+        if (previewArc) {
+            ctx.strokeStyle = '#FFFF00'; // Yellow for preview
+            ctx.lineWidth = 1 / scale;
+            ctx.setLineDash([4 / scale, 4 / scale]); // Dashed line
+            ctx.beginPath();
+            // Draw Counter-Clockwise (Standard CAD)
+            ctx.arc(previewArc.cx, previewArc.cy, previewArc.r, previewArc.start, previewArc.end, true);
+            ctx.stroke();
+
+            // Draw line from center to start and end for visual aid
+            ctx.setLineDash([2 / scale, 4 / scale]);
+            ctx.beginPath();
+            ctx.moveTo(previewArc.cx, previewArc.cy);
+            ctx.lineTo(previewArc.cx + previewArc.r * Math.cos(previewArc.start), previewArc.cy + previewArc.r * Math.sin(previewArc.start));
+            ctx.moveTo(previewArc.cx, previewArc.cy);
+            ctx.lineTo(previewArc.cx + previewArc.r * Math.cos(previewArc.end), previewArc.cy + previewArc.r * Math.sin(previewArc.end));
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset dash
+        }
+
         // Draw Snap Marker
         if (activeSnap && activeSnap.type !== SnapType.NONE) {
             const size = 10 / scale; // Constant screen size
@@ -293,7 +337,7 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
 
         ctx.restore();
 
-    }, [width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, activeSnap]);
+    }, [width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, previewArc, activeSnap]);
 
     return (
         <canvas

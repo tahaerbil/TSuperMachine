@@ -20,43 +20,69 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
     // Track last position for smooth bulk move
     const lastPosRef = useRef({ x: widget.position.x, y: widget.position.y });
 
+    // Local state for smooth dragging
+    const [localPos, setLocalPos] = React.useState(widget.position);
+    const isDragging = useRef(false);
+
+    // Sync local state with store when not dragging
+    React.useEffect(() => {
+        if (!isDragging.current) {
+            setLocalPos(widget.position);
+        }
+    }, [widget.position]);
+
     return (
         <Rnd
-            scale={isMaximized ? 1 : canvas.scale}
+            scale={1} // We handle scaling manually in onDrag
             size={isMaximized ? { width: '100%', height: '100%' } : { width: widget.size.width, height: widget.size.height }}
-            position={isMaximized ? { x: 0, y: 0 } : { x: widget.position.x, y: widget.position.y }}
+            position={isMaximized ? { x: 0, y: 0 } : localPos}
             disableDragging={isMaximized}
             enableResizing={!isMaximized}
+            onDragStart={() => {
+                isDragging.current = true;
+            }}
             onDrag={(_e, d) => {
                 if (isMaximized) return;
+
+                const scale = canvas.scale;
+
+                // Manually apply scale to deltas
+                setLocalPos(prev => ({
+                    x: prev.x + d.deltaX / scale,
+                    y: prev.y + d.deltaY / scale
+                }));
+
                 // Real-time bulk move during drag
                 if (isSelected && selectedWidgetIds.length > 1) {
-                    const deltaX = d.x - lastPosRef.current.x;
-                    const deltaY = d.y - lastPosRef.current.y;
+                    // Calculate scaled deltas
+                    const scaledDeltaX = d.deltaX / scale;
+                    const scaledDeltaY = d.deltaY / scale;
 
-                    if (deltaX !== 0 || deltaY !== 0) {
+                    if (scaledDeltaX !== 0 || scaledDeltaY !== 0) {
                         selectedWidgetIds.forEach(id => {
-                            if (id !== widget.id) { // Don't update the dragged widget, react-rnd handles it
+                            if (id !== widget.id) {
                                 const w = widgets.find(w => w.id === id);
                                 if (w) {
                                     updateWidget(id, {
                                         position: {
-                                            x: w.position.x + deltaX,
-                                            y: w.position.y + deltaY
+                                            x: w.position.x + scaledDeltaX,
+                                            y: w.position.y + scaledDeltaY
                                         }
                                     });
                                 }
                             }
                         });
-                        lastPosRef.current = { x: d.x, y: d.y };
                     }
                 }
             }}
             onDragStop={(_e, d) => {
+                isDragging.current = false;
                 if (isMaximized) return;
-                // Final position update
-                updateWidget(widget.id, { position: { x: d.x, y: d.y } });
-                lastPosRef.current = { x: d.x, y: d.y };
+
+                // For onDragStop, d.x and d.y might be unscaled absolute positions from the library's internal state
+                // which might be wrong if we've been feeding it manually scaled positions.
+                // Safer to use our localPos which we know is correct.
+                updateWidget(widget.id, { position: localPos });
             }}
             onResizeStop={(_e, _direction, ref, _delta, position) => {
                 if (isMaximized) return;

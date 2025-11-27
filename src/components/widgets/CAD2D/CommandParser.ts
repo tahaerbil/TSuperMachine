@@ -1,23 +1,23 @@
-export type CommandType = 'LINE' | 'CIRCLE' | 'POLYLINE' | 'RECTANGLE' | 'ERASE' | 'PAN' | 'ZOOM' | 'IDLE';
+export type CommandType = 'LINE' | 'CIRCLE' | 'POLYLINE' | 'RECTANGLE' | 'ARC' | 'ERASE' | 'PAN' | 'ZOOM' | 'IDLE';
 
 export interface CommandAction {
     type: 'START_COMMAND' | 'ENTER_POINT' | 'ENTER_VALUE' | 'CANCEL' | 'UNKNOWN';
     command?: CommandType;
     point?: { x: number, y: number, isRelative: boolean };
     value?: number;
-    raw: string;
+    raw?: string;
 }
 
 export class CommandParser {
     static parse(input: string): CommandAction {
-        const cleanInput = input.trim().toUpperCase();
+        const trimmed = input.trim().toUpperCase();
 
-        if (cleanInput === '') {
+        if (!trimmed) {
             return { type: 'UNKNOWN', raw: input };
         }
 
         // 1. Check for Commands & Aliases
-        switch (cleanInput) {
+        switch (trimmed) {
             case 'L':
             case 'LINE':
                 return { type: 'START_COMMAND', command: 'LINE', raw: input };
@@ -31,6 +31,9 @@ export class CommandParser {
             case 'REC':
             case 'RECTANGLE':
                 return { type: 'START_COMMAND', command: 'RECTANGLE', raw: input };
+            case 'A':
+            case 'ARC':
+                return { type: 'START_COMMAND', command: 'ARC', raw: input };
             case 'E':
             case 'ERASE':
             case 'DELETE':
@@ -41,9 +44,9 @@ export class CommandParser {
         }
 
         // 2. Check for Coordinates (x,y or @dx,dy)
-        if (cleanInput.includes(',')) {
-            const isRelative = cleanInput.startsWith('@');
-            const parts = cleanInput.replace('@', '').split(',');
+        if (trimmed.includes(',')) {
+            const isRelative = trimmed.startsWith('@');
+            const parts = trimmed.replace('@', '').split(',');
 
             if (parts.length === 2) {
                 const x = parseFloat(parts[0]);
@@ -60,7 +63,7 @@ export class CommandParser {
         }
 
         // 3. Check for Single Value (Radius, Length, etc.)
-        const val = parseFloat(cleanInput);
+        const val = parseFloat(trimmed);
         if (!isNaN(val)) {
             return { type: 'ENTER_VALUE', value: val, raw: input };
         }

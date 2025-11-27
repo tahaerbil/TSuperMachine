@@ -31,6 +31,7 @@ interface CppEngine {
     addCircle(cx: number, cy: number, radius: number): number;
     addPolyline(points: any, closed: boolean): number; // points is VectorPoint from Embind
     addRectangle(x1: number, y1: number, x2: number, y2: number): number;
+    addArc(cx: number, cy: number, radius: number, startAngle: number, endAngle: number): number;
     clear(): void;
     deleteEntity(id: number): void;
     getRenderBuffer(): Float32Array;
@@ -109,6 +110,11 @@ export class CADEngine {
     addRectangle(x1: number, y1: number, x2: number, y2: number): number {
         if (!this.engine) throw new Error('Engine not initialized');
         return this.engine.addRectangle(x1, y1, x2, y2);
+    }
+
+    addArc(cx: number, cy: number, radius: number, startAngle: number, endAngle: number): number {
+        if (!this.engine) throw new Error('Engine not initialized');
+        return this.engine.addArc(cx, cy, radius, startAngle, endAngle);
     }
 
     clear(): void {

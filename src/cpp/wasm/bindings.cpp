@@ -35,6 +35,7 @@ EMSCRIPTEN_BINDINGS(cad_engine) {
         .function("addCircle", &Engine::addCircle)
         .function("addPolyline", &Engine::addPolyline)
         .function("addRectangle", &Engine::addRectangle)
+        .function("addArc", &Engine::addArc)
         .function("clear", &Engine::clear)
         .function("deleteEntity", &Engine::deleteEntity)
         .function("getRenderBuffer", &getRenderBufferWrapper)

@@ -22,6 +22,11 @@ unsigned int Engine::addRectangle(double x1, double y1, double x2, double y2) {
     auto rect = std::make_unique<RectangleEntity>(Point{x1, y1}, Point{x2, y2});
     return db.addEntity(std::move(rect));
 }
+
+unsigned int Engine::addArc(double cx, double cy, double radius, double startAngle, double endAngle) {
+    auto arc = std::make_unique<ArcEntity>(Point{cx, cy}, radius, startAngle, endAngle);
+    return db.addEntity(std::move(arc));
+}
 void Engine::clear() {
     db.clear();
 }
@@ -116,6 +121,14 @@ const std::vector<float>& Engine::getRenderBuffer() {
             renderBuffer.push_back(static_cast<float>(rect->p1.y));
             renderBuffer.push_back(static_cast<float>(rect->p2.x));
             renderBuffer.push_back(static_cast<float>(rect->p2.y));
+        }
+        else if (entity->getType() == EntityType::ARC) {
+            auto arc = static_cast<ArcEntity*>(entity.get());
+            renderBuffer.push_back(static_cast<float>(arc->center.x));
+            renderBuffer.push_back(static_cast<float>(arc->center.y));
+            renderBuffer.push_back(static_cast<float>(arc->radius));
+            renderBuffer.push_back(static_cast<float>(arc->startAngle));
+            renderBuffer.push_back(static_cast<float>(arc->endAngle));
         }
         
         // Color (packed float or just R channel for now - simplistic)

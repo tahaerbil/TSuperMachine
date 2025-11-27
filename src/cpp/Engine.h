@@ -15,6 +15,7 @@ public:
     unsigned int addCircle(double cx, double cy, double radius);
     unsigned int addPolyline(const std::vector<Point>& points, bool closed);
     unsigned int addRectangle(double x1, double y1, double x2, double y2);
+    unsigned int addArc(double cx, double cy, double radius, double startAngle, double endAngle);
     
     // Modification
     void clear();
