@@ -23,7 +23,8 @@ enum class EntityType {
     CIRCLE = 1,
     ARC = 2,
     POLYLINE = 3,
-    TEXT = 4
+    TEXT = 4,
+    RECTANGLE = 5
 };
 
 // Snap Types
@@ -135,3 +136,173 @@ public:
         return std::abs(dist - radius) <= tolerance;
     }
 };
+
+// Polyline Entity (multi-segment line)
+class PolylineEntity : public Entity {
+public:
+    std::vector<Point> points;
+    bool closed;
+
+    PolylineEntity(const std::vector<Point>& pts, bool isClosed)
+        : points(pts), closed(isClosed) {}
+
+    EntityType getType() const override { return EntityType::POLYLINE; }
+
+    std::vector<SnapPoint> getSnapPoints() const override {
+        std::vector<SnapPoint> snaps;
+        
+        // Add endpoints
+        if (!points.empty()) {
+            snaps.push_back({points.front(), SnapType::ENDPOINT});
+            if (!closed && points.size() > 1) {
+                snaps.push_back({points.back(), SnapType::ENDPOINT});
+            }
+        }
+        
+        // Add all vertices
+        for (const auto& pt : points) {
+            snaps.push_back({pt, SnapType::ENDPOINT});
+        }
+        
+        // Add midpoints of all segments
+        for (size_t i = 0; i < points.size() - 1; i++) {
+            Point mid = {
+                (points[i].x + points[i + 1].x) / 2.0,
+                (points[i].y + points[i + 1].y) / 2.0
+            };
+            snaps.push_back({mid, SnapType::MIDPOINT});
+        }
+        
+        // If closed, add midpoint of closing segment
+        if (closed && points.size() > 2) {
+            Point mid = {
+                (points.back().x + points.front().x) / 2.0,
+                (points.back().y + points.front().y) / 2.0
+            };
+            snaps.push_back({mid, SnapType::MIDPOINT});
+        }
+        
+        return snaps;
+    }
+
+    bool hitTest(double x, double y, double tolerance) const override {
+        // Test all segments
+        for (size_t i = 0; i < points.size() - 1; i++) {
+            if (pointToSegmentDistance(x, y, points[i], points[i + 1]) <= tolerance) {
+                return true;
+            }
+        }
+        
+        // If closed, test closing segment
+        if (closed && points.size() > 2) {
+            if (pointToSegmentDistance(x, y, points.back(), points.front()) <= tolerance) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+private:
+    double pointToSegmentDistance(double px, double py, const Point& p1, const Point& p2) const {
+        double dx = p2.x - p1.x;
+        double dy = p2.y - p1.y;
+        double len2 = dx * dx + dy * dy;
+        
+        if (len2 == 0.0) {
+            dx = px - p1.x;
+            dy = py - p1.y;
+            return std::sqrt(dx * dx + dy * dy);
+        }
+        
+        double t = ((px - p1.x) * dx + (py - p1.y) * dy) / len2;
+        t = std::max(0.0, std::min(1.0, t));
+        
+        double closestX = p1.x + t * dx;
+        double closestY = p1.y + t * dy;
+        
+        dx = px - closestX;
+        dy = py - closestY;
+        return std::sqrt(dx * dx + dy * dy);
+    }
+};
+
+// Rectangle Entity
+class RectangleEntity : public Entity {
+public:
+    Point p1, p2; // Diagonal corners
+
+    RectangleEntity(const Point& corner1, const Point& corner2)
+        : p1(corner1), p2(corner2) {}
+
+    EntityType getType() const override { return EntityType::RECTANGLE; }
+
+    std::vector<SnapPoint> getSnapPoints() const override {
+        std::vector<SnapPoint> snaps;
+        
+        double minX = std::min(p1.x, p2.x);
+        double maxX = std::max(p1.x, p2.x);
+        double minY = std::min(p1.y, p2.y);
+        double maxY = std::max(p1.y, p2.y);
+        
+        // Corners
+        snaps.push_back({{minX, minY}, SnapType::ENDPOINT});
+        snaps.push_back({{maxX, minY}, SnapType::ENDPOINT});
+        snaps.push_back({{maxX, maxY}, SnapType::ENDPOINT});
+        snaps.push_back({{minX, maxY}, SnapType::ENDPOINT});
+        
+        // Midpoints
+        snaps.push_back({{(minX + maxX) / 2.0, minY}, SnapType::MIDPOINT});
+        snaps.push_back({{maxX, (minY + maxY) / 2.0}, SnapType::MIDPOINT});
+        snaps.push_back({{(minX + maxX) / 2.0, maxY}, SnapType::MIDPOINT});
+        snaps.push_back({{minX, (minY + maxY) / 2.0}, SnapType::MIDPOINT});
+        
+        // Center
+        snaps.push_back({{(minX + maxX) / 2.0, (minY + maxY) / 2.0}, SnapType::CENTER});
+        
+        return snaps;
+    }
+
+    bool hitTest(double x, double y, double tolerance) const override {
+        double minX = std::min(p1.x, p2.x);
+        double maxX = std::max(p1.x, p2.x);
+        double minY = std::min(p1.y, p2.y);
+        double maxY = std::max(p1.y, p2.y);
+        
+        // Check distance to 4 segments
+        // Bottom
+        if (pointToSegmentDistance(x, y, {minX, minY}, {maxX, minY}) <= tolerance) return true;
+        // Right
+        if (pointToSegmentDistance(x, y, {maxX, minY}, {maxX, maxY}) <= tolerance) return true;
+        // Top
+        if (pointToSegmentDistance(x, y, {maxX, maxY}, {minX, maxY}) <= tolerance) return true;
+        // Left
+        if (pointToSegmentDistance(x, y, {minX, maxY}, {minX, minY}) <= tolerance) return true;
+        
+        return false;
+    }
+
+private:
+    double pointToSegmentDistance(double px, double py, const Point& p1, const Point& p2) const {
+        double dx = p2.x - p1.x;
+        double dy = p2.y - p1.y;
+        double len2 = dx * dx + dy * dy;
+        
+        if (len2 == 0.0) {
+            dx = px - p1.x;
+            dy = py - p1.y;
+            return std::sqrt(dx * dx + dy * dy);
+        }
+        
+        double t = ((px - p1.x) * dx + (py - p1.y) * dy) / len2;
+        t = std::max(0.0, std::min(1.0, t));
+        
+        double closestX = p1.x + t * dx;
+        double closestY = p1.y + t * dy;
+        
+        dx = px - closestX;
+        dy = py - closestY;
+        return std::sqrt(dx * dx + dy * dy);
+    }
+};
+

@@ -13,6 +13,15 @@ unsigned int Engine::addCircle(double cx, double cy, double radius) {
     return db.addEntity(std::make_unique<CircleEntity>(Point{cx, cy}, radius));
 }
 
+unsigned int Engine::addPolyline(const std::vector<Point>& points, bool closed) {
+    auto polyline = std::make_unique<PolylineEntity>(points, closed);
+    return db.addEntity(std::move(polyline));
+}
+
+unsigned int Engine::addRectangle(double x1, double y1, double x2, double y2) {
+    auto rect = std::make_unique<RectangleEntity>(Point{x1, y1}, Point{x2, y2});
+    return db.addEntity(std::move(rect));
+}
 void Engine::clear() {
     db.clear();
 }
@@ -71,9 +80,10 @@ const std::vector<float>& Engine::getRenderBuffer() {
         if (!entity->visible) continue;
 
         // Format: [Type, Data..., Color, Selected]
-        // Stride is now 7 floats
-        // LINE:   [0, x1, y1, x2, y2, color, selected]
-        // CIRCLE: [1, cx, cy, r,  0,  color, selected]
+        // LINE:     [0, x1, y1, x2, y2, color, selected] - Stride 7
+        // CIRCLE:   [1, cx, cy, r,  0,  color, selected] - Stride 7
+        // POLYLINE: [3, numPoints, closed, x1, y1, x2, y2, ..., color, selected] - Variable stride
+        // RECTANGLE: [4, x1, y1, x2, y2, color, selected] - Stride 7
         
         renderBuffer.push_back(static_cast<float>(entity->getType()));
         
@@ -89,6 +99,23 @@ const std::vector<float>& Engine::getRenderBuffer() {
             renderBuffer.push_back(static_cast<float>(circle->center.y));
             renderBuffer.push_back(static_cast<float>(circle->radius));
             renderBuffer.push_back(0.0f); // Padding
+        } else if (entity->getType() == EntityType::POLYLINE) {
+            auto polyline = static_cast<PolylineEntity*>(entity.get());
+            renderBuffer.push_back(static_cast<float>(polyline->points.size()));
+            renderBuffer.push_back(polyline->closed ? 1.0f : 0.0f);
+            for (const auto& pt : polyline->points) {
+                renderBuffer.push_back(static_cast<float>(pt.x));
+                renderBuffer.push_back(static_cast<float>(pt.y));
+            }
+            // Padding to maintain consistent color/selected position
+            // We'll add color and selected after the loop
+        }
+        else if (entity->getType() == EntityType::RECTANGLE) {
+            auto rect = static_cast<RectangleEntity*>(entity.get());
+            renderBuffer.push_back(static_cast<float>(rect->p1.x));
+            renderBuffer.push_back(static_cast<float>(rect->p1.y));
+            renderBuffer.push_back(static_cast<float>(rect->p2.x));
+            renderBuffer.push_back(static_cast<float>(rect->p2.y));
         }
         
         // Color (packed float or just R channel for now - simplistic)

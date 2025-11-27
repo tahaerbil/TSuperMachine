@@ -26,10 +26,15 @@ EMSCRIPTEN_BINDINGS(cad_engine) {
         .field("p", &SnapPoint::p)
         .field("type", &SnapPoint::type);
 
+    // Register std::vector<Point> for polyline support
+    register_vector<Point>("VectorPoint");
+
     class_<Engine>("Engine")
         .constructor<>()
         .function("addLine", &Engine::addLine)
         .function("addCircle", &Engine::addCircle)
+        .function("addPolyline", &Engine::addPolyline)
+        .function("addRectangle", &Engine::addRectangle)
         .function("clear", &Engine::clear)
         .function("deleteEntity", &Engine::deleteEntity)
         .function("getRenderBuffer", &getRenderBufferWrapper)

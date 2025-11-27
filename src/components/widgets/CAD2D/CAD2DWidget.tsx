@@ -24,11 +24,16 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
         | { type: 'LINE', step: 'END', p1: { x: number, y: number } }
         | { type: 'CIRCLE', step: 'CENTER' }
         | { type: 'CIRCLE', step: 'RADIUS', center: { x: number, y: number } }
+        | { type: 'POLYLINE', points: { x: number, y: number }[] }
+        | { type: 'RECTANGLE', step: 'START' }
+        | { type: 'RECTANGLE', step: 'END', p1: { x: number, y: number } }
         | { type: 'ERASE' }; // Selection mode for erasing entities
 
     const [commandState, setCommandState] = useState<CommandState>({ type: 'IDLE' });
     const [previewLine, setPreviewLine] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
     const [previewCircle, setPreviewCircle] = useState<{ cx: number, cy: number, r: number } | null>(null);
+    const [previewPolyline, setPreviewPolyline] = useState<{ x: number, y: number }[] | null>(null);
+    const [previewRectangle, setPreviewRectangle] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
     const [activeSnap, setActiveSnap] = useState<SnapPoint | null>(null);
     const [commandHistory, setCommandHistory] = useState<string[]>([
         "Welcome to TSuperMachine CAD",
@@ -203,6 +208,28 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                     setCurrentPrompt("Command");
                     setCommandHistory(prev => [...prev, "Circle created."]);
                 }
+            } else if (commandState.type === 'POLYLINE') {
+                // Add point to polyline
+                const newPoints = [...commandState.points, { x: worldX, y: worldY }];
+                setCommandState({ type: 'POLYLINE', points: newPoints });
+                setCurrentPrompt(`Specify next point (${newPoints.length} points, press Enter to finish):`);
+                setPreviewPolyline(newPoints);
+            } else if (commandState.type === 'RECTANGLE') {
+                console.log('RECTANGLE Click Debug:', commandState);
+                if (commandState.step === 'START') {
+                    console.log('Setting step to END');
+                    setCommandState({ type: 'RECTANGLE', step: 'END', p1: { x: worldX, y: worldY } });
+                    setCurrentPrompt("Specify opposite corner:");
+                    setPreviewRectangle({ x1: worldX, y1: worldY, x2: worldX, y2: worldY });
+                } else if (commandState.step === 'END') {
+                    console.log('Finishing RECTANGLE');
+                    cadEngine.addRectangle(commandState.p1.x, commandState.p1.y, worldX, worldY);
+                    setEngineVersion(v => v + 1);
+                    setCommandState({ type: 'IDLE' });
+                    setPreviewRectangle(null);
+                    setCurrentPrompt("Command:");
+                    setCommandHistory(prev => [...prev, "Rectangle created."]);
+                }
             } else if (commandState.type === 'ERASE') {
                 // ERASE State - Select entities to delete
                 const selectionTolerance = 10 / scale;
@@ -231,52 +258,83 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
         }
     };
 
+    // Centralized Delete Logic
+    const handleDeleteCommand = () => {
+        if (!isEngineReady) return;
+
+        // Check if any entities are selected
+        // Check if any entities are selected
+        const buffer = cadEngine.getRenderBuffer();
+        let hasSelection = false;
+
+        let i = 0;
+        while (i < buffer.length) {
+            const type = buffer[i];
+            let stride = 7; // Default for LINE, CIRCLE, RECTANGLE
+
+            if (type === 3) { // POLYLINE
+                const numPoints = buffer[i + 1];
+                // Stride: type(1) + numPoints(1) + closed(1) + points(numPoints*2) + color(1) + selected(1)
+                stride = 3 + numPoints * 2 + 2;
+
+                // Check selected flag (last element)
+                if (buffer[i + stride - 1] > 0.5) {
+                    hasSelection = true;
+                    break;
+                }
+            } else {
+                // LINE, CIRCLE, RECTANGLE
+                if (buffer[i + 6] > 0.5) {
+                    hasSelection = true;
+                    break;
+                }
+            }
+
+            i += stride;
+        }
+
+        if (hasSelection) {
+            // Delete selected entities immediately
+            cadEngine.deleteSelected();
+            setEngineVersion(v => v + 1);
+            setCommandState({ type: 'IDLE' }); // Ensure we return to IDLE
+            setCommandHistory(prev => [...prev, "Selected entities deleted."]);
+        } else {
+            // No selection: Start ERASE command
+            setCommandState({ type: 'ERASE' });
+            setCurrentPrompt("Select objects to erase:");
+            setCommandHistory(prev => [...prev, "ERASE command started. Select objects and press Space to delete."]);
+            // Update last command so Space key can repeat ERASE
+            commandLineRef.current?.setLastCommand('ERASE');
+        }
+    };
+
     // Handle Keyboard Events (Delete & Escape)
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Delete') {
-                const activeTag = document.activeElement?.tagName.toLowerCase();
+                // Check if we are typing in the CLI
+                const activeElement = document.activeElement;
+                const isTyping = activeElement === commandLineRef.current?.getInputElement();
+                const inputElement = commandLineRef.current?.getInputElement();
+                const hasInput = inputElement && inputElement.value.length > 0;
+
+                // If typing in CLI with content, let default behavior happen
+                if (isTyping && hasInput) {
+                    return;
+                }
+
+                // Otherwise, trigger delete command
+                handleDeleteCommand();
+            } else if (e.key === 'Escape') {
 
                 // Allow deletion if:
                 // 1. Not in an input/textarea, OR
-                // 2. In CLI input but it's empty (so Delete key deletes entities instead)
-                if (activeTag === 'input' || activeTag === 'textarea') {
-                    // Check if it's our CLI input and if it's empty
-                    const cliInput = commandLineRef.current?.getInputElement();
-                    const isCliInput = document.activeElement === cliInput;
-                    const inputValue = (document.activeElement as HTMLInputElement)?.value || '';
+                // 2. In CLI input but it's empty
 
-                    if (!isCliInput || inputValue.length > 0) {
-                        return; // Don't delete entities if typing in input
-                    }
-                }
+                // Note: The logic above handles the CLI case. 
+                // The window listener is a fallback for when focus is NOT in the CLI.
 
-                if (isEngineReady) {
-                    // Check if any entities are selected
-                    const buffer = cadEngine.getRenderBuffer();
-                    let hasSelection = false;
-                    const STRIDE = 7;
-                    for (let i = 0; i < buffer.length; i += STRIDE) {
-                        if (buffer[i + 6] > 0.5) { // Check selected flag
-                            hasSelection = true;
-                            break;
-                        }
-                    }
-
-                    if (hasSelection) {
-                        // Delete selected entities immediately
-                        cadEngine.deleteSelected();
-                        setEngineVersion(v => v + 1);
-                    } else {
-                        // No selection: Start ERASE command
-                        setCommandState({ type: 'ERASE' });
-                        setCurrentPrompt("Select objects to erase:");
-                        setCommandHistory(prev => [...prev, "ERASE command started. Select objects and press Space to delete."]);
-                        // Update last command so Space key can repeat ERASE
-                        commandLineRef.current?.setLastCommand('ERASE');
-                    }
-                }
-            } else if (e.key === 'Escape') {
                 // Cancel current command or Deselect All
                 if (commandState.type !== 'IDLE') {
                     setCommandState({ type: 'IDLE' });
@@ -293,13 +351,46 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
             } else if (e.key === ' ') {
                 // Space key during ERASE command completes the deletion
                 if (commandState.type === 'ERASE') {
+                    console.log('Space key in ERASE mode - deleting selected entities');
                     e.preventDefault();
+                    e.stopPropagation(); // Prevent CommandLine from repeating command
                     if (isEngineReady) {
                         cadEngine.deleteSelected();
                         setEngineVersion(v => v + 1);
                         setCommandState({ type: 'IDLE' });
                         setCurrentPrompt("Command:");
                         setCommandHistory(prev => [...prev, "Selected entities erased."]);
+                        // Update last command for Space key repeat
+                        commandLineRef.current?.setLastCommand('ERASE');
+                    }
+                } else if (commandState.type === 'POLYLINE' && commandState.points.length >= 2) {
+                    // Space key also finishes POLYLINE command (AutoCAD style)
+                    e.preventDefault();
+                    e.stopPropagation(); // Prevent CommandLine from repeating command
+                    if (isEngineReady) {
+                        cadEngine.addPolyline(commandState.points, false); // false = open polyline
+                        setEngineVersion(v => v + 1);
+                        setCommandState({ type: 'IDLE' });
+                        setPreviewPolyline(null);
+                        setCurrentPrompt("Command:");
+                        setCommandHistory(prev => [...prev, `Polyline created with ${commandState.points.length} points.`]);
+                        // Update last command for Space key repeat
+                        commandLineRef.current?.setLastCommand('POLYLINE');
+                    }
+                }
+            } else if (e.key === 'Enter') {
+                // Enter key finishes POLYLINE command
+                if (commandState.type === 'POLYLINE' && commandState.points.length >= 2) {
+                    e.preventDefault();
+                    if (isEngineReady) {
+                        cadEngine.addPolyline(commandState.points, false); // false = open polyline
+                        setEngineVersion(v => v + 1);
+                        setCommandState({ type: 'IDLE' });
+                        setPreviewPolyline(null);
+                        setCurrentPrompt("Command:");
+                        setCommandHistory(prev => [...prev, `Polyline created with ${commandState.points.length} points.`]);
+                        // Update last command for Space key repeat
+                        commandLineRef.current?.setLastCommand('POLYLINE');
                     }
                 }
             }
@@ -325,6 +416,14 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                     setCommandState({ type: 'CIRCLE', step: 'CENTER' });
                     setCurrentPrompt("Specify center point for circle:");
                     setCommandHistory(prev => [...prev, "CIRCLE command started."]);
+                } else if (action.command === 'POLYLINE') {
+                    setCommandState({ type: 'POLYLINE', points: [] });
+                    setCurrentPrompt("Specify first point (or press Enter to finish):");
+                    setCommandHistory(prev => [...prev, "POLYLINE command started."]);
+                } else if (action.command === 'RECTANGLE') {
+                    setCommandState({ type: 'RECTANGLE', step: 'START' });
+                    setCurrentPrompt("Specify first corner point:");
+                    setCommandHistory(prev => [...prev, "RECTANGLE command started."]);
                 } else if (action.command === 'ERASE') {
                     // Start ERASE command (selection mode)
                     setCommandState({ type: 'ERASE' });
@@ -361,6 +460,8 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                 setCurrentPrompt("Command:");
                 setPreviewLine(null);
                 setPreviewCircle(null);
+                setPreviewRectangle(null);
+                setPreviewPolyline(null);
                 if (isEngineReady) cadEngine.deselectAll();
                 setCommandHistory(prev => [...prev, "*Cancel*"]);
                 break;
@@ -392,6 +493,24 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                 setCommandState({ type: 'CIRCLE', step: 'RADIUS', center: { x, y } });
                 setCurrentPrompt("Specify radius of circle:");
                 setPreviewCircle({ cx: x, cy: y, r: 0 });
+            }
+        } else if (commandState.type === 'POLYLINE') {
+            const newPoints = [...commandState.points, { x, y }];
+            setCommandState({ type: 'POLYLINE', points: newPoints });
+            setCurrentPrompt(`Specify next point (${newPoints.length} points, press Enter to finish):`);
+            setPreviewPolyline(newPoints);
+        } else if (commandState.type === 'RECTANGLE') {
+            if (commandState.step === 'START') {
+                setCommandState({ type: 'RECTANGLE', step: 'END', p1: { x, y } });
+                setCurrentPrompt("Specify opposite corner:");
+                setPreviewRectangle({ x1: x, y1: y, x2: x, y2: y });
+            } else if (commandState.step === 'END') {
+                cadEngine.addRectangle(commandState.p1.x, commandState.p1.y, x, y);
+                setEngineVersion(v => v + 1);
+                setCommandState({ type: 'IDLE' });
+                setPreviewRectangle(null);
+                setCurrentPrompt("Command:");
+                setCommandHistory(prev => [...prev, "Rectangle created."]);
             }
         }
     };
@@ -465,6 +584,27 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                 cy: commandState.center.y,
                 r: radius
             });
+        } else if (commandState.type === 'POLYLINE' && commandState.points.length > 0) {
+            // Show preview from last point to cursor
+            // Only update if the cursor moved significantly (optimization)
+            const newPreview = [...commandState.points, { x: worldX, y: worldY }];
+
+            // Check if preview needs update (avoid unnecessary re-renders)
+            const shouldUpdate = !previewPolyline ||
+                previewPolyline.length !== newPreview.length ||
+                Math.abs(previewPolyline[previewPolyline.length - 1].x - worldX) > 0.1 ||
+                Math.abs(previewPolyline[previewPolyline.length - 1].y - worldY) > 0.1;
+
+            if (shouldUpdate) {
+                setPreviewPolyline(newPreview);
+            }
+        } else if (commandState.type === 'RECTANGLE' && commandState.step === 'END') {
+            setPreviewRectangle({
+                x1: commandState.p1.x,
+                y1: commandState.p1.y,
+                x2: worldX,
+                y2: worldY
+            });
         }
     };
 
@@ -501,6 +641,8 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                         version={engineVersion}
                         previewLine={previewLine}
                         previewCircle={previewCircle}
+                        previewPolyline={previewPolyline}
+                        previewRectangle={previewRectangle}
                         activeSnap={activeSnap}
                     />
                 )}
@@ -513,6 +655,8 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                     onCommand={handleCommand}
                     history={commandHistory}
                     prompt={currentPrompt}
+                    activeCommand={commandState.type !== 'IDLE'}
+                    onDelete={handleDeleteCommand}
                 />
             )}
         </div>

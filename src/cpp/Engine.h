@@ -13,6 +13,8 @@ public:
     // Drawing Commands
     unsigned int addLine(double x1, double y1, double x2, double y2);
     unsigned int addCircle(double cx, double cy, double radius);
+    unsigned int addPolyline(const std::vector<Point>& points, bool closed);
+    unsigned int addRectangle(double x1, double y1, double x2, double y2);
     
     // Modification
     void clear();

@@ -29,6 +29,8 @@ interface CADModule {
 interface CppEngine {
     addLine(x1: number, y1: number, x2: number, y2: number): number;
     addCircle(cx: number, cy: number, radius: number): number;
+    addPolyline(points: any, closed: boolean): number; // points is VectorPoint from Embind
+    addRectangle(x1: number, y1: number, x2: number, y2: number): number;
     clear(): void;
     deleteEntity(id: number): void;
     getRenderBuffer(): Float32Array;
@@ -82,6 +84,31 @@ export class CADEngine {
     addCircle(cx: number, cy: number, radius: number): number {
         if (!this.engine) throw new Error('Engine not initialized');
         return this.engine.addCircle(cx, cy, radius);
+    }
+
+    addPolyline(points: Point[], closed: boolean): number {
+        if (!this.engine) throw new Error('Engine not initialized');
+
+        // Create a VectorPoint from the module
+        const VectorPoint = (this.module as any).VectorPoint;
+        const vec = new VectorPoint();
+
+        // Add all points to the vector
+        for (const pt of points) {
+            vec.push_back({ x: pt.x, y: pt.y });
+        }
+
+        const id = this.engine.addPolyline(vec, closed);
+
+        // Clean up the vector
+        vec.delete();
+
+        return id;
+    }
+
+    addRectangle(x1: number, y1: number, x2: number, y2: number): number {
+        if (!this.engine) throw new Error('Engine not initialized');
+        return this.engine.addRectangle(x1, y1, x2, y2);
     }
 
     clear(): void {

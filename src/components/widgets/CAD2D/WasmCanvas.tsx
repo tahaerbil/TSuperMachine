@@ -9,10 +9,12 @@ interface WasmCanvasProps {
     version: number; // Increment to force re-render
     previewLine?: { x1: number, y1: number, x2: number, y2: number } | null;
     previewCircle?: { cx: number, cy: number, r: number } | null;
+    previewPolyline?: { x: number, y: number }[] | null;
+    previewRectangle?: { x1: number, y1: number, x2: number, y2: number } | null;
     activeSnap?: SnapPoint | null;
 }
 
-export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, offset, version, previewLine, previewCircle, activeSnap }) => {
+export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, activeSnap }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -74,36 +76,113 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
         // Draw C++ Buffer
         const buffer = cadEngine.getRenderBuffer();
         if (buffer.length > 0) {
-            // Render loop
-            const STRIDE = 7; // [Type, Data..., Color, Selected]
-
-            for (let i = 0; i < buffer.length; i += STRIDE) {
+            // Render loop with variable stride
+            let i = 0;
+            while (i < buffer.length) {
                 const type = buffer[i];
-                const isSelected = buffer[i + 6] > 0.5;
+                let stride = 7; // Default for LINE and CIRCLE
 
                 ctx.beginPath();
 
-                if (isSelected) {
-                    ctx.strokeStyle = '#00FFFF'; // Cyan for selection
-                    ctx.lineWidth = 2 / scale;
-                    ctx.setLineDash([4 / scale, 4 / scale]);
-                } else {
-                    ctx.strokeStyle = '#FFFFFF';
-                    ctx.lineWidth = 1 / scale;
-                    ctx.setLineDash([]);
-                }
+                // Determine if selected (position depends on entity type)
+                let isSelected = false;
 
                 if (type === 0) { // LINE
+                    isSelected = buffer[i + 6] > 0.5;
+                    if (isSelected) {
+                        ctx.strokeStyle = '#00FFFF';
+                        ctx.lineWidth = 2 / scale;
+                        ctx.setLineDash([4 / scale, 4 / scale]);
+                    } else {
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 1 / scale;
+                        ctx.setLineDash([]);
+                    }
                     ctx.moveTo(buffer[i + 1], buffer[i + 2]);
                     ctx.lineTo(buffer[i + 3], buffer[i + 4]);
+                    ctx.stroke();
                 } else if (type === 1) { // CIRCLE
+                    isSelected = buffer[i + 6] > 0.5;
+                    if (isSelected) {
+                        ctx.strokeStyle = '#00FFFF';
+                        ctx.lineWidth = 2 / scale;
+                        ctx.setLineDash([4 / scale, 4 / scale]);
+                    } else {
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 1 / scale;
+                        ctx.setLineDash([]);
+                    }
                     const cx = buffer[i + 1];
                     const cy = buffer[i + 2];
                     const r = buffer[i + 3];
                     ctx.moveTo(cx + r, cy);
                     ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else if (type === 5) { // RECTANGLE
+                    isSelected = buffer[i + 6] > 0.5;
+                    if (isSelected) {
+                        ctx.strokeStyle = '#00FFFF';
+                        ctx.lineWidth = 2 / scale;
+                        ctx.setLineDash([4 / scale, 4 / scale]);
+                    } else {
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 1 / scale;
+                        ctx.setLineDash([]);
+                    }
+
+                    const x1 = buffer[i + 1];
+                    const y1 = buffer[i + 2];
+                    const x2 = buffer[i + 3];
+                    const y2 = buffer[i + 4];
+
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.lineTo(x1, y2);
+                    ctx.closePath();
+                    ctx.stroke();
+                } else if (type === 3) { // POLYLINE
+                    const numPoints = buffer[i + 1];
+                    const closed = buffer[i + 2] > 0.5;
+                    const pointsStart = i + 3;
+                    const pointsEnd = pointsStart + numPoints * 2;
+
+                    // Selected flag is after all points
+                    isSelected = buffer[pointsEnd + 1] > 0.5;
+
+                    if (isSelected) {
+                        ctx.strokeStyle = '#00FFFF';
+                        ctx.lineWidth = 2 / scale;
+                        ctx.setLineDash([4 / scale, 4 / scale]);
+                    } else {
+                        ctx.strokeStyle = '#FFFFFF';
+                        ctx.lineWidth = 1 / scale;
+                        ctx.setLineDash([]);
+                    }
+
+                    // Draw polyline segments
+                    for (let j = 0; j < numPoints; j++) {
+                        const px = buffer[pointsStart + j * 2];
+                        const py = buffer[pointsStart + j * 2 + 1];
+                        if (j === 0) {
+                            ctx.moveTo(px, py);
+                        } else {
+                            ctx.lineTo(px, py);
+                        }
+                    }
+
+                    // Close if needed
+                    if (closed && numPoints > 0) {
+                        ctx.closePath();
+                    }
+
+                    ctx.stroke();
+
+                    // Calculate stride: type(1) + numPoints(1) + closed(1) + points(numPoints*2) + color(1) + selected(1)
+                    stride = 3 + numPoints * 2 + 2;
                 }
-                ctx.stroke();
+
+                i += stride;
             }
             ctx.setLineDash([]); // Reset
         }
@@ -138,6 +217,44 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
             ctx.globalAlpha = 0.3;
             ctx.stroke();
             ctx.globalAlpha = 1.0;
+        }
+
+        // Draw Preview Polyline
+        if (previewPolyline && previewPolyline.length > 0) {
+            ctx.beginPath();
+            ctx.strokeStyle = '#FFFF00'; // Yellow
+            ctx.lineWidth = 1 / scale;
+            ctx.setLineDash([5 / scale, 5 / scale]); // Dashed line
+
+            for (let i = 0; i < previewPolyline.length; i++) {
+                const pt = previewPolyline[i];
+                if (i === 0) {
+                    ctx.moveTo(pt.x, pt.y);
+                } else {
+                    ctx.lineTo(pt.x, pt.y);
+                }
+            }
+
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset dash
+        }
+
+        // Draw Preview Rectangle
+        if (previewRectangle) {
+            ctx.beginPath();
+            ctx.strokeStyle = '#FFFF00'; // Yellow
+            ctx.lineWidth = 1 / scale;
+            ctx.setLineDash([5 / scale, 5 / scale]); // Dashed line
+
+            const { x1, y1, x2, y2 } = previewRectangle;
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y1);
+            ctx.lineTo(x2, y2);
+            ctx.lineTo(x1, y2);
+            ctx.closePath();
+
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset dash
         }
 
         // Draw Snap Marker
@@ -176,7 +293,7 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
 
         ctx.restore();
 
-    }, [width, height, scale, offset, version, previewLine, previewCircle, activeSnap]);
+    }, [width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, activeSnap]);
 
     return (
         <canvas

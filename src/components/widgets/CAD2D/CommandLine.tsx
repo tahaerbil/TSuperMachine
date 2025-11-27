@@ -4,6 +4,8 @@ interface CommandLineProps {
     onCommand: (command: string) => void;
     history: string[];
     prompt?: string;
+    activeCommand?: boolean; // True if a drawing command is active (LINE, CIRCLE, POLYLINE, etc.)
+    onDelete?: () => void; // Callback for Delete key when input is empty
 }
 
 export interface CommandLineRef {
@@ -12,7 +14,7 @@ export interface CommandLineRef {
     setLastCommand: (command: string) => void;
 }
 
-export const CommandLine = forwardRef<CommandLineRef, CommandLineProps>(({ onCommand, history, prompt = "Command" }, ref) => {
+export const CommandLine = forwardRef<CommandLineRef, CommandLineProps>(({ onCommand, history, prompt = "Command", activeCommand = false, onDelete }, ref) => {
     const [input, setInput] = useState("");
     const [historyIndex, setHistoryIndex] = useState(-1);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -55,6 +57,7 @@ export const CommandLine = forwardRef<CommandLineRef, CommandLineProps>(({ onCom
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
+        console.log('CommandLine KeyDown:', e.key);
         if (e.key === 'Escape') {
             onCommand('CANCEL');
             setInput("");
@@ -82,6 +85,12 @@ export const CommandLine = forwardRef<CommandLineRef, CommandLineProps>(({ onCom
             }
         } else if (e.key === ' ') {
             // Space key behavior (AutoCAD style)
+            // If a drawing command is active, let CAD2DWidget handle it
+            if (activeCommand) {
+                // Don't preventDefault - let the event bubble to CAD2DWidget
+                return;
+            }
+
             if (input.trim()) {
                 // If there's text in input, execute it
                 e.preventDefault();
@@ -96,6 +105,13 @@ export const CommandLine = forwardRef<CommandLineRef, CommandLineProps>(({ onCom
                 onCommand(lastCommandRef.current);
                 commandHistoryRef.current.push(lastCommandRef.current);
                 // lastCommandRef stays the same
+            }
+        } else if (e.key === 'Delete') {
+            // If input is empty, trigger onDelete
+            if (!input && onDelete) {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent bubbling to window listener (avoid double delete)
+                onDelete();
             }
         }
     };
