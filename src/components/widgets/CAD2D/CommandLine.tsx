@@ -5,6 +5,7 @@ interface CommandLineProps {
     history: string[];
     prompt?: string;
     activeCommand?: boolean; // True if a drawing command is active (LINE, CIRCLE, POLYLINE, etc.)
+    allowEmptyInput?: boolean; // True if empty input should be sent to onCommand (for default values)
     onDelete?: () => void; // Callback for Delete key when input is empty
 }
 
@@ -14,7 +15,7 @@ export interface CommandLineRef {
     setLastCommand: (command: string) => void;
 }
 
-export const CommandLine = forwardRef<CommandLineRef, CommandLineProps>(({ onCommand, history, prompt = "Command", activeCommand = false, onDelete }, ref) => {
+export const CommandLine = forwardRef<CommandLineRef, CommandLineProps>(({ onCommand, history, prompt = "Command", activeCommand = false, allowEmptyInput = false, onDelete }, ref) => {
     const [input, setInput] = useState("");
     const [historyIndex, setHistoryIndex] = useState(-1);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -53,6 +54,11 @@ export const CommandLine = forwardRef<CommandLineRef, CommandLineProps>(({ onCom
             lastCommandRef.current = input; // Track last command
             setInput("");
             setHistoryIndex(-1);
+        } else if (allowEmptyInput) {
+            onCommand("");
+        } else if (lastCommandRef.current) {
+            onCommand(lastCommandRef.current);
+            commandHistoryRef.current.push(lastCommandRef.current);
         }
     };
 
@@ -99,6 +105,11 @@ export const CommandLine = forwardRef<CommandLineRef, CommandLineProps>(({ onCom
                 lastCommandRef.current = input;
                 setInput("");
                 setHistoryIndex(-1);
+            } else if (allowEmptyInput) {
+                // Explicitly allow empty input (for default values like <10>)
+                e.preventDefault();
+                onCommand("");
+                // Don't update history or last command for empty input
             } else if (lastCommandRef.current) {
                 // If input is empty, repeat last command
                 e.preventDefault();

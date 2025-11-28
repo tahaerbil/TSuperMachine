@@ -52,6 +52,8 @@ public:
     virtual void translate(double dx, double dy) = 0;
     virtual bool isFullyInside(double x1, double y1, double x2, double y2) const = 0;
     virtual bool intersectsRectangle(double x1, double y1, double x2, double y2) const = 0;
+    virtual void rotate(double cx, double cy, double angle) = 0;
+    virtual std::unique_ptr<Entity> offset(double distance, bool outward) const = 0;
     
     unsigned int id = 0;
     unsigned int layerId = 0;
@@ -156,6 +158,45 @@ public:
         return false;
     }
 
+    void rotate(double cx, double cy, double angle) override {
+        // Rotate start point
+        double dx1 = start.x - cx;
+        double dy1 = start.y - cy;
+        start.x = cx + dx1 * std::cos(angle) - dy1 * std::sin(angle);
+        start.y = cy + dx1 * std::sin(angle) + dy1 * std::cos(angle);
+        
+        // Rotate end point
+        double dx2 = end.x - cx;
+        double dy2 = end.y - cy;
+        end.x = cx + dx2 * std::cos(angle) - dy2 * std::sin(angle);
+        end.y = cy + dx2 * std::sin(angle) + dy2 * std::cos(angle);
+    }
+
+    std::unique_ptr<Entity> offset(double distance, bool outward) const override {
+        // Calculate perpendicular direction
+        double dx = end.x - start.x;
+        double dy = end.y - start.y;
+        double length = std::sqrt(dx * dx + dy * dy);
+        
+        if (length < 1e-10) return nullptr; // Degenerate line
+        
+        // Perpendicular vector (rotate 90 degrees)
+        double perpX = -dy / length;
+        double perpY = dx / length;
+        
+        // Flip direction if not outward
+        if (!outward) {
+            perpX = -perpX;
+            perpY = -perpY;
+        }
+        
+        // Offset both points
+        Point newStart = { start.x + perpX * distance, start.y + perpY * distance };
+        Point newEnd = { end.x + perpX * distance, end.y + perpY * distance };
+        
+        return std::make_unique<LineEntity>(newStart, newEnd);
+    }
+
 private:
     bool lineSegmentIntersect(double x1, double y1, double x2, double y2,
                               double x3, double y3, double x4, double y4) const {
@@ -228,6 +269,24 @@ public:
         double distSq = dx * dx + dy * dy;
         
         return distSq <= radius * radius;
+    }
+
+    void rotate(double cx, double cy, double angle) override {
+        // Rotate center point
+        double dx = center.x - cx;
+        double dy = center.y - cy;
+        center.x = cx + dx * std::cos(angle) - dy * std::sin(angle);
+        center.y = cy + dx * std::sin(angle) + dy * std::cos(angle);
+        // Radius stays the same
+    }
+
+    std::unique_ptr<Entity> offset(double distance, bool outward) const override {
+        // For circle, offset means changing radius
+        double newRadius = outward ? radius + distance : radius - distance;
+        
+        if (newRadius <= 0) return nullptr; // Invalid offset
+        
+        return std::make_unique<CircleEntity>(center, newRadius);
     }
 };
 
@@ -347,6 +406,21 @@ public:
         }
         
         return false;
+    }
+
+    void rotate(double cx, double cy, double angle) override {
+        // Rotate all points
+        for (auto& pt : points) {
+            double dx = pt.x - cx;
+            double dy = pt.y - cy;
+            pt.x = cx + dx * std::cos(angle) - dy * std::sin(angle);
+            pt.y = cy + dx * std::sin(angle) + dy * std::cos(angle);
+        }
+    }
+
+    std::unique_ptr<Entity> offset(double distance, bool outward) const override {
+        // TODO: Implement polyline offset (complex - requires corner handling)
+        return nullptr;
     }
 
 private:
@@ -487,6 +561,41 @@ public:
                  rectMaxY < minY || rectMinY > maxY);
     }
 
+    void rotate(double cx, double cy, double angle) override {
+        // Rotate both corner points
+        double dx1 = p1.x - cx;
+        double dy1 = p1.y - cy;
+        p1.x = cx + dx1 * std::cos(angle) - dy1 * std::sin(angle);
+        p1.y = cy + dx1 * std::sin(angle) + dy1 * std::cos(angle);
+        
+        double dx2 = p2.x - cx;
+        double dy2 = p2.y - cy;
+        p2.x = cx + dx2 * std::cos(angle) - dy2 * std::sin(angle);
+        p2.y = cy + dx2 * std::sin(angle) + dy2 * std::cos(angle);
+    }
+
+    std::unique_ptr<Entity> offset(double distance, bool outward) const override {
+        // For rectangle, offset all edges inward or outward
+        double minX = std::min(p1.x, p2.x);
+        double maxX = std::max(p1.x, p2.x);
+        double minY = std::min(p1.y, p2.y);
+        double maxY = std::max(p1.y, p2.y);
+        
+        Point newP1, newP2;
+        if (outward) {
+            newP1 = { minX - distance, minY - distance };
+            newP2 = { maxX + distance, maxY + distance };
+        } else {
+            newP1 = { minX + distance, minY + distance };
+            newP2 = { maxX - distance, maxY - distance };
+            
+            // Check if rectangle becomes invalid
+            if (newP1.x >= newP2.x || newP1.y >= newP2.y) return nullptr;
+        }
+        
+        return std::make_unique<RectangleEntity>(newP1, newP2);
+    }
+
 private:
     double pointToSegmentDistance(double px, double py, const Point& p1, const Point& p2) const {
         double dx = p2.x - p1.x;
@@ -617,5 +726,26 @@ public:
         double distSq = dx * dx + dy * dy;
         
         return distSq <= radius * radius;
+    }
+
+    void rotate(double cx, double cy, double angle) override {
+        // Rotate center point
+        double dx = center.x - cx;
+        double dy = center.y - cy;
+        center.x = cx + dx * std::cos(angle) - dy * std::sin(angle);
+        center.y = cy + dx * std::sin(angle) + dy * std::cos(angle);
+        
+        // Rotate start and end angles
+        startAngle += angle;
+        endAngle += angle;
+    }
+
+    std::unique_ptr<Entity> offset(double distance, bool outward) const override {
+        // For arc, offset means changing radius (like circle)
+        double newRadius = outward ? radius + distance : radius - distance;
+        
+        if (newRadius <= 0) return nullptr; // Invalid offset
+        
+        return std::make_unique<ArcEntity>(center, newRadius, startAngle, endAngle);
     }
 };

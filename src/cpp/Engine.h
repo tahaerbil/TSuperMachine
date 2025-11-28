@@ -38,6 +38,8 @@ public:
     void copySelected(double dx, double dy);
     void selectByWindow(double x1, double y1, double x2, double y2);
     void selectByCrossing(double x1, double y1, double x2, double y2);
+    void rotateSelected(double cx, double cy, double angle);
+    unsigned int offsetEntity(unsigned int id, double distance, double clickX, double clickY);
     
     // Spatial Queries
 };

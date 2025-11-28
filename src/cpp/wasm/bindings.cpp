@@ -48,5 +48,7 @@ EMSCRIPTEN_BINDINGS(cad_engine) {
         .function("moveSelected", &Engine::moveSelected)
         .function("copySelected", &Engine::copySelected)
         .function("selectByWindow", &Engine::selectByWindow)
-        .function("selectByCrossing", &Engine::selectByCrossing);
+        .function("selectByCrossing", &Engine::selectByCrossing)
+        .function("rotateSelected", &Engine::rotateSelected)
+        .function("offsetEntity", &Engine::offsetEntity);
 }

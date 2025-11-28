@@ -15,10 +15,11 @@ interface WasmCanvasProps {
     movePreview?: { dx: number, dy: number } | null;
     copyPreview?: { dx: number, dy: number } | null;
     selectionBox?: { start: { x: number, y: number }, end: { x: number, y: number }, type: 'window' | 'crossing' } | null;
+    rotatePreview?: { cx: number, cy: number, angle: number } | null;
     activeSnap?: SnapPoint | null;
 }
 
-export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, previewArc, movePreview, copyPreview, selectionBox, activeSnap }) => {
+export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, previewArc, movePreview, copyPreview, selectionBox, rotatePreview, activeSnap }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -433,6 +434,233 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
             ctx.setLineDash([]); // Reset
         }
 
+        // Draw ROTATE Preview (Rotated entities at new angle)
+        if (rotatePreview) {
+            const { cx, cy, angle } = rotatePreview;
+
+            // First, draw original selected entities faded (like MOVE)
+            let i = 0;
+            while (i < buffer.length) {
+                const type = buffer[i];
+                let stride = 7;
+                let isSelected = false;
+
+                ctx.beginPath();
+                ctx.strokeStyle = '#808080'; // Grey for original
+                ctx.lineWidth = 1 / scale;
+                ctx.setLineDash([]);
+                ctx.globalAlpha = 0.3; // Faded
+
+                if (type === 0) { // LINE
+                    isSelected = buffer[i + 6] > 0.5;
+                    if (isSelected) {
+                        const x1 = buffer[i + 1];
+                        const y1 = buffer[i + 2];
+                        const x2 = buffer[i + 3];
+                        const y2 = buffer[i + 4];
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                        ctx.stroke();
+                    }
+                } else if (type === 1) { // CIRCLE
+                    isSelected = buffer[i + 6] > 0.5;
+                    if (isSelected) {
+                        const centerX = buffer[i + 1];
+                        const centerY = buffer[i + 2];
+                        const r = buffer[i + 3];
+                        ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                } else if (type === 2) { // ARC
+                    stride = 8;
+                    isSelected = buffer[i + 7] > 0.5;
+                    if (isSelected) {
+                        const centerX = buffer[i + 1];
+                        const centerY = buffer[i + 2];
+                        const r = buffer[i + 3];
+                        const startAngle = buffer[i + 4];
+                        const endAngle = buffer[i + 5];
+                        ctx.arc(centerX, centerY, r, startAngle, endAngle, true);
+                        ctx.stroke();
+                    }
+                } else if (type === 3) { // POLYLINE
+                    const numPoints = buffer[i + 1];
+                    const closed = buffer[i + 2] > 0.5;
+                    const pointsStart = i + 3;
+                    isSelected = buffer[pointsStart + numPoints * 2 + 1] > 0.5;
+
+                    if (isSelected) {
+                        for (let j = 0; j < numPoints; j++) {
+                            const px = buffer[pointsStart + j * 2];
+                            const py = buffer[pointsStart + j * 2 + 1];
+                            if (j === 0) {
+                                ctx.moveTo(px, py);
+                            } else {
+                                ctx.lineTo(px, py);
+                            }
+                        }
+                        if (closed && numPoints > 0) {
+                            ctx.closePath();
+                        }
+                        ctx.stroke();
+                    }
+                    stride = 3 + numPoints * 2 + 2;
+                } else if (type === 5) { // RECTANGLE
+                    isSelected = buffer[i + 6] > 0.5;
+                    if (isSelected) {
+                        const x1 = buffer[i + 1];
+                        const y1 = buffer[i + 2];
+                        const x2 = buffer[i + 3];
+                        const y2 = buffer[i + 4];
+                        const w = x2 - x1;
+                        const h = y2 - y1;
+                        ctx.rect(x1, y1, w, h);
+                        ctx.stroke();
+                    }
+                }
+
+                i += stride;
+            }
+
+            ctx.globalAlpha = 1.0;
+
+            // Then, draw rotated entities in white
+            i = 0;
+            while (i < buffer.length) {
+                const type = buffer[i];
+                let stride = 7;
+                let isSelected = false;
+
+                ctx.beginPath();
+                ctx.strokeStyle = '#FFFFFF'; // Solid white for rotated preview
+                ctx.lineWidth = 2 / scale;
+                ctx.setLineDash([]);
+                ctx.globalAlpha = 1.0;
+
+                if (type === 0) { // LINE
+                    isSelected = buffer[i + 6] > 0.5;
+                    if (isSelected) {
+                        // Rotate line endpoints
+                        const x1 = buffer[i + 1];
+                        const y1 = buffer[i + 2];
+                        const x2 = buffer[i + 3];
+                        const y2 = buffer[i + 4];
+
+                        const dx1 = x1 - cx;
+                        const dy1 = y1 - cy;
+                        const rx1 = cx + dx1 * Math.cos(angle) - dy1 * Math.sin(angle);
+                        const ry1 = cy + dx1 * Math.sin(angle) + dy1 * Math.cos(angle);
+
+                        const dx2 = x2 - cx;
+                        const dy2 = y2 - cy;
+                        const rx2 = cx + dx2 * Math.cos(angle) - dy2 * Math.sin(angle);
+                        const ry2 = cy + dx2 * Math.sin(angle) + dy2 * Math.cos(angle);
+
+                        ctx.moveTo(rx1, ry1);
+                        ctx.lineTo(rx2, ry2);
+                        ctx.stroke();
+                    }
+                } else if (type === 1) { // CIRCLE
+                    isSelected = buffer[i + 6] > 0.5;
+                    if (isSelected) {
+                        const centerX = buffer[i + 1];
+                        const centerY = buffer[i + 2];
+                        const r = buffer[i + 3];
+
+                        const dx = centerX - cx;
+                        const dy = centerY - cy;
+                        const rcx = cx + dx * Math.cos(angle) - dy * Math.sin(angle);
+                        const rcy = cy + dx * Math.sin(angle) + dy * Math.cos(angle);
+
+                        ctx.arc(rcx, rcy, r, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                } else if (type === 2) { // ARC
+                    stride = 8;
+                    isSelected = buffer[i + 7] > 0.5;
+                    if (isSelected) {
+                        const centerX = buffer[i + 1];
+                        const centerY = buffer[i + 2];
+                        const r = buffer[i + 3];
+                        const startAngle = buffer[i + 4];
+                        const endAngle = buffer[i + 5];
+
+                        const dx = centerX - cx;
+                        const dy = centerY - cy;
+                        const rcx = cx + dx * Math.cos(angle) - dy * Math.sin(angle);
+                        const rcy = cy + dx * Math.sin(angle) + dy * Math.cos(angle);
+
+                        ctx.arc(rcx, rcy, r, startAngle + angle, endAngle + angle, true);
+                        ctx.stroke();
+                    }
+                } else if (type === 3) { // POLYLINE
+                    const numPoints = buffer[i + 1];
+                    const closed = buffer[i + 2] > 0.5;
+                    const pointsStart = i + 3;
+                    isSelected = buffer[pointsStart + numPoints * 2 + 1] > 0.5;
+
+                    if (isSelected) {
+                        for (let j = 0; j < numPoints; j++) {
+                            const px = buffer[pointsStart + j * 2];
+                            const py = buffer[pointsStart + j * 2 + 1];
+
+                            const dx = px - cx;
+                            const dy = py - cy;
+                            const rpx = cx + dx * Math.cos(angle) - dy * Math.sin(angle);
+                            const rpy = cy + dx * Math.sin(angle) + dy * Math.cos(angle);
+
+                            if (j === 0) {
+                                ctx.moveTo(rpx, rpy);
+                            } else {
+                                ctx.lineTo(rpx, rpy);
+                            }
+                        }
+                        if (closed && numPoints > 0) {
+                            ctx.closePath();
+                        }
+                        ctx.stroke();
+                    }
+                    stride = 3 + numPoints * 2 + 2;
+                } else if (type === 5) { // RECTANGLE
+                    isSelected = buffer[i + 6] > 0.5;
+                    if (isSelected) {
+                        const x1 = buffer[i + 1];
+                        const y1 = buffer[i + 2];
+                        const x2 = buffer[i + 3];
+                        const y2 = buffer[i + 4];
+
+                        // Rotate all 4 corners
+                        const corners = [
+                            { x: x1, y: y1 },
+                            { x: x2, y: y1 },
+                            { x: x2, y: y2 },
+                            { x: x1, y: y2 }
+                        ];
+
+                        corners.forEach((corner, idx) => {
+                            const dx = corner.x - cx;
+                            const dy = corner.y - cy;
+                            const rx = cx + dx * Math.cos(angle) - dy * Math.sin(angle);
+                            const ry = cy + dx * Math.sin(angle) + dy * Math.cos(angle);
+
+                            if (idx === 0) {
+                                ctx.moveTo(rx, ry);
+                            } else {
+                                ctx.lineTo(rx, ry);
+                            }
+                        });
+                        ctx.closePath();
+                        ctx.stroke();
+                    }
+                }
+
+                i += stride;
+            }
+
+            ctx.globalAlpha = 1.0;
+            ctx.setLineDash([]);
+        }
+
         // Draw Preview Line (Rubber Band)
         if (previewLine) {
             ctx.beginPath();
@@ -590,7 +818,7 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
 
         ctx.restore();
 
-    }, [width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, previewArc, movePreview, copyPreview, selectionBox, activeSnap]);
+    }, [width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, previewArc, movePreview, copyPreview, selectionBox, rotatePreview, activeSnap]);
 
     return (
         <canvas

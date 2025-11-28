@@ -182,6 +182,73 @@ void Engine::selectByCrossing(double x1, double y1, double x2, double y2) {
     }
 }
 
+void Engine::rotateSelected(double cx, double cy, double angle) {
+    const auto& entities = db.getEntities();
+    for (const auto& entity : entities) {
+        if (entity->selected) {
+            entity->rotate(cx, cy, angle);
+        }
+    }
+}
+
+unsigned int Engine::offsetEntity(unsigned int id, double distance, double clickX, double clickY) {
+    const auto& entities = db.getEntities();
+    
+    // Find the entity
+    for (const auto& entity : entities) {
+        if (entity->id == id) {
+            // Determine offset direction based on click position
+            // For simplicity, we'll use a basic heuristic:
+            // - For lines: check which side of the line the click is on
+            // - For circles/arcs: check if click is inside or outside
+            // - For rectangles: check if click is inside or outside
+            
+            bool outward = true; // Default
+            
+            if (entity->getType() == EntityType::LINE) {
+                // Line: check which side of line the click is on
+                auto* line = static_cast<LineEntity*>(entity.get());
+                double dx = line->end.x - line->start.x;
+                double dy = line->end.y - line->start.y;
+                double cross = (clickX - line->start.x) * dy - (clickY - line->start.y) * dx;
+                outward = cross < 0; // Negative cross product = right side (inverted for correct offset direction)
+            } else if (entity->getType() == EntityType::CIRCLE) {
+                // Circle: check if click is outside
+                auto* circle = static_cast<CircleEntity*>(entity.get());
+                double dx = clickX - circle->center.x;
+                double dy = clickY - circle->center.y;
+                double distSq = dx * dx + dy * dy;
+                outward = distSq > circle->radius * circle->radius;
+            } else if (entity->getType() == EntityType::ARC) {
+                // Arc: check if click is outside
+                auto* arc = static_cast<ArcEntity*>(entity.get());
+                double dx = clickX - arc->center.x;
+                double dy = clickY - arc->center.y;
+                double distSq = dx * dx + dy * dy;
+                outward = distSq > arc->radius * arc->radius;
+            } else if (entity->getType() == EntityType::RECTANGLE) {
+                // Rectangle: check if click is outside
+                auto* rect = static_cast<RectangleEntity*>(entity.get());
+                double minX = std::min(rect->p1.x, rect->p2.x);
+                double maxX = std::max(rect->p1.x, rect->p2.x);
+                double minY = std::min(rect->p1.y, rect->p2.y);
+                double maxY = std::max(rect->p1.y, rect->p2.y);
+                outward = !(clickX >= minX && clickX <= maxX && clickY >= minY && clickY <= maxY);
+            }
+            
+            // Create offset entity
+            auto offsetEntity = entity->offset(distance, outward);
+            if (offsetEntity) {
+                unsigned int newId = db.addEntity(std::move(offsetEntity));
+                return newId;
+            }
+            return 0; // Failed to offset
+        }
+    }
+    
+    return 0; // Entity not found
+}
+
 const std::vector<float>& Engine::getRenderBuffer() {
     renderBuffer.clear();
     

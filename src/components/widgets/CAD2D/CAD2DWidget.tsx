@@ -38,9 +38,19 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
         | { type: 'MOVE', step: 'DESTINATION', basePoint: { x: number, y: number } }
         | { type: 'COPY', step: 'BASE' }
         | { type: 'COPY', step: 'DESTINATION', basePoint: { x: number, y: number } }
+        | { type: 'ROTATE', step: 'BASE' }
+        | { type: 'ROTATE', step: 'ANGLE', basePoint: { x: number, y: number } }
+        | { type: 'OFFSET', step: 'DISTANCE' }
+        | { type: 'OFFSET', step: 'SELECT', distance: number }
+        | { type: 'OFFSET', step: 'SIDE', distance: number, entityId: number }
         | { type: 'ERASE' }; // Selection mode for erasing entities
 
     const [commandState, setCommandState] = useState<CommandState>({ type: 'IDLE' });
+    const commandStateRef = useRef<CommandState>({ type: 'IDLE' });
+
+    useEffect(() => {
+        commandStateRef.current = commandState;
+    }, [commandState]);
     const [previewLine, setPreviewLine] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
     const [previewCircle, setPreviewCircle] = useState<{ cx: number, cy: number, r: number } | null>(null);
     const [previewPolyline, setPreviewPolyline] = useState<{ x: number, y: number }[] | null>(null);
@@ -48,6 +58,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
     const [previewArc, setPreviewArc] = useState<{ cx: number, cy: number, r: number, start: number, end: number } | null>(null);
     const [movePreview, setMovePreview] = useState<{ dx: number, dy: number } | null>(null);
     const [copyPreview, setCopyPreview] = useState<{ dx: number, dy: number } | null>(null);
+    const [rotatePreview, setRotatePreview] = useState<{ cx: number, cy: number, angle: number } | null>(null);
     const [selectionBox, setSelectionBox] = useState<{ start: { x: number, y: number }, end: { x: number, y: number }, type: 'window' | 'crossing' } | null>(null);
     const [activeSnap, setActiveSnap] = useState<SnapPoint | null>(null);
     const [commandHistory, setCommandHistory] = useState<string[]>([
@@ -62,6 +73,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
     // Interaction State
     const isPanning = useRef(false);
     const lastMousePos = useRef({ x: 0, y: 0 });
+    const lastOffsetDistance = useRef<number | null>(null);
 
     // Initialize Engine
     useEffect(() => {
@@ -185,8 +197,8 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
             let worldX = (screenX - offset.x) / scale;
             let worldY = (screenY - offset.y) / scale;
 
-            // Use Snap Point if active
-            if (activeSnap && activeSnap.type !== SnapType.NONE) {
+            // Use Snap Point if active (but not during OFFSET side selection)
+            if (activeSnap && activeSnap.type !== SnapType.NONE && !(commandState.type === 'OFFSET' && commandState.step === 'SIDE')) {
                 worldX = activeSnap.p.x;
                 worldY = activeSnap.p.y;
             }
@@ -336,6 +348,57 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                     setCopyPreview(null);
                     setCurrentPrompt("Command:");
                     setCommandHistory(prev => [...prev, "Entities copied."]);
+                }
+            } else if (commandState.type === 'ROTATE') {
+                if (commandState.step === 'BASE') {
+                    setCommandState({ type: 'ROTATE', step: 'ANGLE', basePoint: { x: worldX, y: worldY } });
+                    setCurrentPrompt("Specify rotation angle (or pick point):");
+                } else if (commandState.step === 'ANGLE') {
+                    // Calculate angle from base point to current point
+                    const dx = worldX - commandState.basePoint.x;
+                    const dy = worldY - commandState.basePoint.y;
+                    const angle = Math.atan2(dy, dx);
+
+                    cadEngine.rotateSelected(commandState.basePoint.x, commandState.basePoint.y, angle);
+                    setEngineVersion(v => v + 1);
+                    setCommandState({ type: 'IDLE' });
+                    setRotatePreview(null);
+                    setCurrentPrompt("Command:");
+                    setCommandHistory(prev => [...prev, "Entities rotated."]);
+                }
+            } else if (commandState.type === 'OFFSET') {
+                if (commandState.step === 'SELECT') {
+                    // First click: Select entity
+                    const selectionTolerance = 10 / scale;
+                    const hitId = cadEngine.hitTest(worldX, worldY, selectionTolerance);
+                    if (hitId !== -1) {
+                        // Highlight the selected entity
+                        cadEngine.deselectAll();
+                        cadEngine.selectEntity(hitId);
+                        setEngineVersion(v => v + 1);
+
+                        setCommandState({ type: 'OFFSET', step: 'SIDE', distance: commandState.distance, entityId: hitId });
+                        setCurrentPrompt("Click on side to offset:");
+                    } else {
+                        setCommandHistory(prev => [...prev, "No entity found. Try again."]);
+                    }
+                } else if (commandState.step === 'SIDE') {
+                    // Second click: Determine side and apply offset
+                    const newId = cadEngine.offsetEntity(commandState.entityId, commandState.distance, worldX, worldY);
+                    if (newId > 0) {
+                        cadEngine.deselectAll(); // Clear selection after offset
+                        setEngineVersion(v => v + 1);
+                        // Loop back to SELECT step to allow multiple offsets
+                        setCommandState({ type: 'OFFSET', step: 'SELECT', distance: commandState.distance });
+                        setCurrentPrompt("Select entity to offset (click on desired side):");
+                        setCommandHistory(prev => [...prev, "Offset created."]);
+                    } else {
+                        setCommandHistory(prev => [...prev, "Offset failed. Invalid distance or entity type."]);
+                        cadEngine.deselectAll(); // Clear selection on failure too
+                        // Loop back to SELECT step even on failure
+                        setCommandState({ type: 'OFFSET', step: 'SELECT', distance: commandState.distance });
+                        setCurrentPrompt("Select entity to offset (click on desired side):");
+                    }
                 }
             } else if (commandState.type === 'ERASE') {
                 // ERASE State - Select entities to delete
@@ -545,6 +608,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
     // Handle Command Line Input
     const handleCommand = (input: string) => {
         const action = CommandParser.parse(input);
+        const commandState = commandStateRef.current; // Use ref to avoid stale closures
 
         setCommandHistory(prev => [...prev, `> ${input}`]);
 
@@ -616,12 +680,12 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                     if (hasSelection) {
                         setCommandState({ type: 'MOVE', step: 'BASE' });
                         setCurrentPrompt("Specify base point:");
-                        setCommandHistory(prev => [...prev, "MOVE command started."]);
+                        setCommandHistory(prev => [...prev, "MOVE command started. Specify base point."]);
                     } else {
                         setCommandHistory(prev => [...prev, "No entities selected. Select entities first."]);
                     }
                 } else if (action.command === 'COPY') {
-                    // Check if any entities are selected (same logic as MOVE)
+                    // Check if any entities are selected
                     const buffer = cadEngine.getRenderBuffer();
                     let hasSelection = false;
                     let i = 0;
@@ -659,15 +723,63 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                     if (hasSelection) {
                         setCommandState({ type: 'COPY', step: 'BASE' });
                         setCurrentPrompt("Specify base point:");
-                        setCommandHistory(prev => [...prev, "COPY command started."]);
+                        setCommandHistory(prev => [...prev, "COPY command started. Specify base point."]);
                     } else {
                         setCommandHistory(prev => [...prev, "No entities selected. Select entities first."]);
                     }
+                } else if (action.command === 'ROTATE') {
+                    // Check if any entities are selected (same logic as MOVE/COPY)
+                    const buffer = cadEngine.getRenderBuffer();
+                    let hasSelection = false;
+                    let i = 0;
+                    while (i < buffer.length) {
+                        const type = buffer[i];
+                        let stride = 7;
+                        if (type === 3) { // POLYLINE
+                            const numPoints = buffer[i + 1];
+                            stride = 3 + numPoints * 2 + 2;
+                            if (buffer[i + 3 + numPoints * 2 + 1] > 0.5) {
+                                hasSelection = true;
+                                break;
+                            }
+                        } else if (type === 2) { // ARC
+                            stride = 8;
+                            if (buffer[i + 7] > 0.5) {
+                                hasSelection = true;
+                                break;
+                            }
+                        } else if (type === 5) { // RECTANGLE
+                            stride = 7;
+                            if (buffer[i + 6] > 0.5) {
+                                hasSelection = true;
+                                break;
+                            }
+                        } else {
+                            if (buffer[i + 6] > 0.5) {
+                                hasSelection = true;
+                                break;
+                            }
+                        }
+                        i += stride;
+                    }
+
+                    if (hasSelection) {
+                        setCommandState({ type: 'ROTATE', step: 'BASE' });
+                        setCurrentPrompt("Specify base point (rotation center):");
+                        setCommandHistory(prev => [...prev, "ROTATE command started. Specify base point."]);
+                    } else {
+                        setCommandHistory(prev => [...prev, "No entities selected. Select entities first."]);
+                    }
+                } else if (action.command === 'OFFSET') {
+                    setCommandState({ type: 'OFFSET', step: 'DISTANCE' });
+                    const defaultDist = lastOffsetDistance.current !== null ? ` <${lastOffsetDistance.current}>` : "";
+                    setCurrentPrompt(`Specify offset distance${defaultDist}:`);
+                    setCommandHistory(prev => [...prev, "OFFSET command started."]);
                 } else if (action.command === 'ERASE') {
                     // Start ERASE command (selection mode)
                     setCommandState({ type: 'ERASE' });
-                    setCurrentPrompt("Select objects to erase:");
-                    setCommandHistory(prev => [...prev, "ERASE command started. Select objects and press Space to delete."]);
+                    setCurrentPrompt("Select entities to erase (Press Space to finish):");
+                    setCommandHistory(prev => [...prev, "ERASE command started."]);
                 }
                 break;
 
@@ -705,13 +817,21 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                 setPreviewArc(null);
                 setMovePreview(null);
                 setCopyPreview(null);
+                setRotatePreview(null);
                 setSelectionBox(null); // Cancel selection box
                 if (isEngineReady) cadEngine.deselectAll();
                 setCommandHistory(prev => [...prev, "*Cancel*"]);
                 break;
 
             case 'UNKNOWN':
-                setCommandHistory(prev => [...prev, "Unknown command."]);
+                // Try to parse as value if a command is active expecting a value
+                if (commandState.type !== 'IDLE') {
+                    processValueInput(input);
+                } else if (input.trim() === "") {
+                    // Ignore empty input in IDLE mode
+                } else {
+                    setCommandHistory(prev => [...prev, `Unknown command: ${input}`]);
+                }
                 break;
         }
     };
@@ -767,6 +887,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
     // Helper to process value input (Radius, Length, Sides)
     const processValueInput = (val: string) => { // Changed val type to string to match CLI input
         if (!isEngineReady) return;
+        const commandState = commandStateRef.current; // Use ref to avoid stale closures
 
         if (commandState.type === 'CIRCLE' && commandState.step === 'RADIUS') {
             const r = parseFloat(val);
@@ -777,6 +898,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                 setPreviewCircle(null);
                 setCurrentPrompt("Command:");
                 setCommandHistory(prev => [...prev, `Circle created with radius ${r}`]);
+                setTimeout(() => commandLineRef.current?.setLastCommand('CIRCLE'), 0);
             } else {
                 setCommandHistory(prev => [...prev, "Invalid radius."]);
             }
@@ -792,6 +914,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                 if (val === '') {
                     setCommandState({ type: 'POLYGON', step: 'CENTER', sides: 4 });
                     setCurrentPrompt("Specify center of polygon:");
+                    setTimeout(() => commandLineRef.current?.setLastCommand('POLYGON'), 0);
                 } else {
                     setCommandHistory(prev => [...prev, "Invalid number of sides. Must be >= 3."]);
                 }
@@ -805,8 +928,44 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                 setPreviewPolyline(null);
                 setCurrentPrompt("Command:");
                 setCommandHistory(prev => [...prev, "Polygon created."]);
+                setTimeout(() => commandLineRef.current?.setLastCommand('POLYGON'), 0);
             } else {
                 setCommandHistory(prev => [...prev, "Invalid radius."]);
+            }
+        } else if (commandState.type === 'ROTATE' && commandState.step === 'ANGLE') {
+            // User entered angle as a number (in degrees)
+            const angleDegrees = parseFloat(val);
+            if (!isNaN(angleDegrees)) {
+                // Convert degrees to radians
+                const angleRadians = angleDegrees * (Math.PI / 180);
+
+                cadEngine.rotateSelected(commandState.basePoint.x, commandState.basePoint.y, angleRadians);
+                setEngineVersion(v => v + 1);
+                setCommandState({ type: 'IDLE' });
+                setRotatePreview(null);
+                setRotatePreview(null);
+                setCurrentPrompt("Command:");
+                setCommandHistory(prev => [...prev, `Entities rotated ${angleDegrees}°.`]);
+                setTimeout(() => commandLineRef.current?.setLastCommand('ROTATE'), 0);
+            } else {
+                setCommandHistory(prev => [...prev, "Invalid angle."]);
+            }
+        } else if (commandState.type === 'OFFSET' && commandState.step === 'DISTANCE') {
+            // User entered offset distance
+            let distance = parseFloat(val);
+
+            // If input is empty and we have a last distance, use it
+            if (val.trim() === '' && lastOffsetDistance.current !== null) {
+                distance = lastOffsetDistance.current;
+            }
+
+            if (!isNaN(distance) && distance > 0) {
+                lastOffsetDistance.current = distance; // Update last distance
+                setCommandState({ type: 'OFFSET', step: 'SELECT', distance });
+                setCurrentPrompt("Select entity to offset (click on desired side):");
+                setTimeout(() => commandLineRef.current?.setLastCommand('OFFSET'), 0);
+            } else {
+                setCommandHistory(prev => [...prev, "Invalid distance. Must be > 0."]);
             }
         }
     };
@@ -940,6 +1099,13 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                 const dy = worldY - commandState.basePoint.y;
                 setCopyPreview({ dx, dy }); // Use COPY preview
             }
+        } else if (commandState.type === 'ROTATE') {
+            if (commandState.step === 'ANGLE') {
+                const dx = worldX - commandState.basePoint.x;
+                const dy = worldY - commandState.basePoint.y;
+                const angle = Math.atan2(dy, dx);
+                setRotatePreview({ cx: commandState.basePoint.x, cy: commandState.basePoint.y, angle });
+            }
         }
 
         // Update selection box during drag
@@ -985,6 +1151,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                         previewArc={previewArc}
                         movePreview={movePreview}
                         copyPreview={copyPreview}
+                        rotatePreview={rotatePreview}
                         selectionBox={selectionBox}
                         activeSnap={activeSnap}
                     />
@@ -998,7 +1165,8 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                     onCommand={handleCommand}
                     history={commandHistory}
                     prompt={currentPrompt}
-                    activeCommand={commandState.type !== 'IDLE'}
+                    activeCommand={commandState.type !== 'IDLE' && !(commandState.type === 'OFFSET' && commandState.step === 'DISTANCE')}
+                    allowEmptyInput={commandState.type === 'OFFSET' && commandState.step === 'DISTANCE'}
                     onDelete={handleDeleteCommand}
                 />
             )}

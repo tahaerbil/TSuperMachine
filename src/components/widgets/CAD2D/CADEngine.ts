@@ -45,6 +45,8 @@ interface CppEngine {
     copySelected(dx: number, dy: number): void;
     selectByWindow(x1: number, y1: number, x2: number, y2: number): void;
     selectByCrossing(x1: number, y1: number, x2: number, y2: number): void;
+    rotateSelected(cx: number, cy: number, angle: number): void;
+    offsetEntity(id: number, distance: number, clickX: number, clickY: number): number;
     delete(): void; // C++ destructor
 }
 
@@ -192,6 +194,16 @@ export class CADEngine {
     selectByCrossing(x1: number, y1: number, x2: number, y2: number): void {
         if (!this.engine) throw new Error('Engine not initialized');
         this.engine.selectByCrossing(x1, y1, x2, y2);
+    }
+
+    rotateSelected(cx: number, cy: number, angle: number): void {
+        if (!this.engine) throw new Error('Engine not initialized');
+        this.engine.rotateSelected(cx, cy, angle);
+    }
+
+    offsetEntity(id: number, distance: number, clickX: number, clickY: number): number {
+        if (!this.engine) throw new Error('Engine not initialized');
+        return this.engine.offsetEntity(id, distance, clickX, clickY);
     }
 
     destroy(): void {
