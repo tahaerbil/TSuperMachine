@@ -1,4 +1,4 @@
-export type CommandType = 'LINE' | 'CIRCLE' | 'POLYLINE' | 'RECTANGLE' | 'ARC' | 'ERASE' | 'PAN' | 'ZOOM' | 'IDLE';
+export type CommandType = 'LINE' | 'CIRCLE' | 'POLYLINE' | 'RECTANGLE' | 'ARC' | 'POLYGON' | 'MOVE' | 'COPY' | 'ERASE' | 'PAN' | 'ZOOM' | 'IDLE';
 
 export interface CommandAction {
     type: 'START_COMMAND' | 'ENTER_POINT' | 'ENTER_VALUE' | 'CANCEL' | 'UNKNOWN';
@@ -31,9 +31,17 @@ export class CommandParser {
             case 'REC':
             case 'RECTANGLE':
                 return { type: 'START_COMMAND', command: 'RECTANGLE', raw: input };
-            case 'A':
             case 'ARC':
                 return { type: 'START_COMMAND', command: 'ARC', raw: input };
+            case 'POL':
+            case 'POLYGON':
+                return { type: 'START_COMMAND', command: 'POLYGON', raw: input };
+            case 'M':
+            case 'MOVE':
+                return { type: 'START_COMMAND', command: 'MOVE', raw: input };
+            case 'CO':
+            case 'COPY':
+                return { type: 'START_COMMAND', command: 'COPY', raw: input };
             case 'E':
             case 'ERASE':
             case 'DELETE':

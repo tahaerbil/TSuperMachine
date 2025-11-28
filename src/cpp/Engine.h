@@ -16,6 +16,7 @@ public:
     unsigned int addPolyline(const std::vector<Point>& points, bool closed);
     unsigned int addRectangle(double x1, double y1, double x2, double y2);
     unsigned int addArc(double cx, double cy, double radius, double startAngle, double endAngle);
+    unsigned int addRegularPolygon(double cx, double cy, int sides, double radius);
     
     // Modification
     void clear();
@@ -33,4 +34,10 @@ public:
     void selectEntity(unsigned int id);
     void deselectAll();
     void deleteSelected();
+    void moveSelected(double dx, double dy);
+    void copySelected(double dx, double dy);
+    void selectByWindow(double x1, double y1, double x2, double y2);
+    void selectByCrossing(double x1, double y1, double x2, double y2);
+    
+    // Spatial Queries
 };

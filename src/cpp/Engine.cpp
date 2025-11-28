@@ -27,6 +27,28 @@ unsigned int Engine::addArc(double cx, double cy, double radius, double startAng
     auto arc = std::make_unique<ArcEntity>(Point{cx, cy}, radius, startAngle, endAngle);
     return db.addEntity(std::move(arc));
 }
+
+unsigned int Engine::addRegularPolygon(double cx, double cy, int sides, double radius) {
+    if (sides < 3) return 0;
+    
+    std::vector<Point> points;
+    double angleStep = 2 * M_PI / sides;
+    
+    // Start from top (90 degrees / PI/2) or standard 0?
+    // AutoCAD usually starts from 0 (East) or allows rotation.
+    // Let's start from 0 for simplicity, consistent with math.
+    
+    for (int i = 0; i < sides; ++i) {
+        double angle = i * angleStep;
+        points.push_back({
+            cx + radius * std::cos(angle),
+            cy + radius * std::sin(angle)
+        });
+    }
+    
+    auto polyline = std::make_unique<PolylineEntity>(points, true); // Closed
+    return db.addEntity(std::move(polyline));
+}
 void Engine::clear() {
     db.clear();
 }
@@ -74,6 +96,89 @@ void Engine::deleteSelected() {
     
     for (unsigned int id : idsToDelete) {
         db.deleteEntity(id);
+    }
+}
+
+void Engine::moveSelected(double dx, double dy) {
+    const auto& entities = db.getEntities();
+    for (const auto& entity : entities) {
+        if (entity->selected) {
+            entity->translate(dx, dy);
+        }
+    }
+}
+
+void Engine::copySelected(double dx, double dy) {
+    const auto& entities = db.getEntities();
+    std::vector<std::unique_ptr<Entity>> copies;
+    
+    // Create copies of selected entities
+    for (const auto& entity : entities) {
+        if (entity->selected) {
+            std::unique_ptr<Entity> copy;
+            
+            switch (entity->getType()) {
+                case EntityType::LINE: {
+                    auto* line = static_cast<LineEntity*>(entity.get());
+                    copy = std::make_unique<LineEntity>(line->start, line->end);
+                    break;
+                }
+                case EntityType::CIRCLE: {
+                    auto* circle = static_cast<CircleEntity*>(entity.get());
+                    copy = std::make_unique<CircleEntity>(circle->center, circle->radius);
+                    break;
+                }
+                case EntityType::ARC: {
+                    auto* arc = static_cast<ArcEntity*>(entity.get());
+                    copy = std::make_unique<ArcEntity>(arc->center, arc->radius, arc->startAngle, arc->endAngle);
+                    break;
+                }
+                case EntityType::POLYLINE: {
+                    auto* polyline = static_cast<PolylineEntity*>(entity.get());
+                    copy = std::make_unique<PolylineEntity>(polyline->points, polyline->closed);
+                    break;
+                }
+                case EntityType::RECTANGLE: {
+                    auto* rect = static_cast<RectangleEntity*>(entity.get());
+                    copy = std::make_unique<RectangleEntity>(rect->p1, rect->p2);
+                    break;
+                }
+            }
+            
+            if (copy) {
+                // Apply translation to copy
+                copy->translate(dx, dy);
+                // Mark copy as selected
+                copy->selected = true;
+                copies.push_back(std::move(copy));
+            }
+            
+            // Deselect original
+            entity->selected = false;
+        }
+    }
+    
+    // Add all copies to database
+    for (auto& copy : copies) {
+        db.addEntity(std::move(copy));
+    }
+}
+
+void Engine::selectByWindow(double x1, double y1, double x2, double y2) {
+    const auto& entities = db.getEntities();
+    for (const auto& entity : entities) {
+        if (entity->isFullyInside(x1, y1, x2, y2)) {
+            entity->selected = true;
+        }
+    }
+}
+
+void Engine::selectByCrossing(double x1, double y1, double x2, double y2) {
+    const auto& entities = db.getEntities();
+    for (const auto& entity : entities) {
+        if (entity->intersectsRectangle(x1, y1, x2, y2)) {
+            entity->selected = true;
+        }
     }
 }
 

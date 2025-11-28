@@ -17,9 +17,6 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
 
     const isMaximized = widget.isMaximized || false;
 
-    // Track last position for smooth bulk move
-    const lastPosRef = useRef({ x: widget.position.x, y: widget.position.y });
-
     // Local state for smooth dragging
     const [localPos, setLocalPos] = React.useState(widget.position);
     const isDragging = useRef(false);
@@ -75,7 +72,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                     }
                 }
             }}
-            onDragStop={(_e, d) => {
+            onDragStop={() => {
                 isDragging.current = false;
                 if (isMaximized) return;
 

@@ -36,6 +36,7 @@ EMSCRIPTEN_BINDINGS(cad_engine) {
         .function("addPolyline", &Engine::addPolyline)
         .function("addRectangle", &Engine::addRectangle)
         .function("addArc", &Engine::addArc)
+        .function("addRegularPolygon", &Engine::addRegularPolygon)
         .function("clear", &Engine::clear)
         .function("deleteEntity", &Engine::deleteEntity)
         .function("getRenderBuffer", &getRenderBufferWrapper)
@@ -43,5 +44,9 @@ EMSCRIPTEN_BINDINGS(cad_engine) {
         .function("hitTest", &Engine::hitTest)
         .function("selectEntity", &Engine::selectEntity)
         .function("deselectAll", &Engine::deselectAll)
-        .function("deleteSelected", &Engine::deleteSelected);
+        .function("deleteSelected", &Engine::deleteSelected)
+        .function("moveSelected", &Engine::moveSelected)
+        .function("copySelected", &Engine::copySelected)
+        .function("selectByWindow", &Engine::selectByWindow)
+        .function("selectByCrossing", &Engine::selectByCrossing);
 }

@@ -31,6 +31,13 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
         | { type: 'ARC', step: 'CENTER' }
         | { type: 'ARC', step: 'START', center: { x: number, y: number } }
         | { type: 'ARC', step: 'END', center: { x: number, y: number }, radius: number, startAngle: number }
+        | { type: 'POLYGON', step: 'SIDES', sides: number }
+        | { type: 'POLYGON', step: 'CENTER', sides: number }
+        | { type: 'POLYGON', step: 'RADIUS', sides: number, center: { x: number, y: number } }
+        | { type: 'MOVE', step: 'BASE' }
+        | { type: 'MOVE', step: 'DESTINATION', basePoint: { x: number, y: number } }
+        | { type: 'COPY', step: 'BASE' }
+        | { type: 'COPY', step: 'DESTINATION', basePoint: { x: number, y: number } }
         | { type: 'ERASE' }; // Selection mode for erasing entities
 
     const [commandState, setCommandState] = useState<CommandState>({ type: 'IDLE' });
@@ -39,6 +46,9 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
     const [previewPolyline, setPreviewPolyline] = useState<{ x: number, y: number }[] | null>(null);
     const [previewRectangle, setPreviewRectangle] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
     const [previewArc, setPreviewArc] = useState<{ cx: number, cy: number, r: number, start: number, end: number } | null>(null);
+    const [movePreview, setMovePreview] = useState<{ dx: number, dy: number } | null>(null);
+    const [copyPreview, setCopyPreview] = useState<{ dx: number, dy: number } | null>(null);
+    const [selectionBox, setSelectionBox] = useState<{ start: { x: number, y: number }, end: { x: number, y: number }, type: 'window' | 'crossing' } | null>(null);
     const [activeSnap, setActiveSnap] = useState<SnapPoint | null>(null);
     const [commandHistory, setCommandHistory] = useState<string[]>([
         "Welcome to TSuperMachine CAD",
@@ -150,6 +160,11 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
         container.addEventListener('wheel', onWheel, { passive: false });
         return () => container.removeEventListener('wheel', onWheel);
     }, []);
+
+    const handleMouseUp = () => {
+        // Handle panning
+        isPanning.current = false;
+    };
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (!containerRef.current) return;
@@ -275,6 +290,53 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                     setCurrentPrompt("Command:");
                     setCommandHistory(prev => [...prev, "Arc created."]);
                 }
+            } else if (commandState.type === 'POLYGON') {
+                if (commandState.step === 'CENTER') {
+                    setCommandState({ type: 'POLYGON', step: 'RADIUS', sides: commandState.sides, center: { x: worldX, y: worldY } });
+                    setCurrentPrompt("Specify radius of polygon:");
+                } else if (commandState.step === 'RADIUS') {
+                    const dx = worldX - commandState.center.x;
+                    const dy = worldY - commandState.center.y;
+                    const radius = Math.sqrt(dx * dx + dy * dy);
+
+                    cadEngine.addRegularPolygon(commandState.center.x, commandState.center.y, commandState.sides, radius);
+                    setEngineVersion(v => v + 1);
+                    setCommandState({ type: 'IDLE' });
+                    setPreviewPolyline(null);
+                    setCurrentPrompt("Command:");
+                    setCommandHistory(prev => [...prev, "Polygon created."]);
+                }
+            } else if (commandState.type === 'MOVE') {
+                if (commandState.step === 'BASE') {
+                    setCommandState({ type: 'MOVE', step: 'DESTINATION', basePoint: { x: worldX, y: worldY } });
+                    setCurrentPrompt("Specify destination point:");
+                } else if (commandState.step === 'DESTINATION') {
+                    const dx = worldX - commandState.basePoint.x;
+                    const dy = worldY - commandState.basePoint.y;
+
+                    cadEngine.moveSelected(dx, dy);
+                    cadEngine.deselectAll();
+                    setEngineVersion(v => v + 1);
+                    setCommandState({ type: 'IDLE' });
+                    setMovePreview(null);
+                    setCurrentPrompt("Command:");
+                    setCommandHistory(prev => [...prev, "Entities moved."]);
+                }
+            } else if (commandState.type === 'COPY') {
+                if (commandState.step === 'BASE') {
+                    setCommandState({ type: 'COPY', step: 'DESTINATION', basePoint: { x: worldX, y: worldY } });
+                    setCurrentPrompt("Specify destination point:");
+                } else if (commandState.step === 'DESTINATION') {
+                    const dx = worldX - commandState.basePoint.x;
+                    const dy = worldY - commandState.basePoint.y;
+
+                    cadEngine.copySelected(dx, dy);
+                    setEngineVersion(v => v + 1);
+                    setCommandState({ type: 'IDLE' });
+                    setCopyPreview(null);
+                    setCurrentPrompt("Command:");
+                    setCommandHistory(prev => [...prev, "Entities copied."]);
+                }
             } else if (commandState.type === 'ERASE') {
                 // ERASE State - Select entities to delete
                 const selectionTolerance = 10 / scale;
@@ -284,15 +346,36 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                     cadEngine.selectEntity(hitId);
                     setEngineVersion(v => v + 1); // Trigger re-render
                 }
-            } else {
-                // IDLE State - Selection
-                // Use a tolerance of 10 pixels converted to world units
-                const selectionTolerance = 10 / scale;
-                const hitId = cadEngine.hitTest(worldX, worldY, selectionTolerance);
+            } else if (commandState.type === 'IDLE') {
+                // Click-based selection box
+                if (selectionBox) {
+                    // Second click - complete selection
+                    if (selectionBox.type === 'window') {
+                        cadEngine.selectByWindow(
+                            selectionBox.start.x, selectionBox.start.y,
+                            worldX, worldY
+                        );
+                    } else {
+                        cadEngine.selectByCrossing(
+                            selectionBox.start.x, selectionBox.start.y,
+                            worldX, worldY
+                        );
+                    }
+                    setEngineVersion(v => v + 1);
+                    setSelectionBox(null);
+                } else {
+                    // First click - start selection box OR single entity selection
+                    const selectionTolerance = 10 / scale;
+                    const hitId = cadEngine.hitTest(worldX, worldY, selectionTolerance);
 
-                if (hitId !== -1) {
-                    cadEngine.selectEntity(hitId);
-                    setEngineVersion(v => v + 1); // Trigger re-render
+                    if (hitId !== -1) {
+                        // Clicked on an entity - select it
+                        cadEngine.selectEntity(hitId);
+                        setEngineVersion(v => v + 1);
+                    } else {
+                        // Clicked on empty space - start selection box
+                        setSelectionBox({ start: { x: worldX, y: worldY }, end: { x: worldX, y: worldY }, type: 'window' });
+                    }
                 }
             }
         }
@@ -467,6 +550,9 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
 
         switch (action.type) {
             case 'START_COMMAND':
+                // Cancel selection box when starting a new command
+                setSelectionBox(null);
+
                 if (action.command === 'LINE') {
                     setCommandState({ type: 'LINE', step: 'START' });
                     setCurrentPrompt("Specify first point:");
@@ -487,6 +573,96 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                     setCommandState({ type: 'ARC', step: 'CENTER' });
                     setCurrentPrompt("Specify center point of arc:");
                     setCommandHistory(prev => [...prev, "ARC command started."]);
+                } else if (action.command === 'POLYGON') {
+                    setCommandState({ type: 'POLYGON', step: 'SIDES', sides: 4 });
+                    setCurrentPrompt("Enter number of sides <4>:");
+                    setCommandHistory(prev => [...prev, "POLYGON command started."]);
+                } else if (action.command === 'MOVE') {
+                    // Check if any entities are selected
+                    const buffer = cadEngine.getRenderBuffer();
+                    let hasSelection = false;
+                    let i = 0;
+                    while (i < buffer.length) {
+                        const type = buffer[i];
+                        let stride = 7;
+                        if (type === 3) { // POLYLINE
+                            const numPoints = buffer[i + 1];
+                            stride = 3 + numPoints * 2 + 2;
+                            if (buffer[i + 3 + numPoints * 2 + 1] > 0.5) {
+                                hasSelection = true;
+                                break;
+                            }
+                        } else if (type === 2) { // ARC
+                            stride = 8;
+                            if (buffer[i + 7] > 0.5) {
+                                hasSelection = true;
+                                break;
+                            }
+                        } else if (type === 5) { // RECTANGLE
+                            stride = 7;
+                            if (buffer[i + 6] > 0.5) {
+                                hasSelection = true;
+                                break;
+                            }
+                        } else {
+                            if (buffer[i + 6] > 0.5) {
+                                hasSelection = true;
+                                break;
+                            }
+                        }
+                        i += stride;
+                    }
+
+                    if (hasSelection) {
+                        setCommandState({ type: 'MOVE', step: 'BASE' });
+                        setCurrentPrompt("Specify base point:");
+                        setCommandHistory(prev => [...prev, "MOVE command started."]);
+                    } else {
+                        setCommandHistory(prev => [...prev, "No entities selected. Select entities first."]);
+                    }
+                } else if (action.command === 'COPY') {
+                    // Check if any entities are selected (same logic as MOVE)
+                    const buffer = cadEngine.getRenderBuffer();
+                    let hasSelection = false;
+                    let i = 0;
+                    while (i < buffer.length) {
+                        const type = buffer[i];
+                        let stride = 7;
+                        if (type === 3) { // POLYLINE
+                            const numPoints = buffer[i + 1];
+                            stride = 3 + numPoints * 2 + 2;
+                            if (buffer[i + 3 + numPoints * 2 + 1] > 0.5) {
+                                hasSelection = true;
+                                break;
+                            }
+                        } else if (type === 2) { // ARC
+                            stride = 8;
+                            if (buffer[i + 7] > 0.5) {
+                                hasSelection = true;
+                                break;
+                            }
+                        } else if (type === 5) { // RECTANGLE
+                            stride = 7;
+                            if (buffer[i + 6] > 0.5) {
+                                hasSelection = true;
+                                break;
+                            }
+                        } else {
+                            if (buffer[i + 6] > 0.5) {
+                                hasSelection = true;
+                                break;
+                            }
+                        }
+                        i += stride;
+                    }
+
+                    if (hasSelection) {
+                        setCommandState({ type: 'COPY', step: 'BASE' });
+                        setCurrentPrompt("Specify base point:");
+                        setCommandHistory(prev => [...prev, "COPY command started."]);
+                    } else {
+                        setCommandHistory(prev => [...prev, "No entities selected. Select entities first."]);
+                    }
                 } else if (action.command === 'ERASE') {
                     // Start ERASE command (selection mode)
                     setCommandState({ type: 'ERASE' });
@@ -514,11 +690,12 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
 
             case 'ENTER_VALUE':
                 if (action.value !== undefined) {
-                    processValueInput(action.value);
+                    processValueInput(action.value.toString());
                 }
                 break;
 
             case 'CANCEL':
+                // Cancel everything
                 setCommandState({ type: 'IDLE' });
                 setCurrentPrompt("Command:");
                 setPreviewLine(null);
@@ -526,6 +703,9 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                 setPreviewRectangle(null);
                 setPreviewPolyline(null);
                 setPreviewArc(null);
+                setMovePreview(null);
+                setCopyPreview(null);
+                setSelectionBox(null); // Cancel selection box
                 if (isEngineReady) cadEngine.deselectAll();
                 setCommandHistory(prev => [...prev, "*Cancel*"]);
                 break;
@@ -576,20 +756,58 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                 setCurrentPrompt("Command:");
                 setCommandHistory(prev => [...prev, "Rectangle created."]);
             }
+        } else if (commandState.type === 'POLYGON') {
+            if (commandState.step === 'CENTER') {
+                setCommandState({ type: 'POLYGON', step: 'RADIUS', sides: commandState.sides, center: { x, y } });
+                setCurrentPrompt("Specify radius of polygon:");
+            }
         }
     };
 
-    // Helper to process value input (Radius, Length)
-    const processValueInput = (val: number) => {
+    // Helper to process value input (Radius, Length, Sides)
+    const processValueInput = (val: string) => { // Changed val type to string to match CLI input
         if (!isEngineReady) return;
 
         if (commandState.type === 'CIRCLE' && commandState.step === 'RADIUS') {
-            cadEngine.addCircle(commandState.center.x, commandState.center.y, val);
-            setEngineVersion(v => v + 1);
-            setCommandState({ type: 'IDLE' });
-            setPreviewCircle(null);
-            setCurrentPrompt("Command:");
-            setCommandHistory(prev => [...prev, `Circle created with radius ${val}`]);
+            const r = parseFloat(val);
+            if (!isNaN(r) && r > 0) {
+                cadEngine.addCircle(commandState.center.x, commandState.center.y, r);
+                setEngineVersion(v => v + 1);
+                setCommandState({ type: 'IDLE' });
+                setPreviewCircle(null);
+                setCurrentPrompt("Command:");
+                setCommandHistory(prev => [...prev, `Circle created with radius ${r}`]);
+            } else {
+                setCommandHistory(prev => [...prev, "Invalid radius."]);
+            }
+        } else if (commandState.type === 'POLYGON' && commandState.step === 'SIDES') {
+            const sides = parseInt(val);
+            if (!isNaN(sides) && sides >= 3) {
+                setCommandState({ type: 'POLYGON', step: 'CENTER', sides });
+                setCurrentPrompt("Specify center of polygon:");
+            } else {
+                // If empty input, use default 4? Or keep waiting?
+                // Let's assume user might just press Enter for default 4 if we implemented that logic,
+                // but here we just check valid input.
+                if (val === '') {
+                    setCommandState({ type: 'POLYGON', step: 'CENTER', sides: 4 });
+                    setCurrentPrompt("Specify center of polygon:");
+                } else {
+                    setCommandHistory(prev => [...prev, "Invalid number of sides. Must be >= 3."]);
+                }
+            }
+        } else if (commandState.type === 'POLYGON' && commandState.step === 'RADIUS') {
+            const r = parseFloat(val);
+            if (!isNaN(r) && r > 0) {
+                cadEngine.addRegularPolygon(commandState.center.x, commandState.center.y, commandState.sides, r);
+                setEngineVersion(v => v + 1);
+                setCommandState({ type: 'IDLE' });
+                setPreviewPolyline(null);
+                setCurrentPrompt("Command:");
+                setCommandHistory(prev => [...prev, "Polygon created."]);
+            } else {
+                setCommandHistory(prev => [...prev, "Invalid radius."]);
+            }
         }
     };
 
@@ -688,12 +906,50 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                     end: endAngle
                 });
             }
+        } else if (commandState.type === 'POLYGON') {
+            if (commandState.step === 'RADIUS') {
+                const dx = worldX - commandState.center.x;
+                const dy = worldY - commandState.center.y;
+                const radius = Math.sqrt(dx * dx + dy * dy);
+                const sides = commandState.sides;
+
+                // Calculate polygon points for preview
+                const points: { x: number, y: number }[] = [];
+                const angleStep = 2 * Math.PI / sides;
+                for (let i = 0; i < sides; i++) {
+                    const angle = i * angleStep;
+                    points.push({
+                        x: commandState.center.x + radius * Math.cos(angle),
+                        y: commandState.center.y + radius * Math.sin(angle)
+                    });
+                }
+                // Close the loop for preview
+                points.push(points[0]);
+
+                setPreviewPolyline(points);
+            }
+        } else if (commandState.type === 'MOVE') {
+            if (commandState.step === 'DESTINATION') {
+                const dx = worldX - commandState.basePoint.x;
+                const dy = worldY - commandState.basePoint.y;
+                setMovePreview({ dx, dy });
+            }
+        } else if (commandState.type === 'COPY') {
+            if (commandState.step === 'DESTINATION') {
+                const dx = worldX - commandState.basePoint.x;
+                const dy = worldY - commandState.basePoint.y;
+                setCopyPreview({ dx, dy }); // Use COPY preview
+            }
+        }
+
+        // Update selection box during drag
+        if (selectionBox && commandState.type === 'IDLE') {
+            const dragDx = worldX - selectionBox.start.x;
+            const type: 'window' | 'crossing' = dragDx >= 0 ? 'window' : 'crossing';
+            setSelectionBox({ ...selectionBox, end: { x: worldX, y: worldY }, type });
         }
     };
 
-    const handleMouseUp = () => {
-        isPanning.current = false;
-    };
 
     return (
         <div
@@ -727,6 +983,9 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                         previewPolyline={previewPolyline}
                         previewRectangle={previewRectangle}
                         previewArc={previewArc}
+                        movePreview={movePreview}
+                        copyPreview={copyPreview}
+                        selectionBox={selectionBox}
                         activeSnap={activeSnap}
                     />
                 )}

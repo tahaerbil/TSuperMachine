@@ -32,6 +32,7 @@ interface CppEngine {
     addPolyline(points: any, closed: boolean): number; // points is VectorPoint from Embind
     addRectangle(x1: number, y1: number, x2: number, y2: number): number;
     addArc(cx: number, cy: number, radius: number, startAngle: number, endAngle: number): number;
+    addRegularPolygon(cx: number, cy: number, sides: number, radius: number): number;
     clear(): void;
     deleteEntity(id: number): void;
     getRenderBuffer(): Float32Array;
@@ -40,6 +41,10 @@ interface CppEngine {
     selectEntity(id: number): void;
     deselectAll(): void;
     deleteSelected(): void;
+    moveSelected(dx: number, dy: number): void;
+    copySelected(dx: number, dy: number): void;
+    selectByWindow(x1: number, y1: number, x2: number, y2: number): void;
+    selectByCrossing(x1: number, y1: number, x2: number, y2: number): void;
     delete(): void; // C++ destructor
 }
 
@@ -117,6 +122,11 @@ export class CADEngine {
         return this.engine.addArc(cx, cy, radius, startAngle, endAngle);
     }
 
+    addRegularPolygon(cx: number, cy: number, sides: number, radius: number): number {
+        if (!this.engine) throw new Error('Engine not initialized');
+        return this.engine.addRegularPolygon(cx, cy, sides, radius);
+    }
+
     clear(): void {
         if (!this.engine) throw new Error('Engine not initialized');
         this.engine.clear();
@@ -162,6 +172,26 @@ export class CADEngine {
     deleteSelected(): void {
         if (!this.engine) throw new Error('Engine not initialized');
         this.engine.deleteSelected();
+    }
+
+    moveSelected(dx: number, dy: number): void {
+        if (!this.engine) throw new Error('Engine not initialized');
+        this.engine.moveSelected(dx, dy);
+    }
+
+    copySelected(dx: number, dy: number): void {
+        if (!this.engine) throw new Error('Engine not initialized');
+        this.engine.copySelected(dx, dy);
+    }
+
+    selectByWindow(x1: number, y1: number, x2: number, y2: number): void {
+        if (!this.engine) throw new Error('Engine not initialized');
+        this.engine.selectByWindow(x1, y1, x2, y2);
+    }
+
+    selectByCrossing(x1: number, y1: number, x2: number, y2: number): void {
+        if (!this.engine) throw new Error('Engine not initialized');
+        this.engine.selectByCrossing(x1, y1, x2, y2);
     }
 
     destroy(): void {

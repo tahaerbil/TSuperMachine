@@ -12,10 +12,13 @@ interface WasmCanvasProps {
     previewPolyline?: { x: number, y: number }[] | null;
     previewRectangle?: { x1: number, y1: number, x2: number, y2: number } | null;
     previewArc?: { cx: number, cy: number, r: number, start: number, end: number } | null;
+    movePreview?: { dx: number, dy: number } | null;
+    copyPreview?: { dx: number, dy: number } | null;
+    selectionBox?: { start: { x: number, y: number }, end: { x: number, y: number }, type: 'window' | 'crossing' } | null;
     activeSnap?: SnapPoint | null;
 }
 
-export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, previewArc, activeSnap }) => {
+export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, previewArc, movePreview, copyPreview, selectionBox, activeSnap }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -83,65 +86,96 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
                 const type = buffer[i];
                 let stride = 7; // Default for LINE and CIRCLE
 
-                ctx.beginPath();
-
                 // Determine if selected (position depends on entity type)
                 let isSelected = false;
 
                 if (type === 0) { // LINE
+                    stride = 7;
                     isSelected = buffer[i + 6] > 0.5;
+
                     if (isSelected) {
-                        ctx.strokeStyle = '#00FFFF';
-                        ctx.lineWidth = 2 / scale;
-                        ctx.setLineDash([4 / scale, 4 / scale]);
+                        // During MOVE, render original position faded
+                        if (movePreview) {
+                            ctx.strokeStyle = '#666666';
+                            ctx.lineWidth = 1 / scale;
+                            ctx.setLineDash([]);
+                            ctx.globalAlpha = 0.3;
+                        } else {
+                            ctx.strokeStyle = '#00FFFF';
+                            ctx.lineWidth = 2 / scale;
+                            ctx.setLineDash([4 / scale, 4 / scale]);
+                            ctx.globalAlpha = 1.0;
+                        }
                     } else {
                         ctx.strokeStyle = '#FFFFFF';
                         ctx.lineWidth = 1 / scale;
                         ctx.setLineDash([]);
+                        ctx.globalAlpha = 1.0;
                     }
+
+                    ctx.beginPath();
                     ctx.moveTo(buffer[i + 1], buffer[i + 2]);
                     ctx.lineTo(buffer[i + 3], buffer[i + 4]);
                     ctx.stroke();
+                    ctx.globalAlpha = 1.0; // Reset alpha
                 } else if (type === 1) { // CIRCLE
+                    stride = 7;
                     isSelected = buffer[i + 6] > 0.5;
+
                     if (isSelected) {
-                        ctx.strokeStyle = '#00FFFF';
-                        ctx.lineWidth = 2 / scale;
-                        ctx.setLineDash([4 / scale, 4 / scale]);
+                        if (movePreview) {
+                            ctx.strokeStyle = '#666666';
+                            ctx.lineWidth = 1 / scale;
+                            ctx.setLineDash([]);
+                            ctx.globalAlpha = 0.3;
+                        } else {
+                            ctx.strokeStyle = '#00FFFF';
+                            ctx.lineWidth = 2 / scale;
+                            ctx.setLineDash([4 / scale, 4 / scale]);
+                            ctx.globalAlpha = 1.0;
+                        }
                     } else {
                         ctx.strokeStyle = '#FFFFFF';
                         ctx.lineWidth = 1 / scale;
                         ctx.setLineDash([]);
+                        ctx.globalAlpha = 1.0;
                     }
-                    const cx = buffer[i + 1];
-                    const cy = buffer[i + 2];
-                    const r = buffer[i + 3];
-                    ctx.moveTo(cx + r, cy);
-                    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+
+                    ctx.beginPath();
+                    ctx.arc(buffer[i + 1], buffer[i + 2], buffer[i + 3], 0, Math.PI * 2);
                     ctx.stroke();
+                    ctx.globalAlpha = 1.0; // Reset alpha
                 } else if (type === 2) { // ARC
                     // Stride: type(1) + center(2) + radius(1) + start(1) + end(1) + color(1) + selected(1) = 8
                     stride = 8;
                     isSelected = buffer[i + 7] > 0.5;
 
                     if (isSelected) {
-                        ctx.strokeStyle = '#00FFFF';
-                        ctx.lineWidth = 2 / scale;
-                        ctx.setLineDash([4 / scale, 4 / scale]);
+                        if (movePreview) {
+                            ctx.strokeStyle = '#666666';
+                            ctx.lineWidth = 1 / scale;
+                            ctx.setLineDash([]);
+                            ctx.globalAlpha = 0.3;
+                        } else {
+                            ctx.strokeStyle = '#00FFFF';
+                            ctx.lineWidth = 2 / scale;
+                            ctx.setLineDash([4 / scale, 4 / scale]);
+                            ctx.globalAlpha = 1.0;
+                        }
                     } else {
                         ctx.strokeStyle = '#FFFFFF';
                         ctx.lineWidth = 1 / scale;
                         ctx.setLineDash([]);
+                        ctx.globalAlpha = 1.0;
                     }
 
                     ctx.beginPath();
                     // Note: Canvas arc angles are clockwise? No, default is clockwise=false (counter-clockwise)
                     // But C++ might be using standard math (CCW).
                     // Let's assume CCW for now.
-                    ctx.beginPath();
-                    // Draw Counter-Clockwise (Standard CAD)
                     ctx.arc(buffer[i + 1], buffer[i + 2], buffer[i + 3], buffer[i + 4], buffer[i + 5], true);
                     ctx.stroke();
+                    ctx.globalAlpha = 1.0; // Reset alpha
                 } else if (type === 3) { // POLYLINE
                     const numPoints = buffer[i + 1];
                     const closed = buffer[i + 2] > 0.5;
@@ -152,16 +186,26 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
                     isSelected = buffer[pointsEnd + 1] > 0.5;
 
                     if (isSelected) {
-                        ctx.strokeStyle = '#00FFFF';
-                        ctx.lineWidth = 2 / scale;
-                        ctx.setLineDash([4 / scale, 4 / scale]);
+                        if (movePreview) {
+                            ctx.strokeStyle = '#666666';
+                            ctx.lineWidth = 1 / scale;
+                            ctx.setLineDash([]);
+                            ctx.globalAlpha = 0.3;
+                        } else {
+                            ctx.strokeStyle = '#00FFFF';
+                            ctx.lineWidth = 2 / scale;
+                            ctx.setLineDash([4 / scale, 4 / scale]);
+                            ctx.globalAlpha = 1.0;
+                        }
                     } else {
                         ctx.strokeStyle = '#FFFFFF';
                         ctx.lineWidth = 1 / scale;
                         ctx.setLineDash([]);
+                        ctx.globalAlpha = 1.0;
                     }
 
                     // Draw polyline segments
+                    ctx.beginPath();
                     for (let j = 0; j < numPoints; j++) {
                         const px = buffer[pointsStart + j * 2];
                         const py = buffer[pointsStart + j * 2 + 1];
@@ -178,6 +222,7 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
                     }
 
                     ctx.stroke();
+                    ctx.globalAlpha = 1.0; // Reset alpha
 
                     // Calculate stride: type(1) + numPoints(1) + closed(1) + points(numPoints*2) + color(1) + selected(1)
                     stride = 3 + numPoints * 2 + 2;
@@ -187,13 +232,22 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
                     isSelected = buffer[i + 6] > 0.5;
 
                     if (isSelected) {
-                        ctx.strokeStyle = '#00FFFF';
-                        ctx.lineWidth = 2 / scale;
-                        ctx.setLineDash([4 / scale, 4 / scale]);
+                        if (movePreview) {
+                            ctx.strokeStyle = '#666666';
+                            ctx.lineWidth = 1 / scale;
+                            ctx.setLineDash([]);
+                            ctx.globalAlpha = 0.3;
+                        } else {
+                            ctx.strokeStyle = '#00FFFF';
+                            ctx.lineWidth = 2 / scale;
+                            ctx.setLineDash([4 / scale, 4 / scale]);
+                            ctx.globalAlpha = 1.0;
+                        }
                     } else {
                         ctx.strokeStyle = '#FFFFFF';
                         ctx.lineWidth = 1 / scale;
                         ctx.setLineDash([]);
+                        ctx.globalAlpha = 1.0;
                     }
 
                     ctx.beginPath();
@@ -203,10 +257,179 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
                     const y2 = buffer[i + 4];
                     ctx.rect(x1, y1, x2 - x1, y2 - y1);
                     ctx.stroke();
+                    ctx.globalAlpha = 1.0; // Reset alpha
                 }
 
                 i += stride;
             }
+            ctx.setLineDash([]); // Reset
+        }
+
+        // Draw MOVE Preview (Ghost entities at new position)
+        if (movePreview) {
+            const { dx, dy } = movePreview;
+
+            // Re-render all selected entities with offset
+            let i = 0;
+            while (i < buffer.length) {
+                const type = buffer[i];
+                let stride = 7;
+                let isSelected = false;
+
+                ctx.beginPath();
+                ctx.strokeStyle = '#FFFFFF'; // Solid white for new position
+                ctx.lineWidth = 2 / scale;
+                ctx.setLineDash([]); // Solid line
+                ctx.globalAlpha = 1.0; // Fully opaque
+
+                if (type === 0) { // LINE
+                    isSelected = buffer[i + 6] > 0.5;
+                    if (isSelected) {
+                        ctx.moveTo(buffer[i + 1] + dx, buffer[i + 2] + dy);
+                        ctx.lineTo(buffer[i + 3] + dx, buffer[i + 4] + dy);
+                        ctx.stroke();
+                    }
+                } else if (type === 1) { // CIRCLE
+                    isSelected = buffer[i + 6] > 0.5;
+                    if (isSelected) {
+                        const cx = buffer[i + 1] + dx;
+                        const cy = buffer[i + 2] + dy;
+                        const r = buffer[i + 3];
+                        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                } else if (type === 2) { // ARC
+                    stride = 8;
+                    isSelected = buffer[i + 7] > 0.5;
+                    if (isSelected) {
+                        const cx = buffer[i + 1] + dx;
+                        const cy = buffer[i + 2] + dy;
+                        const r = buffer[i + 3];
+                        ctx.arc(cx, cy, r, buffer[i + 4], buffer[i + 5], true);
+                        ctx.stroke();
+                    }
+                } else if (type === 3) { // POLYLINE
+                    const numPoints = buffer[i + 1];
+                    const closed = buffer[i + 2] > 0.5;
+                    const pointsStart = i + 3;
+                    isSelected = buffer[pointsStart + numPoints * 2 + 1] > 0.5;
+
+                    if (isSelected) {
+                        for (let j = 0; j < numPoints; j++) {
+                            const px = buffer[pointsStart + j * 2] + dx;
+                            const py = buffer[pointsStart + j * 2 + 1] + dy;
+                            if (j === 0) {
+                                ctx.moveTo(px, py);
+                            } else {
+                                ctx.lineTo(px, py);
+                            }
+                        }
+                        if (closed && numPoints > 0) {
+                            ctx.closePath();
+                        }
+                        ctx.stroke();
+                    }
+                    stride = 3 + numPoints * 2 + 2;
+                } else if (type === 5) { // RECTANGLE
+                    isSelected = buffer[i + 6] > 0.5;
+                    if (isSelected) {
+                        const x1 = buffer[i + 1] + dx;
+                        const y1 = buffer[i + 2] + dy;
+                        const x2 = buffer[i + 3] + dx;
+                        const y2 = buffer[i + 4] + dy;
+                        ctx.rect(x1, y1, x2 - x1, y2 - y1);
+                        ctx.stroke();
+                    }
+                }
+
+                i += stride;
+            }
+
+            ctx.globalAlpha = 1.0; // Reset
+            ctx.setLineDash([]); // Reset
+        }
+
+        // Draw COPY Preview (Ghost entities at new position, originals stay normal)
+        if (copyPreview) {
+            const { dx, dy } = copyPreview;
+
+            // Re-render all selected entities with offset (as copies)
+            let i = 0;
+            while (i < buffer.length) {
+                const type = buffer[i];
+                let stride = 7;
+                let isSelected = false;
+
+                ctx.beginPath();
+                ctx.strokeStyle = '#FFFFFF'; // Solid white for copies
+                ctx.lineWidth = 2 / scale;
+                ctx.setLineDash([]); // Solid line
+                ctx.globalAlpha = 1.0; // Fully opaque
+
+                if (type === 0) { // LINE
+                    isSelected = buffer[i + 6] > 0.5;
+                    if (isSelected) {
+                        ctx.moveTo(buffer[i + 1] + dx, buffer[i + 2] + dy);
+                        ctx.lineTo(buffer[i + 3] + dx, buffer[i + 4] + dy);
+                        ctx.stroke();
+                    }
+                } else if (type === 1) { // CIRCLE
+                    isSelected = buffer[i + 6] > 0.5;
+                    if (isSelected) {
+                        const cx = buffer[i + 1] + dx;
+                        const cy = buffer[i + 2] + dy;
+                        const r = buffer[i + 3];
+                        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                } else if (type === 2) { // ARC
+                    stride = 8;
+                    isSelected = buffer[i + 7] > 0.5;
+                    if (isSelected) {
+                        const cx = buffer[i + 1] + dx;
+                        const cy = buffer[i + 2] + dy;
+                        const r = buffer[i + 3];
+                        ctx.arc(cx, cy, r, buffer[i + 4], buffer[i + 5], true);
+                        ctx.stroke();
+                    }
+                } else if (type === 3) { // POLYLINE
+                    const numPoints = buffer[i + 1];
+                    const closed = buffer[i + 2] > 0.5;
+                    const pointsStart = i + 3;
+                    isSelected = buffer[pointsStart + numPoints * 2 + 1] > 0.5;
+
+                    if (isSelected) {
+                        for (let j = 0; j < numPoints; j++) {
+                            const px = buffer[pointsStart + j * 2] + dx;
+                            const py = buffer[pointsStart + j * 2 + 1] + dy;
+                            if (j === 0) {
+                                ctx.moveTo(px, py);
+                            } else {
+                                ctx.lineTo(px, py);
+                            }
+                        }
+                        if (closed && numPoints > 0) {
+                            ctx.closePath();
+                        }
+                        ctx.stroke();
+                    }
+                    stride = 3 + numPoints * 2 + 2;
+                } else if (type === 5) { // RECTANGLE
+                    isSelected = buffer[i + 6] > 0.5;
+                    if (isSelected) {
+                        const x1 = buffer[i + 1] + dx;
+                        const y1 = buffer[i + 2] + dy;
+                        const x2 = buffer[i + 3] + dx;
+                        const y2 = buffer[i + 4] + dy;
+                        ctx.rect(x1, y1, x2 - x1, y2 - y1);
+                        ctx.stroke();
+                    }
+                }
+
+                i += stride;
+            }
+
+            ctx.globalAlpha = 1.0; // Reset
             ctx.setLineDash([]); // Reset
         }
 
@@ -301,6 +524,36 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
             ctx.setLineDash([]); // Reset dash
         }
 
+        // Draw Selection Box (Window/Crossing)
+        if (selectionBox) {
+            const { start, end, type } = selectionBox;
+            const x = Math.min(start.x, end.x);
+            const y = Math.min(start.y, end.y);
+            const w = Math.abs(end.x - start.x);
+            const h = Math.abs(end.y - start.y);
+
+            ctx.beginPath();
+
+            if (type === 'window') {
+                // Window Selection: Blue solid box
+                ctx.strokeStyle = '#0066FF';
+                ctx.fillStyle = 'rgba(0, 102, 255, 0.1)';
+                ctx.lineWidth = 1 / scale;
+                ctx.setLineDash([]);
+            } else {
+                // Crossing Selection: Green dashed box
+                ctx.strokeStyle = '#00FF00';
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+                ctx.lineWidth = 1 / scale;
+                ctx.setLineDash([4 / scale, 4 / scale]);
+            }
+
+            ctx.rect(x, y, w, h);
+            ctx.fill();
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
         // Draw Snap Marker
         if (activeSnap && activeSnap.type !== SnapType.NONE) {
             const size = 10 / scale; // Constant screen size
@@ -337,7 +590,7 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
 
         ctx.restore();
 
-    }, [width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, previewArc, activeSnap]);
+    }, [width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, previewArc, movePreview, copyPreview, selectionBox, activeSnap]);
 
     return (
         <canvas
