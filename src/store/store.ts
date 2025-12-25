@@ -8,6 +8,7 @@ export interface Widget {
     position: { x: number; y: number };
     size: { width: number; height: number };
     title: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data?: any;
     zIndex: number;
     isMaximized?: boolean;

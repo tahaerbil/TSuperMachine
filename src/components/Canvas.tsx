@@ -61,7 +61,10 @@ export const Canvas: React.FC = () => {
 
     // Use ref to access latest handleWheel without re-attaching listener
     const handleWheelRef = useRef(handleWheel);
-    handleWheelRef.current = handleWheel;
+
+    useEffect(() => {
+        handleWheelRef.current = handleWheel;
+    });
 
     useEffect(() => {
         const container = containerRef.current;
@@ -73,7 +76,9 @@ export const Canvas: React.FC = () => {
 
         container.addEventListener('wheel', onWheel, { passive: false });
         return () => container.removeEventListener('wheel', onWheel);
-    }, []);
+    }, []); // Only setup listener once
+
+    // deleted useDrop block
 
     const handleMouseDown = (e: React.MouseEvent) => {
         // If any widget is maximized, do not allow canvas panning.
@@ -177,7 +182,7 @@ export const Canvas: React.FC = () => {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selectedWidgetIds, selectAll, clearSelection, removeWidget, selectMultiple]);
+    }, [selectedWidgetIds, selectAll, clearSelection, removeWidget, selectMultiple, widgets]);
 
     // Handle canvas click for lasso start
     const handleCanvasMouseDown = (e: React.MouseEvent) => {

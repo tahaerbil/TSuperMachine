@@ -20,23 +20,36 @@ export interface SnapPoint {
     type: SnapType;
 }
 
+interface VectorPoint {
+    push_back(point: Point): void;
+    delete(): void;
+}
+
 interface CADModule {
     Engine: {
         new(): CppEngine;
     };
+    VectorPoint: {
+        new(): VectorPoint;
+    };
+}
+
+interface EmbindSnapPoint {
+    p: Point;
+    type: { value: number };
 }
 
 interface CppEngine {
     addLine(x1: number, y1: number, x2: number, y2: number): number;
     addCircle(cx: number, cy: number, radius: number): number;
-    addPolyline(points: any, closed: boolean): number; // points is VectorPoint from Embind
+    addPolyline(points: VectorPoint, closed: boolean): number;
     addRectangle(x1: number, y1: number, x2: number, y2: number): number;
     addArc(cx: number, cy: number, radius: number, startAngle: number, endAngle: number): number;
     addRegularPolygon(cx: number, cy: number, sides: number, radius: number): number;
     clear(): void;
     deleteEntity(id: number): void;
     getRenderBuffer(): Float32Array;
-    findClosestSnapPoint(x: number, y: number, threshold: number): SnapPoint;
+    findClosestSnapPoint(x: number, y: number, threshold: number): EmbindSnapPoint;
     hitTest(x: number, y: number, threshold: number): number;
     selectEntity(id: number): void;
     deselectAll(): void;
@@ -98,7 +111,7 @@ export class CADEngine {
         if (!this.engine) throw new Error('Engine not initialized');
 
         // Create a VectorPoint from the module
-        const VectorPoint = (this.module as any).VectorPoint;
+        const VectorPoint = this.module!.VectorPoint;
         const vec = new VectorPoint();
 
         // Add all points to the vector
@@ -152,7 +165,7 @@ export class CADEngine {
         // We need to convert it to a simple number to match our TS definition
         return {
             p: rawSnap.p,
-            type: (rawSnap.type as any).value
+            type: rawSnap.type.value as SnapType
         };
     }
 

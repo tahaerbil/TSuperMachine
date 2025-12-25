@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { cadEngine, SnapType, type SnapPoint } from './CADEngine';
 import { WasmCanvas } from './WasmCanvas';
 import { CommandLine, type CommandLineRef } from './CommandLine';
@@ -159,7 +159,10 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
 
     // Use ref to access latest handleWheel without re-attaching listener
     const handleWheelRef = useRef(handleWheel);
-    handleWheelRef.current = handleWheel;
+
+    useEffect(() => {
+        handleWheelRef.current = handleWheel;
+    });
 
     useEffect(() => {
         const container = containerRef.current;
@@ -450,7 +453,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
     };
 
     // Centralized Delete Logic
-    const handleDeleteCommand = () => {
+    const handleDeleteCommand = useCallback(() => {
         if (!isEngineReady) return;
 
         // Check if any entities are selected
@@ -512,7 +515,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
             // Update last command so Space key can repeat ERASE
             commandLineRef.current?.setLastCommand('ERASE');
         }
-    };
+    }, [isEngineReady]);
 
     // Handle Keyboard Events (Delete & Escape)
     useEffect(() => {
@@ -603,7 +606,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isEngineReady, commandState]);
+    }, [isEngineReady, commandState, handleDeleteCommand]);
 
     // Handle Command Line Input
     const handleCommand = (input: string) => {
@@ -785,7 +788,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
 
             case 'ENTER_POINT':
                 if (action.point) {
-                    let p = action.point;
+                    const p = action.point;
 
                     // Handle Relative Coordinates
                     if (p.isRelative && lastMousePos.current) {
@@ -995,7 +998,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
         if (isEngineReady && commandState.type !== 'IDLE') {
             try {
                 snap = cadEngine.findClosestSnapPoint(worldX, worldY, snapThreshold);
-            } catch (e) {
+            } catch {
                 // Ignore if engine not ready or error
             }
         }
