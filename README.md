@@ -6,6 +6,7 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 ![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB)
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)
 ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat&logo=tailwind-css&logoColor=white)
+![Tauri](https://img.shields.io/badge/Tauri-24C8DB?style=flat&logo=tauri&logoColor=white)
 
 ## ✨ Features
 
@@ -55,6 +56,18 @@ npm run build
 npm run preview
 ```
 
+### Desktop App (Tauri)
+
+```bash
+# Prerequisites: Rust installed (https://rustup.rs)
+
+# Run desktop app in development mode
+npm run tauri:dev
+
+# Build desktop app for production
+npm run tauri:build
+```
+
 ## 🎮 Usage
 
 ### Canvas Controls
@@ -86,6 +99,7 @@ npm run preview
 |----------|-----------|
 | **Framework** | React 19 + TypeScript |
 | **Build Tool** | Vite 7 |
+| **Desktop App** | Tauri 2 (Rust) |
 | **Styling** | TailwindCSS v4 |
 | **State Management** | Zustand (+ persist) |
 | **Internationalization** | i18next |
@@ -126,6 +140,14 @@ src/
 ├── App.tsx
 ├── main.tsx
 └── index.css
+
+src-tauri/                     # Tauri (Rust) backend
+├── Cargo.toml                 # Rust dependencies
+├── tauri.conf.json            # Tauri configuration
+├── icons/                     # App icons
+└── src/
+    ├── main.rs                # Rust main entry
+    └── lib.rs                 # Rust library
 ```
 
 ## 🎨 Themes
@@ -171,6 +193,9 @@ npm install
 # Start dev server with HMR
 npm run dev
 
+# Start Tauri dev (desktop app)
+npm run tauri:dev
+
 # Type check
 npm run build
 
@@ -194,6 +219,18 @@ Simply connect your GitHub repository and the build will be automatic.
 Once deployed, users can install the app:
 - **Desktop**: Chrome → Settings → Install App
 - **Mobile**: Add to Home Screen
+
+### Desktop App Distribution
+```bash
+# Build for all platforms
+npm run tauri:build
+
+# Output location: src-tauri/target/release/bundle/
+# - .deb (Debian/Ubuntu)
+# - .AppImage (Universal Linux)
+# - .dmg (macOS)
+# - .msi/.exe (Windows)
+```
 
 ## 📝 License
 
