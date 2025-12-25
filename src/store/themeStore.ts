@@ -31,7 +31,7 @@ const defaultCustomTheme: CustomTheme = {
 export const useThemeStore = create<ThemeState>()(
     persist(
         (set) => ({
-            mode: 'light',
+            mode: 'dark',
             customTheme: defaultCustomTheme,
             setMode: (mode) => set({ mode }),
             setCustomTheme: (theme) => set((state) => ({

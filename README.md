@@ -7,6 +7,7 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)
 ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat&logo=tailwind-css&logoColor=white)
 ![Tauri](https://img.shields.io/badge/Tauri-24C8DB?style=flat&logo=tauri&logoColor=white)
+![Electron](https://img.shields.io/badge/Electron-47848F?style=flat&logo=electron&logoColor=white)
 
 ## ✨ Features
 
@@ -68,6 +69,16 @@ npm run tauri:dev
 npm run tauri:build
 ```
 
+### Desktop App (Electron)
+
+```bash
+# Run desktop app in development mode (Chrome-like performance)
+npm run electron:dev
+
+# Build desktop app for production
+npm run electron:build
+```
+
 ## 🎮 Usage
 
 ### Canvas Controls
@@ -99,7 +110,7 @@ npm run tauri:build
 |----------|-----------|
 | **Framework** | React 19 + TypeScript |
 | **Build Tool** | Vite 7 |
-| **Desktop App** | Tauri 2 (Rust) |
+| **Desktop App** | Tauri 2 (Rust) / Electron 39 |
 | **Styling** | TailwindCSS v4 |
 | **State Management** | Zustand (+ persist) |
 | **Internationalization** | i18next |
@@ -148,6 +159,10 @@ src-tauri/                     # Tauri (Rust) backend
 └── src/
     ├── main.rs                # Rust main entry
     └── lib.rs                 # Rust library
+
+src-electron/                  # Electron (Node.js) backend
+├── main.cjs                   # Electron main process
+└── preload.cjs                # Preload script
 ```
 
 ## 🎨 Themes
