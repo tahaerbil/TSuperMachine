@@ -18,6 +18,10 @@ public:
     unsigned int addArc(double cx, double cy, double radius, double startAngle, double endAngle);
     unsigned int addRegularPolygon(double cx, double cy, int sides, double radius);
     
+    // Serialization
+    std::string exportDatabase();
+    void importDatabase(const std::string& json);
+    
     // Modification
     void clear();
     void deleteEntity(unsigned int id);

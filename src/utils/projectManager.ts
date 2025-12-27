@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { fileSystemAdapter } from './fileSystemAdapter';
+import { cadEngine } from '../components/widgets/CAD2D/CADEngine';
 
 // Project metadata interface
 export interface ProjectMetadata {
@@ -17,10 +18,10 @@ export interface CanvasState {
         offset: { x: number; y: number };
         scale: number;
     };
-    widgets: any[];
+    widgets: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
     theme: {
         mode: string;
-        customTheme: any;
+        customTheme: any; // eslint-disable-line @typescript-eslint/no-explicit-any
     };
     language: string;
 }
@@ -46,6 +47,16 @@ async function createProjectBlob(
     // Add files to ZIP
     zip.file('project.json', JSON.stringify(metadata, null, 2));
     zip.file('canvas.json', JSON.stringify(canvasState, null, 2));
+
+    // Add CAD Data (if available and native)
+    try {
+        if (cadEngine.getEngineType() === 'native') {
+            const cadData = cadEngine.exportDatabase();
+            zip.file('cadData.json', cadData);
+        }
+    } catch (e) {
+        console.warn("Failed to export CAD data:", e);
+    }
 
     // Create folder structure
     zip.folder('parts');
@@ -113,6 +124,24 @@ export async function loadProject(file?: File): Promise<{
         }
         const canvasText = await canvasFile.async('text');
         const canvasState: CanvasState = JSON.parse(canvasText);
+
+        // Read and import CAD Data
+        const cadFile = contents.file('cadData.json');
+        if (cadFile) {
+            const cadData = await cadFile.async('text');
+            try {
+                if (cadEngine.getEngineType() === 'native') {
+                    cadEngine.importDatabase(cadData);
+                }
+            } catch (e) {
+                console.warn("Failed to import CAD data:", e);
+            }
+        } else {
+            // If no CAD data found, clear the engine
+            if (cadEngine.getEngineType() === 'native') {
+                cadEngine.clear();
+            }
+        }
 
         // Validate data
         if (!metadata.name || !metadata.version) {

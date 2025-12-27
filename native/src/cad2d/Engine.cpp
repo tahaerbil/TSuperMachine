@@ -249,6 +249,199 @@ unsigned int Engine::offsetEntity(unsigned int id, double distance, double click
     return 0; // Entity not found
 }
 
+// ============================================================================
+// Serialization Implementation
+// ============================================================================
+
+#include <sstream>
+#include <iomanip>
+
+std::string Engine::exportDatabase() {
+    std::stringstream ss;
+    ss << "[";
+    
+    const auto& entities = db.getEntities();
+    for (size_t i = 0; i < entities.size(); ++i) {
+        const auto& entity = entities[i];
+        if (i > 0) ss << ",";
+        
+        ss << "{";
+        ss << "\"type\":" << static_cast<int>(entity->getType()) << ",";
+        ss << "\"color\":0,"; // Placeholder
+        ss << "\"visible\":" << (entity->visible ? "true" : "false") << ",";
+        
+        switch (entity->getType()) {
+            case EntityType::LINE: {
+                auto* line = static_cast<LineEntity*>(entity.get());
+                ss << "\"p1\":{\"x\":" << line->start.x << ",\"y\":" << line->start.y << "},";
+                ss << "\"p2\":{\"x\":" << line->end.x << ",\"y\":" << line->end.y << "}";
+                break;
+            }
+            case EntityType::CIRCLE: {
+                auto* circle = static_cast<CircleEntity*>(entity.get());
+                ss << "\"center\":{\"x\":" << circle->center.x << ",\"y\":" << circle->center.y << "},";
+                ss << "\"radius\":" << circle->radius;
+                break;
+            }
+            case EntityType::RECTANGLE: {
+                auto* rect = static_cast<RectangleEntity*>(entity.get());
+                ss << "\"p1\":{\"x\":" << rect->p1.x << ",\"y\":" << rect->p1.y << "},";
+                ss << "\"p2\":{\"x\":" << rect->p2.x << ",\"y\":" << rect->p2.y << "}";
+                break;
+            }
+            case EntityType::ARC: {
+                auto* arc = static_cast<ArcEntity*>(entity.get());
+                ss << "\"center\":{\"x\":" << arc->center.x << ",\"y\":" << arc->center.y << "},";
+                ss << "\"radius\":" << arc->radius << ",";
+                ss << "\"startAngle\":" << arc->startAngle << ",";
+                ss << "\"endAngle\":" << arc->endAngle;
+                break;
+            }
+            case EntityType::POLYLINE: {
+                auto* pl = static_cast<PolylineEntity*>(entity.get());
+                ss << "\"closed\":" << (pl->closed ? "true" : "false") << ",";
+                ss << "\"points\":[";
+                for (size_t j = 0; j < pl->points.size(); ++j) {
+                    if (j > 0) ss << ",";
+                    ss << "{\"x\":" << pl->points[j].x << ",\"y\":" << pl->points[j].y << "}";
+                }
+                ss << "]";
+                break;
+            }
+        }
+        
+        ss << "}";
+    }
+    
+    ss << "]";
+    return ss.str();
+}
+
+// Simple JSON parser helper
+std::string getJsonValue(const std::string& json, const std::string& key) {
+    auto pos = json.find("\"" + key + "\"");
+    if (pos == std::string::npos) return "";
+    
+    pos = json.find(":", pos) + 1;
+    while (json[pos] == ' ' || json[pos] == '\n') pos++; // skip whitespace
+    
+    char endChar = ',';
+    if (json[pos] == '{') endChar = '}';
+    else if (json[pos] == '[') endChar = ']';
+    else if (json[pos] == '"') endChar = '"';
+    
+    // This is a very naive parser, assumes simple structure
+    // For numbers/bools
+    if (endChar == ',') {
+        size_t end = json.find_first_of(",}", pos);
+        return json.substr(pos, end - pos);
+    }
+    
+    // For objects/arrays/strings, we need proper matching
+    // But since we control the export format, we can cheat a bit for now
+    // NOTE: This is risky for complex strings, but OK for numbers/simple objects
+    return ""; // Placeholder - Parsing logic is complex without library
+}
+
+// Helper to manually parse numbers from format like "x":123.45}
+double extractNumber(const std::string& str, const std::string& key) {
+    auto pos = str.find("\"" + key + "\":");
+    if (pos == std::string::npos) return 0.0;
+    
+    pos += key.length() + 3; // skip "key":
+    size_t end = str.find_first_of(",}", pos);
+    try {
+        return std::stod(str.substr(pos, end - pos));
+    } catch (...) {
+        return 0.0;
+    }
+}
+
+void Engine::importDatabase(const std::string& json) {
+    clear();
+    
+    // Minimal parser: Find each object {...} and parse it
+    // Format: [{"type":0,...}, {"type":1,...}]
+    
+    size_t pos = 0;
+    while ((pos = json.find("{", pos)) != std::string::npos) {
+        size_t end = json.find("}", pos);
+        if (end == std::string::npos) break;
+        
+        std::string obj = json.substr(pos, end - pos + 1);
+        pos = end + 1; // Move past this object
+        
+        // Parse "type"
+        auto typePos = obj.find("\"type\":");
+        if (typePos == std::string::npos) continue;
+        int type = std::stoi(obj.substr(typePos + 7)); // naive
+        
+        if (type == static_cast<int>(EntityType::LINE)) {
+            // Find "p1":{"x":...,"y":...}
+            size_t p1Pos = obj.find("\"p1\":");
+            size_t p2Pos = obj.find("\"p2\":");
+            
+            if (p1Pos != std::string::npos && p2Pos != std::string::npos) {
+                double x1 = extractNumber(obj.substr(p1Pos), "x");
+                double y1 = extractNumber(obj.substr(p1Pos), "y");
+                double x2 = extractNumber(obj.substr(p2Pos), "x");
+                double y2 = extractNumber(obj.substr(p2Pos), "y");
+                addLine(x1, y1, x2, y2);
+            }
+        } 
+        else if (type == static_cast<int>(EntityType::CIRCLE)) {
+            size_t cPos = obj.find("\"center\":");
+            double cx = extractNumber(obj.substr(cPos), "x");
+            double cy = extractNumber(obj.substr(cPos), "y");
+            double r = extractNumber(obj, "radius");
+            addCircle(cx, cy, r);
+        }
+        else if (type == static_cast<int>(EntityType::RECTANGLE)) {
+            size_t p1Pos = obj.find("\"p1\":");
+            size_t p2Pos = obj.find("\"p2\":");
+            double x1 = extractNumber(obj.substr(p1Pos), "x");
+            double y1 = extractNumber(obj.substr(p1Pos), "y");
+            double x2 = extractNumber(obj.substr(p2Pos), "x");
+            double y2 = extractNumber(obj.substr(p2Pos), "y");
+            addRectangle(x1, y1, x2, y2);
+        }
+        else if (type == static_cast<int>(EntityType::ARC)) {
+            size_t cPos = obj.find("\"center\":");
+            double cx = extractNumber(obj.substr(cPos), "x");
+            double cy = extractNumber(obj.substr(cPos), "y");
+            double r = extractNumber(obj, "radius");
+            double start = extractNumber(obj, "startAngle");
+            double endAngle = extractNumber(obj, "endAngle");
+            addArc(cx, cy, r, start, endAngle);
+        }
+        else if (type == static_cast<int>(EntityType::POLYLINE)) {
+             // Polyline parsing is tricky without a real parser
+             // For now, let's skip complex polyline parsing manually
+             // Only if advanced parser library is added later
+             
+             // Simple fallback: Check if points exist
+             size_t ptsPos = obj.find("\"points\":[");
+             if (ptsPos != std::string::npos) {
+                 std::vector<Point> points;
+                 size_t arrayStart = ptsPos + 10;
+                 size_t arrayEnd = obj.find("]", arrayStart);
+                 std::string arr = obj.substr(arrayStart, arrayEnd - arrayStart);
+                 
+                 size_t pPos = 0;
+                 while ((pPos = arr.find("{", pPos)) != std::string::npos) {
+                     double px = extractNumber(arr.substr(pPos), "x");
+                     double py = extractNumber(arr.substr(pPos), "y");
+                     points.push_back({px, py});
+                     pPos++;
+                 }
+                 
+                 bool closed = obj.find("\"closed\":true") != std::string::npos;
+                 addPolyline(points, closed);
+             }
+        }
+    }
+}
+
 const std::vector<float>& Engine::getRenderBuffer() {
     renderBuffer.clear();
     

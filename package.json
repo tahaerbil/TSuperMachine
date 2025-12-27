@@ -13,10 +13,16 @@
     "tauri:dev": "WEBKIT_DISABLE_COMPOSITING_MODE=1 tauri dev",
     "tauri:dev:release": "WEBKIT_DISABLE_COMPOSITING_MODE=1 tauri dev --release",
     "tauri:build": "tauri build",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron . 2>&1 | grep -v wayland\"",
-    "electron:build": "npm run build && electron-builder",
-    "electron:pack": "npm run build && electron-builder --dir"
+    "electron:dev": "concurrently \"npm run dev\" \"sleep 2 && electron .\"",
+    "electron:build": "npm run native:build && npm run build && electron-builder",
+    "electron:pack": "npm run build && electron-builder --dir",
+    "native:build": "npm run build --workspace=cad-addon",
+    "native:rebuild": "npm run rebuild --workspace=cad-addon",
+    "native:clean": "npm run clean --workspace=cad-addon"
   },
+  "workspaces": [
+    "native"
+  ],
   "dependencies": {
     "@fortune-sheet/react": "^1.0.4",
     "@react-three/drei": "^10.7.7",

@@ -82,16 +82,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
             try {
                 await cadEngine.init();
                 setIsEngineReady(true);
-
-                // Add some test data
-                cadEngine.clear();
-                // Draw a simple box and circle
-                cadEngine.addLine(100, 100, 500, 100);
-                cadEngine.addLine(500, 100, 500, 400);
-                cadEngine.addLine(500, 400, 100, 400);
-                cadEngine.addLine(100, 400, 100, 100);
-                cadEngine.addCircle(300, 250, 100);
-
+                // Trigger initial render
                 setEngineVersion(v => v + 1);
 
             } catch (e) {

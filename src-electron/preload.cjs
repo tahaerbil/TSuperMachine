@@ -1,11 +1,69 @@
 // Preload script - runs before renderer process
-// Can be used to expose specific Node.js APIs to the renderer
+// Exposes native CAD engine to renderer (with WASM fallback support)
 
 const { contextBridge } = require('electron');
+const path = require('path');
 
-// Expose protected methods that allow the renderer process to use
-// specific electron features without exposing the entire API
+// Try to load native CAD addon
+let cadAddon = null;
+let hasNativeCAD = false;
+
+try {
+    const addonPath = path.join(__dirname, '../native/build/Release/cad_addon.node');
+    cadAddon = require(addonPath);
+    hasNativeCAD = true;
+    console.log('✅ [Preload] Native CAD addon loaded');
+} catch (error) {
+    console.warn('⚠️ [Preload] Native CAD addon not available:', error.message);
+    console.log('   Will use WASM fallback in renderer');
+}
+
+// Expose basic Electron info
 contextBridge.exposeInMainWorld('electronAPI', {
     platform: process.platform,
-    isElectron: true
+    isElectron: true,
+    hasNativeCAD: hasNativeCAD
 });
+
+// Expose native CAD API if available
+if (hasNativeCAD && cadAddon) {
+    contextBridge.exposeInMainWorld('nativeCAD', {
+        // Engine lifecycle
+        createEngine: () => cadAddon.createEngine(),
+        destroyEngine: () => cadAddon.destroyEngine(),
+
+        // Drawing commands
+        addLine: (x1, y1, x2, y2) => cadAddon.addLine(x1, y1, x2, y2),
+        addCircle: (cx, cy, radius) => cadAddon.addCircle(cx, cy, radius),
+        addRectangle: (x1, y1, x2, y2) => cadAddon.addRectangle(x1, y1, x2, y2),
+        addArc: (cx, cy, radius, startAngle, endAngle) => cadAddon.addArc(cx, cy, radius, startAngle, endAngle),
+        addRegularPolygon: (cx, cy, sides, radius) => cadAddon.addRegularPolygon(cx, cy, sides, radius),
+        addPolyline: (points, closed) => cadAddon.addPolyline(points, closed),
+
+        // Serialization
+        exportDatabase: () => cadAddon.exportDatabase(),
+        importDatabase: (json) => cadAddon.importDatabase(json),
+
+        // Modification commands
+        clear: () => cadAddon.clear(),
+        deleteEntity: (id) => cadAddon.deleteEntity(id),
+
+        // Selection commands
+        hitTest: (x, y, threshold) => cadAddon.hitTest(x, y, threshold),
+        selectEntity: (id) => cadAddon.selectEntity(id),
+        deselectAll: () => cadAddon.deselectAll(),
+        deleteSelected: () => cadAddon.deleteSelected(),
+        moveSelected: (dx, dy) => cadAddon.moveSelected(dx, dy),
+        copySelected: (dx, dy) => cadAddon.copySelected(dx, dy),
+        selectByWindow: (x1, y1, x2, y2) => cadAddon.selectByWindow(x1, y1, x2, y2),
+        selectByCrossing: (x1, y1, x2, y2) => cadAddon.selectByCrossing(x1, y1, x2, y2),
+        rotateSelected: (cx, cy, angle) => cadAddon.rotateSelected(cx, cy, angle),
+        offsetEntity: (id, distance, clickX, clickY) => cadAddon.offsetEntity(id, distance, clickX, clickY),
+
+        // Snapping
+        findClosestSnapPoint: (x, y, threshold) => cadAddon.findClosestSnapPoint(x, y, threshold),
+
+        // Rendering - returns Float32Array directly (sync, fast!)
+        getRenderBuffer: () => cadAddon.getRenderBuffer()
+    });
+}

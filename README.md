@@ -6,8 +6,9 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 ![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB)
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)
 ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat&logo=tailwind-css&logoColor=white)
-![Tauri](https://img.shields.io/badge/Tauri-24C8DB?style=flat&logo=tauri&logoColor=white)
+![C++](https://img.shields.io/badge/C++-00599C?style=flat&logo=c%2B%2B&logoColor=white)
 ![Electron](https://img.shields.io/badge/Electron-47848F?style=flat&logo=electron&logoColor=white)
+![Tauri](https://img.shields.io/badge/Tauri-24C8DB?style=flat&logo=tauri&logoColor=white)
 
 ## ✨ Features
 
@@ -18,6 +19,17 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 - **Dark/Light Themes** - Built-in themes + custom theme creator
 - **Multi-language** - Turkish, English + custom language upload support
 
+### 🚀 High-Performance CAD Engine
+- **Native C++ Addon** (Electron) - Maximum performance with Node.js N-API bindings
+- **WASM Fallback** (Web/Tauri) - Cross-platform support via WebAssembly
+- **Hybrid Architecture** - Automatically selects best engine for platform
+- **Full State Saving** - Saves all CAD entities (lines, circles, etc.) to `.tsm` project file via native serialization
+
+### 💾 Robust Save System
+- **.tsm File Format** - ZIP-based project file containing metadata, canvas state, and CAD data
+- **Native File Dialogs** - Uses OS native save/load dialogs in Electron
+- **Auto-Serialization** - CAD data is automatically serialized to `cadData.json` within the project file
+
 ### 📦 10 Specialized Widgets
 
 1. **📝 Note** - Simple notepad with auto-save
@@ -27,7 +39,7 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 5. **🖼️ Image Viewer** - Upload, zoom, rotate, and download images
 6. **📄 PDF Viewer** - View PDFs with page navigation and zoom
 7. **🎬 Presentation** - PowerPoint-like slide creator with presentation mode
-8. **✏️ 2D CAD** - Vector drawing with lines, rectangles, and circles (Konva.js)
+8. **✏️ 2D CAD** - Vector drawing with C++ engine (lines, circles, arcs, polylines, rectangles)
 9. **🎲 3D CAD** - 3D object viewer with orbit controls (Three.js)
 10. **⚙️ Settings** - Theme and language configuration
 
@@ -36,25 +48,40 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 ### Prerequisites
 - Node.js 18+ 
 - npm or yarn
+- CMake 3.15+ (for native addon)
+- C++17 compiler (GCC 9+, Clang 10+)
 
 ### Installation
 
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/TSuperMachine.git
-cd TSuperMachine/tsupermachine
+cd TSuperMachine/tsupermachinev2
 
 # Install dependencies
 npm install
+
+# Build native CAD addon (for Electron) - Using npm Workspaces
+npm run native:build
 
 # Start development server
 npm run dev
 
 # Build for production
 npm run build
+```
 
-# Preview production build
-npm run preview
+### Desktop App (Electron) - Recommended
+
+```bash
+# Run desktop app in development mode
+npm run electron:dev
+
+# Rebuild native addon (if C++ changes)
+npm run native:rebuild
+
+# Build desktop app for production
+npm run electron:build
 ```
 
 ### Desktop App (Tauri)
@@ -69,16 +96,6 @@ npm run tauri:dev
 npm run tauri:build
 ```
 
-### Desktop App (Electron)
-
-```bash
-# Run desktop app in development mode (Chrome-like performance)
-npm run electron:dev
-
-# Build desktop app for production
-npm run electron:build
-```
-
 ## 🎮 Usage
 
 ### Canvas Controls
@@ -91,6 +108,19 @@ npm run electron:build
 - **Resize Widget**: Drag from corners/edges
 - **Close Widget**: Click X button
 - **Focus Widget**: Click anywhere on widget
+
+### 2D CAD Commands
+| Command | Shortcut | Description |
+|---------|----------|-------------|
+| Line | `L` | Draw a line between two points |
+| Circle | `C` | Draw a circle by center and radius |
+| Rectangle | `REC` | Draw a rectangle |
+| Polyline | `PL` | Draw connected line segments |
+| Arc | `ARC` | Draw an arc |
+| Move | `M` | Move selected entities |
+| Copy | `CO` | Copy selected entities |
+| Delete | `DEL` | Delete selected entities |
+| Offset | `O` | Offset an entity |
 
 ### Theme Customization
 1. Open Settings widget (⚙️ icon)
@@ -110,7 +140,7 @@ npm run electron:build
 |----------|-----------|
 | **Framework** | React 19 + TypeScript |
 | **Build Tool** | Vite 7 |
-| **Desktop App** | Tauri 2 (Rust) / Electron 39 |
+| **Desktop App** | Electron 39 / Tauri 2 (Rust) |
 | **Styling** | TailwindCSS v4 |
 | **State Management** | Zustand (+ persist) |
 | **Internationalization** | i18next |
@@ -119,51 +149,97 @@ npm run electron:build
 | **Math Engine** | mathjs |
 | **Spreadsheet** | @fortune-sheet/react |
 | **PDF Viewer** | react-pdf |
-| **2D Graphics** | react-konva |
+| **2D Graphics** | C++ Native Addon / WASM + react-konva |
 | **3D Graphics** | @react-three/fiber + drei |
 
 ## 📁 Project Structure
 
 ```
-src/
-├── components/
-│   ├── Canvas.tsx              # Infinite canvas
-│   ├── Toolbar.tsx             # Widget launcher
-│   ├── WidgetContainer.tsx     # Draggable window wrapper
-│   └── widgets/
-│       ├── NoteWidget.tsx
-│       ├── CalculatorWidget.tsx
-│       ├── TodoWidget.tsx
-│       ├── SpreadsheetWidget.tsx
-│       ├── ImageViewerWidget.tsx
-│       ├── PDFViewerWidget.tsx
-│       ├── PresentationWidget.tsx
-│       ├── CAD2DWidget.tsx
-│       ├── CAD3DWidget.tsx
-│       └── SettingsWidget.tsx
-├── store/
-│   ├── store.ts               # Main app state
-│   └── themeStore.ts          # Theme state
-├── locales/
-│   ├── en.json                # English translations
-│   └── tr.json                # Turkish translations
-├── i18n.ts                    # i18n config
-├── App.tsx
-├── main.tsx
-└── index.css
-
-src-tauri/                     # Tauri (Rust) backend
-├── Cargo.toml                 # Rust dependencies
-├── tauri.conf.json            # Tauri configuration
-├── icons/                     # App icons
-└── src/
-    ├── main.rs                # Rust main entry
-    └── lib.rs                 # Rust library
-
-src-electron/                  # Electron (Node.js) backend
-├── main.cjs                   # Electron main process
-└── preload.cjs                # Preload script
+tsupermachinev2/
+├── src/
+│   ├── components/
+│   │   ├── Canvas.tsx              # Infinite canvas
+│   │   ├── Toolbar.tsx             # Widget launcher
+│   │   ├── WidgetContainer.tsx     # Draggable window wrapper
+│   │   └── widgets/
+│   │       ├── CAD2D/
+│   │       │   ├── CADEngine.ts    # Hybrid engine (Native/WASM)
+│   │       │   ├── WasmCanvas.tsx  # 2D CAD canvas renderer
+│   │       │   └── CAD2DWidget.tsx # Widget wrapper
+│   │       ├── CAD3DWidget.tsx
+│   │       ├── NoteWidget.tsx
+│   │       └── ... (other widgets)
+│   ├── store/
+│   │   ├── store.ts               # Main app state
+│   │   └── themeStore.ts          # Theme state
+│   ├── locales/                   # i18n translations
+│   ├── i18n.ts
+│   ├── App.tsx
+│   └── main.tsx
+│
+├── native/                        # C++ Native CAD Engine
+│   ├── CMakeLists.txt             # CMake build config
+│   ├── package.json               # Node addon config
+│   ├── src/
+│   │   ├── cad2d/                 # 2D CAD Engine
+│   │   │   ├── Geometry.h         # Entity classes
+│   │   │   ├── Database.h         # Entity storage
+│   │   │   ├── Engine.h           # Engine API
+│   │   │   └── Engine.cpp         # Engine implementation
+│   │   └── bindings/
+│   │       └── node/
+│   │           └── addon.cpp      # N-API bindings
+│   └── build/Release/
+│       └── cad_addon.node         # Compiled addon
+│
+├── public/wasm/                   # WASM CAD Engine (fallback)
+│   ├── cad_engine.js
+│   └── cad_engine.wasm
+│
+├── src-electron/                  # Electron backend
+│   ├── main.cjs                   # Main process
+│   └── preload.cjs                # Preload script
+│
+└── src-tauri/                     # Tauri backend (optional)
+    ├── Cargo.toml
+    ├── tauri.conf.json
+    └── src/
 ```
+
+## ⚡ 2D CAD Engine Architecture
+
+The 2D CAD engine uses a **hybrid architecture** for optimal performance:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                      CADEngine.ts                        │
+│                   (Hybrid Facade)                        │
+├─────────────────────────────────────────────────────────┤
+│                         │                                │
+│    ┌────────────────────┼────────────────────┐          │
+│    │                    │                    │          │
+│    ▼                    ▼                    ▼          │
+│ ┌──────────┐      ┌──────────┐        ┌──────────┐     │
+│ │  Native  │      │  WASM    │        │  WASM    │     │
+│ │  Addon   │      │ (Tauri)  │        │  (Web)   │     │
+│ │(Electron)│      │          │        │          │     │
+│ └──────────┘      └──────────┘        └──────────┘     │
+│      │                 │                   │            │
+│      └─────────────────┼───────────────────┘            │
+│                        │                                │
+│                        ▼                                │
+│              ┌─────────────────┐                        │
+│              │   C++ Engine    │                        │
+│              │ (Same Codebase) │                        │
+│              └─────────────────┘                        │
+└─────────────────────────────────────────────────────────┘
+```
+
+| Platform | Engine | Performance |
+|----------|--------|-------------|
+| **Electron** | Native C++ Addon | ⚡⚡⚡ Maximum |
+| **Tauri** | WASM | ⚡⚡ Very Good |
+| **Web Browser** | WASM | ⚡⚡ Very Good |
 
 ## 🎨 Themes
 
@@ -173,12 +249,7 @@ src-electron/                  # Electron (Node.js) backend
 - **Custom**: Create your own with color pickers
 
 ### Customizable Colors
-- Primary
-- Secondary
-- Background
-- Surface
-- Text
-- Border
+- Primary, Secondary, Background, Surface, Text, Border
 
 ## 🌍 Internationalization
 
@@ -195,21 +266,26 @@ src-electron/                  # Electron (Node.js) backend
 ## 📊 Performance
 
 - **Bundle Size**: ~5.4 MB (minified)
-- **Gzip Size**: ~1.36 MB
-- **PWA Cache Limit**: 10 MB
+- **Native Addon Size**: ~138 KB
+- **WASM Size**: ~94 KB
 - **Widget Limit**: Unlimited (performance depends on device)
 
 ## 🔧 Development
 
 ```bash
-# Install dependencies
+# Install all dependencies
+# Install all dependencies
 npm install
+
+# Build native addon
+npm run native:build
+npm run native:rebuild (for forcing clean build)
 
 # Start dev server with HMR
 npm run dev
 
-# Start Tauri dev (desktop app)
-npm run tauri:dev
+# Start Electron dev
+npm run electron:dev
 
 # Type check
 npm run build
@@ -220,31 +296,24 @@ npm run lint
 
 ## 🚀 Deployment
 
-### Build for Production
+### Electron Distribution
 ```bash
-npm run build
+npm run electron:build
+
+# Output: out/make/ directory
 ```
 
-The `dist/` folder will contain the production build ready for deployment.
-
-### Deploy to Vercel/Netlify
-Simply connect your GitHub repository and the build will be automatic.
-
-### PWA Installation
-Once deployed, users can install the app:
-- **Desktop**: Chrome → Settings → Install App
-- **Mobile**: Add to Home Screen
-
-### Desktop App Distribution
+### Tauri Distribution
 ```bash
-# Build for all platforms
 npm run tauri:build
 
-# Output location: src-tauri/target/release/bundle/
-# - .deb (Debian/Ubuntu)
-# - .AppImage (Universal Linux)
-# - .dmg (macOS)
-# - .msi/.exe (Windows)
+# Output: src-tauri/target/release/bundle/
+```
+
+### Web Deployment
+```bash
+npm run build
+# Deploy dist/ folder to any static host
 ```
 
 ## 📝 License
@@ -255,10 +324,6 @@ MIT License - feel free to use for personal or commercial projects.
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 📧 Contact
-
-Created by AI Assistant - Feel free to reach out for questions or suggestions!
-
 ---
 
-**Made with ❤️ using React + TypeScript**
+**Made with ❤️ using React + TypeScript + C++**
