@@ -1,385 +1,511 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { useStore } from '../../store/store';
 import { useTranslation } from 'react-i18next';
-import { GripVertical } from 'lucide-react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
+import Highlight from '@tiptap/extension-highlight';
+import Typography from '@tiptap/extension-typography';
+import Underline from '@tiptap/extension-underline';
+import TextAlign from '@tiptap/extension-text-align';
+import Link from '@tiptap/extension-link';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { common, createLowlight } from 'lowlight';
+import {
+    Bold,
+    Italic,
+    Underline as UnderlineIcon,
+    Strikethrough,
+    Code,
+    Highlighter,
+    List,
+    ListOrdered,
+    CheckSquare,
+    Quote,
+    Heading1,
+    Heading2,
+    Heading3,
+    AlignLeft,
+    AlignCenter,
+    AlignRight,
+    Link as LinkIcon,
+    Minus,
+    Undo,
+    Redo,
+    Type
+} from 'lucide-react';
+
+// Create lowlight instance
+const lowlight = createLowlight(common);
 
 interface NoteWidgetProps {
     id: string;
-    initialContent?: string;
+    initialContent?: string | object;
+    isMaximized?: boolean;
 }
 
-export const NoteWidget: React.FC<NoteWidgetProps> = ({ id, initialContent = '' }) => {
-    const [content, setContent] = useState(initialContent);
-    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-    const [isDragging, setIsDragging] = useState(false);
-    const [linePositions, setLinePositions] = useState<{ top: number; height: number }[]>([]);
-    const [hoveredLine, setHoveredLine] = useState<number | null>(null);
-    const [draggedText, setDraggedText] = useState<string>('');
+// Toolbar button component
+const ToolbarButton: React.FC<{
+    onClick: () => void;
+    isActive?: boolean;
+    disabled?: boolean;
+    title: string;
+    children: React.ReactNode;
+}> = ({ onClick, isActive, disabled, title, children }) => (
+    <button
+        onClick={onClick}
+        disabled={disabled}
+        title={title}
+        className={`p-1.5 rounded transition-colors ${isActive
+            ? 'bg-blue-500 text-white'
+            : 'hover:bg-gray-200 text-gray-700'
+            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+    >
+        {children}
+    </button>
+);
 
+// Toolbar divider
+const ToolbarDivider: React.FC = () => (
+    <div className="w-px h-6 bg-gray-300 mx-1" />
+);
+
+export const NoteWidget: React.FC<NoteWidgetProps> = ({ id, initialContent = '', isMaximized = false }) => {
     const { updateWidget } = useStore();
     const { t } = useTranslation();
-    const editorRef = useRef<HTMLDivElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
 
-    // Debounce save to store
-    useEffect(() => {
-        const timeoutId = setTimeout(() => {
-            updateWidget(id, { data: { content } });
-        }, 500);
-        return () => clearTimeout(timeoutId);
-    }, [content, id, updateWidget]);
-
-    // Calculate line positions for drag handles
-    const updateLinePositions = useCallback(() => {
-        if (!editorRef.current) return;
-
-        const lines = editorRef.current.querySelectorAll('.note-line');
-        const positions: { top: number; height: number }[] = [];
-
-        lines.forEach((line) => {
-            const rect = line.getBoundingClientRect();
-            const containerRect = editorRef.current!.getBoundingClientRect();
-            positions.push({
-                top: rect.top - containerRect.top,
-                height: rect.height
-            });
-        });
-
-        setLinePositions(positions);
-    }, []);
-
-    // Update positions on content change
-    useEffect(() => {
-        // Small delay to ensure DOM is updated
-        const timeoutId = setTimeout(updateLinePositions, 50);
-        return () => clearTimeout(timeoutId);
-    }, [content, updateLinePositions]);
-
-    // Also update on window resize
-    useEffect(() => {
-        window.addEventListener('resize', updateLinePositions);
-        return () => window.removeEventListener('resize', updateLinePositions);
-    }, [updateLinePositions]);
-
-    // Initialize content with line divs
-    useEffect(() => {
-        if (editorRef.current && !editorRef.current.innerHTML) {
-            const lines = content ? content.split('\n') : [''];
-            editorRef.current.innerHTML = lines
-                .map(line => `<div class="note-line">${line || '<br>'}</div>`)
-                .join('');
-            // Schedule position update after initial render
-            setTimeout(updateLinePositions, 50);
+    // Parse initial content
+    const getInitialContent = () => {
+        if (typeof initialContent === 'object' && initialContent !== null) {
+            return initialContent;
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // Handle content changes
-    const handleInput = useCallback(() => {
-        if (!editorRef.current) return;
-
-        // Ensure all content is wrapped in note-line divs
-        const children = Array.from(editorRef.current.childNodes);
-        let needsNormalization = false;
-
-        children.forEach(child => {
-            if (child.nodeType === Node.TEXT_NODE) {
-                needsNormalization = true;
-            } else if (child.nodeType === Node.ELEMENT_NODE) {
-                const el = child as HTMLElement;
-                if (!el.classList.contains('note-line')) {
-                    needsNormalization = true;
-                }
-            }
-        });
-
-        if (needsNormalization) {
-            // Normalize content
-            const html = editorRef.current.innerHTML;
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = html;
-
-            const extractText = (node: Node): string => {
-                if (node.nodeType === Node.TEXT_NODE) {
-                    return node.textContent || '';
-                } else if (node.nodeType === Node.ELEMENT_NODE) {
-                    const el = node as HTMLElement;
-                    if (el.tagName === 'BR') {
-                        return '\n';
-                    } else if (el.tagName === 'DIV' || el.tagName === 'P') {
-                        return Array.from(el.childNodes).map(extractText).join('') + '\n';
-                    }
-                    return Array.from(el.childNodes).map(extractText).join('');
-                }
-                return '';
+        if (typeof initialContent === 'string' && initialContent.trim()) {
+            // Convert plain text to TipTap format
+            return {
+                type: 'doc',
+                content: initialContent.split('\n').map(line => ({
+                    type: 'paragraph',
+                    content: line ? [{ type: 'text', text: line }] : []
+                }))
             };
-
-            const fullText = Array.from(tempDiv.childNodes).map(extractText).join('').replace(/\n+$/, '');
-            const lines = fullText.split('\n');
-
-            editorRef.current.innerHTML = lines
-                .map(line => `<div class="note-line">${line || '<br>'}</div>`)
-                .join('');
         }
+        return undefined;
+    };
 
-        // Extract text content
-        const lines = editorRef.current.querySelectorAll('.note-line');
-        const textLines: string[] = [];
-        lines.forEach(line => {
-            const text = line.textContent || '';
-            textLines.push(text);
-        });
+    const editor = useEditor({
+        extensions: [
+            StarterKit.configure({
+                codeBlock: false, // We'll use CodeBlockLowlight instead
+            }),
+            Placeholder.configure({
+                placeholder: t('app.widgets.note.placeholder') || 'Start writing...',
+            }),
+            TaskList,
+            TaskItem.configure({
+                nested: true,
+            }),
+            Highlight.configure({
+                multicolor: true,
+            }),
+            Typography,
+            Underline,
+            TextAlign.configure({
+                types: ['heading', 'paragraph'],
+            }),
+            Link.configure({
+                openOnClick: true,
+                HTMLAttributes: {
+                    class: 'text-blue-500 underline cursor-pointer',
+                },
+            }),
+            CodeBlockLowlight.configure({
+                lowlight,
+            }),
+        ],
+        content: getInitialContent(),
+        editorProps: {
+            attributes: {
+                class: 'prose prose-sm max-w-none focus:outline-none min-h-full p-4',
+            },
+        },
+        onUpdate: ({ editor }) => {
+            // Save content as JSON
+            const json = editor.getJSON();
+            updateWidget(id, { data: { content: json } });
+        },
+    });
 
-        setContent(textLines.join('\n'));
-        updateLinePositions();
-    }, [updateLinePositions]);
-
-    // Handle mouse move to detect which line is hovered
-    const handleMouseMove = useCallback((e: React.MouseEvent) => {
-        if (isDragging || !containerRef.current || !editorRef.current) return;
-
-        const editorRect = editorRef.current.getBoundingClientRect();
-        const relativeY = e.clientY - editorRect.top;
-
-        let foundLine = null;
-        for (let i = 0; i < linePositions.length; i++) {
-            const pos = linePositions[i];
-            if (relativeY >= pos.top && relativeY < pos.top + pos.height) {
-                foundLine = i;
-                break;
-            }
-        }
-
-        setHoveredLine(foundLine);
-    }, [isDragging, linePositions]);
-
-    // Drag handle mouse down - start drag
-    const handleDragStart = useCallback((e: React.MouseEvent, index: number) => {
-        e.preventDefault();
+    // Stop propagation to prevent widget drag
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
         e.stopPropagation();
-
-        // Capture the text of the dragged line
-        const lines = editorRef.current?.querySelectorAll('.note-line');
-        if (lines && lines[index]) {
-            setDraggedText(lines[index].textContent || '');
-        }
-
-        setDraggedIndex(index);
-        setIsDragging(true);
     }, []);
 
-    // Handle mouse move during drag
-    useEffect(() => {
-        if (!isDragging || draggedIndex === null) return;
+    // Add link handler
+    const setLink = useCallback(() => {
+        if (!editor) return;
 
-        const handleMouseMove = (e: MouseEvent) => {
-            if (!editorRef.current) return;
+        const previousUrl = editor.getAttributes('link').href;
+        const url = window.prompt('URL', previousUrl);
 
-            const editorRect = editorRef.current.getBoundingClientRect();
-            const relativeY = e.clientY - editorRect.top;
-
-            // Find which line we're over
-            let targetIndex = linePositions.length - 1;
-            for (let i = 0; i < linePositions.length; i++) {
-                const pos = linePositions[i];
-                const midPoint = pos.top + pos.height / 2;
-                if (relativeY < midPoint) {
-                    targetIndex = i;
-                    break;
-                }
-            }
-
-            setDragOverIndex(targetIndex);
-        };
-
-        const handleMouseUp = () => {
-            if (draggedIndex !== null && dragOverIndex !== null && draggedIndex !== dragOverIndex && editorRef.current) {
-                // Reorder lines in DOM
-                const lines = Array.from(editorRef.current.querySelectorAll('.note-line'));
-                const draggedElement = lines[draggedIndex];
-
-                if (draggedElement) {
-                    // Remove dragged element
-                    draggedElement.remove();
-
-                    // Get updated lines list
-                    const remainingLines = Array.from(editorRef.current.querySelectorAll('.note-line'));
-
-                    // Insert at new position
-                    const actualInsertIndex = dragOverIndex > draggedIndex ? dragOverIndex - 1 : dragOverIndex;
-
-                    if (actualInsertIndex >= remainingLines.length) {
-                        editorRef.current.appendChild(draggedElement);
-                    } else {
-                        editorRef.current.insertBefore(draggedElement, remainingLines[actualInsertIndex]);
-                    }
-
-                    // Update content from DOM
-                    const updatedLines = editorRef.current.querySelectorAll('.note-line');
-                    const textLines: string[] = [];
-                    updatedLines.forEach(line => {
-                        textLines.push(line.textContent || '');
-                    });
-                    setContent(textLines.join('\n'));
-                    updateLinePositions();
-                }
-            }
-
-            setDraggedIndex(null);
-            setDragOverIndex(null);
-            setIsDragging(false);
-        };
-
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-
-        return () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-        };
-    }, [isDragging, draggedIndex, dragOverIndex, linePositions, updateLinePositions]);
-
-    // Handle paste to ensure proper formatting
-    const handlePaste = useCallback((e: React.ClipboardEvent) => {
-        e.preventDefault();
-        const text = e.clipboardData.getData('text/plain');
-        document.execCommand('insertText', false, text);
-    }, []);
-
-    // Handle key down for special keys
-    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-
-            // Insert new line div
-            const selection = window.getSelection();
-            if (!selection || selection.rangeCount === 0) return;
-
-            const range = selection.getRangeAt(0);
-
-            // Find current line
-            let currentLine = range.startContainer as Node;
-            while (currentLine && currentLine.parentNode !== editorRef.current) {
-                currentLine = currentLine.parentNode as Node;
-            }
-
-            if (currentLine && currentLine.nodeType === Node.ELEMENT_NODE) {
-                const lineEl = currentLine as HTMLElement;
-                const newLine = document.createElement('div');
-                newLine.className = 'note-line';
-
-                // Split content at cursor
-                const cursorOffset = range.startOffset;
-                const textContent = lineEl.textContent || '';
-                const beforeCursor = textContent.substring(0, cursorOffset);
-                const afterCursor = textContent.substring(cursorOffset);
-
-                lineEl.innerHTML = beforeCursor || '<br>';
-                newLine.innerHTML = afterCursor || '<br>';
-
-                // Insert new line after current
-                if (lineEl.nextSibling) {
-                    editorRef.current?.insertBefore(newLine, lineEl.nextSibling);
-                } else {
-                    editorRef.current?.appendChild(newLine);
-                }
-
-                // Move cursor to new line
-                const newRange = document.createRange();
-                newRange.setStart(newLine, 0);
-                newRange.collapse(true);
-                selection.removeAllRanges();
-                selection.addRange(newRange);
-
-                handleInput();
-            }
+        if (url === null) return;
+        if (url === '') {
+            editor.chain().focus().extendMarkRange('link').unsetLink().run();
+            return;
         }
-    }, [handleInput]);
+
+        editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    }, [editor]);
+
+    if (!editor) {
+        return <div className="w-full h-full flex items-center justify-center text-gray-400">Loading editor...</div>;
+    }
 
     return (
         <div
-            ref={containerRef}
-            className="w-full h-full flex flex-col overflow-hidden relative"
+            className="w-full h-full flex flex-col overflow-hidden"
             style={{ backgroundColor: 'var(--color-surface)' }}
-            onMouseMove={handleMouseMove}
-            onMouseLeave={() => setHoveredLine(null)}
+            onMouseDown={handleMouseDown}
         >
-            {/* Drag Handles Overlay */}
-            <div
-                className="absolute left-0 top-0 bottom-0 w-6 pointer-events-none pt-2"
-                style={{ zIndex: 10 }}
-            >
-                {linePositions.map((pos, index) => {
-                    const isBeingDragged = draggedIndex === index;
-                    const isHovered = hoveredLine === index || isBeingDragged;
-
-                    return (
-                        <div
-                            key={index}
-                            className="absolute pointer-events-auto cursor-grab active:cursor-grabbing flex items-center justify-center transition-opacity duration-150"
-                            style={{
-                                top: `${pos.top + (pos.height / 2) - 10}px`,
-                                left: '4px',
-                                width: '20px',
-                                height: '20px',
-                                opacity: isHovered ? 0.8 : 0,
-                                color: 'var(--color-text-secondary)',
-                            }}
-                            onMouseDown={(e) => handleDragStart(e, index)}
-                        >
-                            <GripVertical size={14} />
-                        </div>
-                    );
-                })}
-            </div>
-
-            {/* Ghost preview of dragged line at target position */}
-            {isDragging && dragOverIndex !== null && draggedIndex !== null && dragOverIndex !== draggedIndex && (
+            {/* Toolbar - Only show when maximized */}
+            {isMaximized && (
                 <div
-                    className="absolute left-7 right-2 pointer-events-none font-sans text-sm"
-                    style={{
-                        top: `${(linePositions[dragOverIndex]?.top || 0) + 8 + (draggedIndex > dragOverIndex ? 0 : linePositions[dragOverIndex]?.height || 0)}px`,
-                        opacity: 0.4,
-                        color: 'var(--color-text)',
-                        zIndex: 20,
-                        lineHeight: 1.5,
-                        whiteSpace: 'pre-wrap'
-                    }}
+                    className="flex items-center gap-0.5 p-2 border-b flex-wrap"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}
                 >
-                    {draggedText}
+                    {/* Undo/Redo */}
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().undo().run()}
+                        disabled={!editor.can().undo()}
+                        title="Undo"
+                    >
+                        <Undo size={16} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().redo().run()}
+                        disabled={!editor.can().redo()}
+                        title="Redo"
+                    >
+                        <Redo size={16} />
+                    </ToolbarButton>
+
+                    <ToolbarDivider />
+
+                    {/* Text formatting */}
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleBold().run()}
+                        isActive={editor.isActive('bold')}
+                        title="Bold (Ctrl+B)"
+                    >
+                        <Bold size={16} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleItalic().run()}
+                        isActive={editor.isActive('italic')}
+                        title="Italic (Ctrl+I)"
+                    >
+                        <Italic size={16} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleUnderline().run()}
+                        isActive={editor.isActive('underline')}
+                        title="Underline (Ctrl+U)"
+                    >
+                        <UnderlineIcon size={16} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleStrike().run()}
+                        isActive={editor.isActive('strike')}
+                        title="Strikethrough"
+                    >
+                        <Strikethrough size={16} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleHighlight().run()}
+                        isActive={editor.isActive('highlight')}
+                        title="Highlight"
+                    >
+                        <Highlighter size={16} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleCode().run()}
+                        isActive={editor.isActive('code')}
+                        title="Inline Code"
+                    >
+                        <Code size={16} />
+                    </ToolbarButton>
+
+                    <ToolbarDivider />
+
+                    {/* Headings */}
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().setParagraph().run()}
+                        isActive={editor.isActive('paragraph')}
+                        title="Paragraph"
+                    >
+                        <Type size={16} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                        isActive={editor.isActive('heading', { level: 1 })}
+                        title="Heading 1"
+                    >
+                        <Heading1 size={16} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+                        isActive={editor.isActive('heading', { level: 2 })}
+                        title="Heading 2"
+                    >
+                        <Heading2 size={16} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+                        isActive={editor.isActive('heading', { level: 3 })}
+                        title="Heading 3"
+                    >
+                        <Heading3 size={16} />
+                    </ToolbarButton>
+
+                    <ToolbarDivider />
+
+                    {/* Lists */}
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleBulletList().run()}
+                        isActive={editor.isActive('bulletList')}
+                        title="Bullet List"
+                    >
+                        <List size={16} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                        isActive={editor.isActive('orderedList')}
+                        title="Numbered List"
+                    >
+                        <ListOrdered size={16} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleTaskList().run()}
+                        isActive={editor.isActive('taskList')}
+                        title="Task List"
+                    >
+                        <CheckSquare size={16} />
+                    </ToolbarButton>
+
+                    <ToolbarDivider />
+
+                    {/* Block elements */}
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                        isActive={editor.isActive('blockquote')}
+                        title="Quote"
+                    >
+                        <Quote size={16} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+                        isActive={editor.isActive('codeBlock')}
+                        title="Code Block"
+                    >
+                        <Code size={16} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().setHorizontalRule().run()}
+                        title="Horizontal Rule"
+                    >
+                        <Minus size={16} />
+                    </ToolbarButton>
+
+                    <ToolbarDivider />
+
+                    {/* Alignment */}
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().setTextAlign('left').run()}
+                        isActive={editor.isActive({ textAlign: 'left' })}
+                        title="Align Left"
+                    >
+                        <AlignLeft size={16} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().setTextAlign('center').run()}
+                        isActive={editor.isActive({ textAlign: 'center' })}
+                        title="Align Center"
+                    >
+                        <AlignCenter size={16} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().setTextAlign('right').run()}
+                        isActive={editor.isActive({ textAlign: 'right' })}
+                        title="Align Right"
+                    >
+                        <AlignRight size={16} />
+                    </ToolbarButton>
+
+                    <ToolbarDivider />
+
+                    {/* Link */}
+                    <ToolbarButton
+                        onClick={setLink}
+                        isActive={editor.isActive('link')}
+                        title="Add Link"
+                    >
+                        <LinkIcon size={16} />
+                    </ToolbarButton>
                 </div>
             )}
 
-            {/* Editable Content Area */}
-            <div
-                ref={editorRef}
-                contentEditable
-                suppressContentEditableWarning
-                className="flex-1 overflow-y-auto p-2 pl-7 outline-none font-sans text-sm"
-                style={{
-                    color: 'var(--color-text)',
-                    userSelect: isDragging ? 'none' : 'auto',
-                    minHeight: '100%'
-                }}
-                onInput={handleInput}
-                onPaste={handlePaste}
-                onKeyDown={handleKeyDown}
-                onMouseDown={(e) => e.stopPropagation()}
-                data-placeholder={t('app.widgets.note.placeholder')}
-            />
+            {/* Editor Content */}
+            <div className="flex-1 overflow-y-auto">
+                <EditorContent
+                    editor={editor}
+                    className="h-full"
+                />
+            </div>
 
-            {/* Placeholder Styling */}
+
+            {/* Styles for TipTap editor */}
             <style>{`
-                .note-line {
-                    min-height: 1.5em;
-                    line-height: 1.5;
+                .ProseMirror {
+                    min-height: 100%;
+                    padding: 1rem;
+                    color: var(--color-text);
                 }
-                [contenteditable]:empty::before {
+                
+                .ProseMirror:focus {
+                    outline: none;
+                }
+                
+                .ProseMirror p.is-editor-empty:first-child::before {
                     content: attr(data-placeholder);
+                    float: left;
                     color: var(--color-text-secondary);
-                    opacity: 0.6;
+                    opacity: 0.5;
                     pointer-events: none;
+                    height: 0;
+                }
+                
+                .ProseMirror h1 {
+                    font-size: 1.75rem;
+                    font-weight: 700;
+                    line-height: 1.2;
+                    margin: 1rem 0 0.5rem 0;
+                }
+                
+                .ProseMirror h2 {
+                    font-size: 1.4rem;
+                    font-weight: 600;
+                    line-height: 1.3;
+                    margin: 0.8rem 0 0.4rem 0;
+                }
+                
+                .ProseMirror h3 {
+                    font-size: 1.15rem;
+                    font-weight: 600;
+                    line-height: 1.4;
+                    margin: 0.6rem 0 0.3rem 0;
+                }
+                
+                .ProseMirror p {
+                    margin: 0.5rem 0;
+                    line-height: 1.6;
+                }
+                
+                .ProseMirror ul,
+                .ProseMirror ol {
+                    padding-left: 1.5rem;
+                    margin: 0.5rem 0;
+                }
+                
+                .ProseMirror li {
+                    margin: 0.25rem 0;
+                }
+                
+                .ProseMirror ul[data-type="taskList"] {
+                    list-style: none;
+                    padding-left: 0;
+                }
+                
+                .ProseMirror ul[data-type="taskList"] li {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 0.5rem;
+                }
+                
+                .ProseMirror ul[data-type="taskList"] li > label {
+                    flex: 0 0 auto;
+                    margin-top: 0.25rem;
+                }
+                
+                .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
+                    cursor: pointer;
+                    width: 1rem;
+                    height: 1rem;
+                    accent-color: #3b82f6;
+                }
+                
+                .ProseMirror ul[data-type="taskList"] li > div {
+                    flex: 1 1 auto;
+                }
+                
+                .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+                    text-decoration: line-through;
+                    opacity: 0.6;
+                }
+                
+                .ProseMirror blockquote {
+                    border-left: 3px solid #3b82f6;
+                    padding-left: 1rem;
+                    margin: 0.5rem 0;
+                    color: var(--color-text-secondary);
+                    font-style: italic;
+                }
+                
+                .ProseMirror code {
+                    background: rgba(0, 0, 0, 0.1);
+                    padding: 0.15rem 0.3rem;
+                    border-radius: 0.25rem;
+                    font-family: 'Fira Code', 'Monaco', monospace;
+                    font-size: 0.9em;
+                }
+                
+                .ProseMirror pre {
+                    background: #1e1e1e;
+                    color: #d4d4d4;
+                    padding: 1rem;
+                    border-radius: 0.5rem;
+                    margin: 0.5rem 0;
+                    overflow-x: auto;
+                    font-family: 'Fira Code', 'Monaco', monospace;
+                    font-size: 0.875rem;
+                }
+                
+                .ProseMirror pre code {
+                    background: none;
+                    padding: 0;
+                    color: inherit;
+                }
+                
+                .ProseMirror hr {
+                    border: none;
+                    border-top: 2px solid var(--color-border);
+                    margin: 1rem 0;
+                }
+                
+                .ProseMirror mark {
+                    background-color: #fef08a;
+                    padding: 0.1rem 0.2rem;
+                    border-radius: 0.15rem;
+                }
+                
+                .ProseMirror a {
+                    color: #3b82f6;
+                    text-decoration: underline;
+                    cursor: pointer;
+                }
+                
+                .ProseMirror a:hover {
+                    color: #2563eb;
                 }
             `}</style>
         </div>

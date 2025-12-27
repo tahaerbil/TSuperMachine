@@ -3,13 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { useThemeStore, applyTheme } from '../../store/themeStore';
 import type { ThemeMode } from '../../store/themeStore';
 import { getAvailableLanguages, addCustomLanguage } from '../../i18n';
-import { Palette, Globe, Upload, Download, Maximize2 } from 'lucide-react';
-import { useStore } from '../../store/store';
+import { Palette, Globe, Upload, Download, Maximize2, Grid3X3, Circle, Minus } from 'lucide-react';
+import { useStore, type GridStyle } from '../../store/store';
 
 export const SettingsWidget: React.FC = () => {
     const { t, i18n } = useTranslation();
     const { mode, customTheme, setMode, setCustomTheme } = useThemeStore();
-    const { zoomSensitivity, setZoomSensitivity } = useStore();
+    const { zoomSensitivity, setZoomSensitivity, gridStyle, setGridStyle } = useStore();
     const [activeTab, setActiveTab] = useState<'theme' | 'language' | 'canvas'>('theme');
 
     const handleThemeChange = (newMode: ThemeMode) => {
@@ -34,7 +34,7 @@ export const SettingsWidget: React.FC = () => {
                     addCustomLanguage(code, json);
                     i18n.changeLanguage(code);
                 }
-            } catch (error) {
+            } catch {
                 alert('Invalid JSON file');
             }
         };
@@ -94,6 +94,37 @@ export const SettingsWidget: React.FC = () => {
             <div className="flex-1 overflow-auto p-4">
                 {activeTab === 'canvas' && (
                     <div className="space-y-6">
+                        {/* Grid Style Selection */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                {t('app.settings.canvasSettings.gridStyle')}
+                            </label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {(['none', 'lines', 'dots'] as GridStyle[]).map((style) => (
+                                    <button
+                                        key={style}
+                                        className={`p-3 border-2 rounded-lg text-sm font-medium transition-all duration-200 flex flex-col items-center gap-2 ${gridStyle === style
+                                                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                                : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                                            }`}
+                                        onClick={() => setGridStyle(style)}
+                                    >
+                                        {style === 'none' && <Minus size={20} />}
+                                        {style === 'lines' && <Grid3X3 size={20} />}
+                                        {style === 'dots' && <Circle size={20} />}
+                                        <span>{t(`app.settings.canvasSettings.grid${style.charAt(0).toUpperCase() + style.slice(1)}`)}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                                {t('app.settings.canvasSettings.gridDescription')}
+                            </p>
+                        </div>
+
+                        {/* Divider */}
+                        <hr className="border-gray-200" />
+
+                        {/* Zoom Speed */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 {t('app.settings.canvasSettings.zoomSpeed')}

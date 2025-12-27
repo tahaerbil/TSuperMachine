@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 export type WidgetType = 'NOTE' | 'CALCULATOR' | 'CAD_3D' | 'CAD_2D' | 'SPREADSHEET' | 'TODO' | 'SETTINGS' | 'IMAGE' | 'PDF' | 'PRESENTATION' | 'PROJECT';
+export type GridStyle = 'none' | 'lines' | 'dots';
 
 export interface Widget {
     id: string;
@@ -30,6 +31,7 @@ interface AppState {
         author: string;
     } | null;
     zoomSensitivity: number; // 1.0 = normal, higher = faster, lower = slower
+    gridStyle: GridStyle; // Grid display style: none, lines, or dots
 
     // Actions
     addWidget: (type: WidgetType, position?: { x: number; y: number }) => void;
@@ -49,6 +51,7 @@ interface AppState {
     toggleWidgetSelection: (id: string) => void;
     selectAll: () => void;
     setZoomSensitivity: (sensitivity: number) => void;
+    setGridStyle: (style: GridStyle) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -63,6 +66,7 @@ export const useStore = create<AppState>((set) => ({
     projectName: 'Untitled Project',
     projectMetadata: null,
     zoomSensitivity: 1.0, // Default: normal speed
+    gridStyle: 'lines', // Default: line grid
 
     addWidget: (type, position = { x: 100, y: 100 }) => set((state) => {
         const id = crypto.randomUUID();
@@ -186,6 +190,7 @@ export const useStore = create<AppState>((set) => ({
     })),
 
     setZoomSensitivity: (sensitivity) => set({ zoomSensitivity: sensitivity }),
+    setGridStyle: (style) => set({ gridStyle: style }),
 }));
 
 

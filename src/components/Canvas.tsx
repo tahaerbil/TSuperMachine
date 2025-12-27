@@ -18,8 +18,9 @@ import { AlignmentToolbar } from './AlignmentToolbar';
 
 
 export const Canvas: React.FC = () => {
-    const { widgets, canvas, setCanvasOffset, setCanvasScale, selectedWidgetIds, selectAll, clearSelection, removeWidget, selectMultiple, zoomSensitivity } = useStore();
+    const { widgets, canvas, setCanvasOffset, setCanvasScale, selectedWidgetIds, selectAll, clearSelection, removeWidget, selectMultiple, zoomSensitivity, gridStyle } = useStore();
     const containerRef = useRef<HTMLDivElement>(null);
+    const gridCanvasRef = useRef<HTMLCanvasElement>(null);
     const isDragging = useRef(false);
     const lastMousePos = useRef({ x: 0, y: 0 });
 
@@ -208,6 +209,54 @@ export const Canvas: React.FC = () => {
     // But simpler: Apply transform to the div containing widgets.
     // Background position handles panning. Background size handles zooming.
 
+    // Draw dot grid on canvas (for pixel-perfect control)
+    useEffect(() => {
+        if (gridStyle !== 'dots' || !gridCanvasRef.current || !containerRef.current) return;
+
+        const gridCanvas = gridCanvasRef.current;
+        const container = containerRef.current;
+        const ctx = gridCanvas.getContext('2d');
+        if (!ctx) return;
+
+        // Set canvas size to match container
+        const rect = container.getBoundingClientRect();
+        gridCanvas.width = rect.width;
+        gridCanvas.height = rect.height;
+
+        // Clear canvas
+        ctx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+
+        // Calculate grid parameters
+        const gridSpacing = 50; // World units
+        const dotRadius = 1; // Fixed screen pixels - NEVER changes with zoom
+
+        // Calculate visible area in world coordinates
+        const startWorldX = -canvas.offset.x / canvas.scale;
+        const startWorldY = -canvas.offset.y / canvas.scale;
+        const endWorldX = (gridCanvas.width - canvas.offset.x) / canvas.scale;
+        const endWorldY = (gridCanvas.height - canvas.offset.y) / canvas.scale;
+
+        // Snap to grid
+        const startGridX = Math.floor(startWorldX / gridSpacing) * gridSpacing;
+        const startGridY = Math.floor(startWorldY / gridSpacing) * gridSpacing;
+
+        // Draw dots
+        ctx.fillStyle = 'rgba(100, 100, 100, 0.8)'; // Dot color
+
+        for (let worldX = startGridX; worldX <= endWorldX; worldX += gridSpacing) {
+            for (let worldY = startGridY; worldY <= endWorldY; worldY += gridSpacing) {
+                // Convert world coordinates to screen coordinates
+                const screenX = worldX * canvas.scale + canvas.offset.x;
+                const screenY = worldY * canvas.scale + canvas.offset.y;
+
+                // Draw dot at fixed screen size
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, dotRadius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    }, [gridStyle, canvas.scale, canvas.offset.x, canvas.offset.y]);
+
 
     return (
         <div
@@ -225,12 +274,29 @@ export const Canvas: React.FC = () => {
             onMouseLeave={handleMouseUp}
             style={{
                 backgroundColor: 'var(--color-background)',
-                backgroundSize: `${50 * canvas.scale}px ${50 * canvas.scale}px`,
-                backgroundImage: `linear-gradient(to right, var(--color-border) 1px, transparent 1px), linear-gradient(to bottom, var(--color-border) 1px, transparent 1px)`,
-                backgroundPosition: `${canvas.offset.x}px ${canvas.offset.y}px`,
-                userSelect: isLassoing ? 'none' : 'auto', // Prevent text selection only during lasso drag
+                backgroundSize: gridStyle === 'lines' ? `${50 * canvas.scale}px ${50 * canvas.scale}px` : undefined,
+                backgroundImage: gridStyle === 'lines'
+                    ? `linear-gradient(to right, var(--color-border) 1px, transparent 1px), linear-gradient(to bottom, var(--color-border) 1px, transparent 1px)`
+                    : 'none',
+                backgroundPosition: gridStyle === 'lines' ? `${canvas.offset.x}px ${canvas.offset.y}px` : undefined,
+                userSelect: isLassoing ? 'none' : 'auto',
             }}
         >
+            {/* Dot Grid Canvas Overlay */}
+            {gridStyle === 'dots' && (
+                <canvas
+                    ref={gridCanvasRef}
+                    style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        pointerEvents: 'none',
+                        zIndex: 0,
+                    }}
+                />
+            )}
             <div
                 style={{
                     transform: `translate(${canvas.offset.x}px, ${canvas.offset.y}px) scale(${canvas.scale})`,
@@ -245,7 +311,7 @@ export const Canvas: React.FC = () => {
             >
                 {widgets.filter(w => !w.isMaximized).map(widget => (
                     <WidgetContainer key={widget.id} widget={widget}>
-                        {widget.type === 'NOTE' && <NoteWidget id={widget.id} initialContent={widget.data?.content} />}
+                        {widget.type === 'NOTE' && <NoteWidget id={widget.id} initialContent={widget.data?.content} isMaximized={widget.isMaximized} />}
                         {widget.type === 'CALCULATOR' && <CalculatorWidget />}
                         {widget.type === 'CAD_3D' && <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />}
                         {widget.type === 'CAD_3D' && <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />}
@@ -264,7 +330,7 @@ export const Canvas: React.FC = () => {
             {/* Maximized Widgets (Rendered outside transformed container) */}
             {widgets.filter(w => w.isMaximized).map(widget => (
                 <WidgetContainer key={widget.id} widget={widget}>
-                    {widget.type === 'NOTE' && <NoteWidget id={widget.id} initialContent={widget.data?.content} />}
+                    {widget.type === 'NOTE' && <NoteWidget id={widget.id} initialContent={widget.data?.content} isMaximized={widget.isMaximized} />}
                     {widget.type === 'CALCULATOR' && <CalculatorWidget />}
                     {widget.type === 'CAD_3D' && <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />}
                     {widget.type === 'CAD_2D' && <CAD2DWidget id={widget.id} isMaximized={widget.isMaximized} />}

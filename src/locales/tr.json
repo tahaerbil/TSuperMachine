@@ -42,7 +42,12 @@
                 "zoomSpeed": "Yakınlaştırma Hızı",
                 "slower": "Daha Yavaş",
                 "faster": "Daha Hızlı",
-                "description": "Fare tekerleği ile tuvalin ne kadar hızlı yakınlaşıp uzaklaşacağını ayarlayın"
+                "description": "Fare tekerleği ile tuvalin ne kadar hızlı yakınlaşıp uzaklaşacağını ayarlayın",
+                "gridStyle": "Izgara Stili",
+                "gridDescription": "Tuval üzerindeki arka plan ızgarasının görünümünü seçin",
+                "gridNone": "Kapalı",
+                "gridLines": "Çizgili",
+                "gridDots": "Noktalı"
             }
         },
         "widgets": {

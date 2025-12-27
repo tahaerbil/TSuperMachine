@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Rnd } from 'react-rnd';
-import { X, Maximize2, Minimize2 } from 'lucide-react';
+import { Trash2, Maximize2, Minimize2 } from 'lucide-react';
 import { useStore } from '../store/store';
 import type { Widget } from '../store/store';
 import clsx from 'clsx';
@@ -149,7 +149,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                         className="p-1 hover:bg-red-100 hover:text-red-600 rounded transition-colors"
                         style={{ color: 'var(--color-text)' }}
                     >
-                        <X size={12} />
+                        <Trash2 size={12} />
                     </button>
                 </div>
             </div>

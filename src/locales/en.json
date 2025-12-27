@@ -42,7 +42,12 @@
                 "zoomSpeed": "Zoom Speed",
                 "slower": "Slower",
                 "faster": "Faster",
-                "description": "Adjust how fast the canvas zooms in and out with mouse wheel"
+                "description": "Adjust how fast the canvas zooms in and out with mouse wheel",
+                "gridStyle": "Grid Style",
+                "gridDescription": "Choose the appearance of the background grid on the canvas",
+                "gridNone": "None",
+                "gridLines": "Lines",
+                "gridDots": "Dots"
             }
         },
         "widgets": {

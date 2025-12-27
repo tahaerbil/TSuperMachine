@@ -11,8 +11,8 @@ export const Toolbar: React.FC = () => {
     const tools: { type: WidgetType; icon: React.ReactNode; label: string }[] = [
         { type: 'NOTE', icon: <StickyNote size={20} />, label: t('app.toolbar.note') },
         { type: 'CALCULATOR', icon: <Calculator size={20} />, label: t('app.toolbar.calculator') },
-        { type: 'CAD_3D', icon: <Box size={20} />, label: t('app.toolbar.cad3d') },
         { type: 'CAD_2D', icon: <PenTool size={20} />, label: t('app.toolbar.cad2d') },
+        { type: 'CAD_3D', icon: <Box size={20} />, label: t('app.toolbar.cad3d') },
         { type: 'SPREADSHEET', icon: <FileSpreadsheet size={20} />, label: t('app.toolbar.spreadsheet') },
         { type: 'TODO', icon: <CheckSquare size={20} />, label: t('app.toolbar.todo') },
         { type: 'IMAGE', icon: <Image size={20} />, label: t('app.toolbar.image') },

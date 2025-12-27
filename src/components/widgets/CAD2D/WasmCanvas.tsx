@@ -1,6 +1,9 @@
 import React, { useRef, useEffect } from 'react';
 import { cadEngine, SnapType, type SnapPoint } from './CADEngine';
 
+// CAD 2D has its own grid style type - independent from main canvas
+type CADGridStyle = 'none' | 'lines' | 'dots';
+
 interface WasmCanvasProps {
     width: number;
     height: number;
@@ -17,9 +20,10 @@ interface WasmCanvasProps {
     selectionBox?: { start: { x: number, y: number }, end: { x: number, y: number }, type: 'window' | 'crossing' } | null;
     rotatePreview?: { cx: number, cy: number, angle: number } | null;
     activeSnap?: SnapPoint | null;
+    gridStyle?: CADGridStyle;
 }
 
-export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, previewArc, movePreview, copyPreview, selectionBox, rotatePreview, activeSnap }) => {
+export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, previewArc, movePreview, copyPreview, selectionBox, rotatePreview, activeSnap, gridStyle = 'lines' }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -36,21 +40,36 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
         ctx.translate(offset.x, offset.y);
         ctx.scale(scale, scale);
 
-        // Draw Grid (AutoCAD Style)
-        ctx.strokeStyle = '#333333'; // Darker grid lines
-        ctx.lineWidth = 1 / scale;
-        ctx.beginPath();
-        // Optimize grid drawing: only draw visible area
-        // (Simplified for now, drawing large range)
-        for (let x = -10000; x <= 10000; x += 50) {
-            ctx.moveTo(x, -10000);
-            ctx.lineTo(x, 10000);
+        // Draw Grid based on gridStyle
+        if (gridStyle === 'lines') {
+            // Line Grid (AutoCAD Style)
+            ctx.strokeStyle = '#333333'; // Darker grid lines
+            ctx.lineWidth = 1 / scale;
+            ctx.beginPath();
+            // Optimize grid drawing: only draw visible area
+            // (Simplified for now, drawing large range)
+            for (let x = -10000; x <= 10000; x += 50) {
+                ctx.moveTo(x, -10000);
+                ctx.lineTo(x, 10000);
+            }
+            for (let y = -10000; y <= 10000; y += 50) {
+                ctx.moveTo(-10000, y);
+                ctx.lineTo(10000, y);
+            }
+            ctx.stroke();
+        } else if (gridStyle === 'dots') {
+            // Dot Grid - Draw dots at intersections
+            ctx.fillStyle = '#555555'; // Dot color
+            const dotRadius = 1.5 / scale; // Constant screen size
+            for (let x = -10000; x <= 10000; x += 50) {
+                for (let y = -10000; y <= 10000; y += 50) {
+                    ctx.beginPath();
+                    ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
         }
-        for (let y = -10000; y <= 10000; y += 50) {
-            ctx.moveTo(-10000, y);
-            ctx.lineTo(10000, y);
-        }
-        ctx.stroke();
+        // If gridStyle === 'none', draw nothing
 
         // Draw Axes
         ctx.strokeStyle = '#444444';
@@ -818,7 +837,7 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
 
         ctx.restore();
 
-    }, [width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, previewArc, movePreview, copyPreview, selectionBox, rotatePreview, activeSnap]);
+    }, [width, height, scale, offset, version, previewLine, previewCircle, previewPolyline, previewRectangle, previewArc, movePreview, copyPreview, selectionBox, rotatePreview, activeSnap, gridStyle]);
 
     return (
         <canvas

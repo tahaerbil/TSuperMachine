@@ -16,6 +16,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const [engineVersion, setEngineVersion] = useState(0);
     const [isEngineReady, setIsEngineReady] = useState(false);
+    // CAD 2D widget has its own grid - always 'lines' style, independent of main canvas
 
     // Command State Definition
     type CommandState =
@@ -1157,6 +1158,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                         rotatePreview={rotatePreview}
                         selectionBox={selectionBox}
                         activeSnap={activeSnap}
+                        gridStyle="lines"
                     />
                 )}
             </div>
