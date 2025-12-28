@@ -1,3 +1,4 @@
+
 // File System Access API types
 interface FileSystemFileHandle {
     createWritable(): Promise<FileSystemWritableFileStream>;
@@ -42,6 +43,56 @@ export interface IFileSystemAdapter {
     hasFileSystemAccess(): boolean;
     getCurrentFilePath(): string | null;
     clearCurrentFile(): void;
+}
+
+// Electron Adapter Implementation
+class ElectronAdapter implements IFileSystemAdapter {
+    private currentPath: string | null = null;
+
+    hasFileSystemAccess(): boolean {
+        return true;
+    }
+
+    async saveProject(data: Blob, _projectName: string, isNewProject: boolean): Promise<void> {
+        const buffer = await data.arrayBuffer();
+        const byteArray = new Uint8Array(buffer); // Typed array for IPC
+
+        const result = await window.electronAPI!.saveProject(byteArray, this.currentPath, isNewProject);
+
+        if (result.success && result.filePath) {
+            this.currentPath = result.filePath;
+        } else if (result.canceled) {
+            throw new Error('Save cancelled');
+        } else {
+            throw new Error(result.error || 'Unknown save error');
+        }
+    }
+
+    async loadProject(): Promise<{ file: File; path?: string }> {
+        const result = await window.electronAPI!.openProjectDialog();
+
+        if (result.canceled) throw new Error('Open cancelled');
+        if (!result.success || !result.data) throw new Error(result.error || 'Failed to open file');
+
+        const filePath = result.filePath!;
+        const fileName = filePath.split(/[\\/]/).pop() || 'project.tsm';
+
+        // Convert Uint8Array back to File object for JSZip
+        // Cast to unknown then BlobPart to satisfy TS about ArrayBufferLike
+        const blob = new Blob([result.data as unknown as BlobPart]);
+        const file = new File([blob], fileName);
+
+        this.currentPath = filePath;
+        return { file, path: filePath };
+    }
+
+    getCurrentFilePath(): string | null {
+        return this.currentPath;
+    }
+
+    clearCurrentFile(): void {
+        this.currentPath = null;
+    }
 }
 
 // File System Access API Implementation
@@ -170,7 +221,10 @@ class DownloadAdapter implements IFileSystemAdapter {
 
 // Factory: Auto-select best adapter
 export function createFileSystemAdapter(): IFileSystemAdapter {
-    if ('showSaveFilePicker' in window) {
+    if (window.electronAPI) {
+        console.log('Using Electron File System Adapter');
+        return new ElectronAdapter();
+    } else if ('showSaveFilePicker' in window) {
         console.log('Using File System Access API');
         return new FileSystemAccessAdapter();
     } else {

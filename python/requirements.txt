@@ -1,0 +1,13 @@
+# Engineering Calculator Python Dependencies
+# CoolProp - Thermodynamic properties of fluids
+CoolProp>=6.4.0
+
+# Scientific computing
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Symbolic mathematics (optional, for formula derivation)
+sympy>=1.12
+
+# IPC communication
+# Using stdin/stdout JSON for simplicity

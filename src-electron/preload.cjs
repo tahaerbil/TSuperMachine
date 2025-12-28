@@ -1,7 +1,7 @@
 // Preload script - runs before renderer process
 // Exposes native CAD engine to renderer (with WASM fallback support)
 
-const { contextBridge } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 const path = require('path');
 
 // Try to load native CAD addon
@@ -18,11 +18,21 @@ try {
     console.log('   Will use WASM fallback in renderer');
 }
 
-// Expose basic Electron info
+// Expose basic Electron info and File System API
 contextBridge.exposeInMainWorld('electronAPI', {
     platform: process.platform,
     isElectron: true,
-    hasNativeCAD: hasNativeCAD
+    hasNativeCAD: hasNativeCAD,
+
+    // File System Ops
+    onMenuAction: (callback) => ipcRenderer.on('menu-action', (_event, action) => callback(action)),
+    onLoadProjectData: (callback) => ipcRenderer.on('load-project-data', (_event, payload) => callback(payload)),
+    saveProject: (data, filePath, saveAs) => ipcRenderer.invoke('save-project-file', { data, filePath, saveAs }),
+    openProjectDialog: () => ipcRenderer.invoke('open-project-file'),
+    removeListeners: () => {
+        ipcRenderer.removeAllListeners('menu-action');
+        ipcRenderer.removeAllListeners('load-project-data');
+    }
 });
 
 // Expose native CAD API if available

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { cadEngine, SnapType, type SnapPoint } from '../../core/services/cad-engine/CADEngine';
+import { cadEngine, SnapType, type SnapPoint } from '../../../core/services/cad-engine/CADEngine';
 
 // CAD 2D has its own grid style type - independent from main canvas
 type CADGridStyle = 'none' | 'lines' | 'dots';
@@ -700,16 +700,8 @@ export const WasmCanvas: React.FC<WasmCanvasProps> = ({ width, height, scale, of
             ctx.setLineDash([5 / scale, 5 / scale]);
             ctx.arc(previewCircle.cx, previewCircle.cy, previewCircle.r, 0, Math.PI * 2);
             ctx.stroke();
-            ctx.setLineDash([]);
-
-            // Draw radius line for visual aid
-            ctx.beginPath();
-            ctx.moveTo(previewCircle.cx, previewCircle.cy);
-            ctx.lineTo(previewCircle.cx + previewCircle.r, previewCircle.cy); // Just a horizontal line for now, or to mouse pos if we had it
-            ctx.strokeStyle = '#FFFF00';
-            ctx.globalAlpha = 0.3;
             ctx.stroke();
-            ctx.globalAlpha = 1.0;
+            ctx.setLineDash([]);
         }
 
         // Draw Preview Polyline

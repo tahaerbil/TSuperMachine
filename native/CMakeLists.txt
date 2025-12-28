@@ -89,3 +89,46 @@ message(STATUS "===========================================")
 message(STATUS "Build Node Addon: ${BUILD_NODE_ADDON}")
 message(STATUS "Build Tests: ${BUILD_TESTS}")
 message(STATUS "===========================================")
+
+# ============================================================================
+# Calculation Engine Library (Core - Engineering Calculations)
+# ============================================================================
+add_library(calc_engine_core STATIC
+    src/calc-engine/CalcEngine.cpp
+)
+
+target_include_directories(calc_engine_core PUBLIC
+    ${CMAKE_SOURCE_DIR}/include/calc-engine
+)
+
+set_target_properties(calc_engine_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# ============================================================================
+# Calculation Engine Node.js Addon
+# ============================================================================
+if(BUILD_NODE_ADDON)
+    add_library(calc_engine SHARED
+        src/calc-engine/CalcEngineBinding.cpp
+    )
+    
+    target_include_directories(calc_engine PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+    
+    target_link_libraries(calc_engine PRIVATE
+        calc_engine_core
+        ${CMAKE_JS_LIB}
+    )
+    
+    set_target_properties(calc_engine PROPERTIES
+        PREFIX ""
+        SUFFIX ".node"
+        OUTPUT_NAME "calc_engine"
+    )
+    
+    if(APPLE)
+        set_target_properties(calc_engine PROPERTIES
+            LINK_FLAGS "-undefined dynamic_lookup"
+        )
+    endif()
+endif()

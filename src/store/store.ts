@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type WidgetType = 'NOTE' | 'CALCULATOR' | 'CAD_3D' | 'CAD_2D' | 'SPREADSHEET' | 'TODO' | 'SETTINGS' | 'IMAGE' | 'PDF' | 'PRESENTATION' | 'PROJECT';
+export type WidgetType = 'NOTE' | 'CALCULATOR' | 'CAD_3D' | 'CAD_2D' | 'SPREADSHEET' | 'TODO' | 'SETTINGS' | 'IMAGE' | 'PDF' | 'PRESENTATION' | 'PROJECT' | 'SKETCH';
 export type GridStyle = 'none' | 'lines' | 'dots';
 
 export interface Widget {

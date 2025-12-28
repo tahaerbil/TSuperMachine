@@ -1,19 +1,20 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useStore } from '../store/store';
 import { WidgetContainer } from './WidgetContainer';
-
-import { NoteWidget } from '../features/note-editor';
-import { CalculatorWidget } from './widgets/CalculatorWidget';
-import { SettingsWidget } from './widgets/SettingsWidget';
-import { TodoWidget } from './widgets/TodoWidget';
-import { SpreadsheetWidget } from './widgets/SpreadsheetWidget';
-import { ImageViewerWidget } from './widgets/ImageViewerWidget';
-import { PDFViewerWidget } from './widgets/PDFViewerWidget';
-import { PresentationWidget } from './widgets/PresentationWidget';
-import { CAD2DWidget } from '../features/cad-editor/CAD2DWidget';
-import { CAD3DWidget } from './widgets/CAD3DWidget';
-import { ProjectMenuWidget } from './widgets/ProjectMenuWidget';
 import { AlignmentToolbar } from './AlignmentToolbar';
+
+// Feature imports (all widgets now in features/)
+import { NoteWidget } from '../features/note-editor';
+import { EngineeringCalculator } from '../features/engineering-calculator';
+import { CAD2DWidget } from '../features/cad-2d';
+import { CAD3DWidget } from '../features/cad-3d';
+import { SpreadsheetWidget } from '../features/spreadsheet';
+import { TodoWidget } from '../features/todo';
+import { SettingsWidget } from '../features/settings';
+import { ImageViewerWidget } from '../features/image-viewer';
+import { PDFViewerWidget } from '../features/pdf-viewer';
+import { PresentationWidget } from '../features/presentation';
+import { ProjectMenuWidget } from '../features/project-menu';
 
 
 
@@ -312,7 +313,7 @@ export const Canvas: React.FC = () => {
                 {widgets.filter(w => !w.isMaximized).map(widget => (
                     <WidgetContainer key={widget.id} widget={widget}>
                         {widget.type === 'NOTE' && <NoteWidget id={widget.id} initialContent={widget.data?.content} isMaximized={widget.isMaximized} />}
-                        {widget.type === 'CALCULATOR' && <CalculatorWidget />}
+                        {widget.type === 'CALCULATOR' && <EngineeringCalculator id={widget.id} isMaximized={true} />}
                         {widget.type === 'CAD_3D' && <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />}
                         {widget.type === 'CAD_3D' && <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />}
                         {widget.type === 'CAD_2D' && <CAD2DWidget id={widget.id} isMaximized={widget.isMaximized} />}
@@ -331,7 +332,7 @@ export const Canvas: React.FC = () => {
             {widgets.filter(w => w.isMaximized).map(widget => (
                 <WidgetContainer key={widget.id} widget={widget}>
                     {widget.type === 'NOTE' && <NoteWidget id={widget.id} initialContent={widget.data?.content} isMaximized={widget.isMaximized} />}
-                    {widget.type === 'CALCULATOR' && <CalculatorWidget />}
+                    {widget.type === 'CALCULATOR' && <EngineeringCalculator id={widget.id} isMaximized={false} />}
                     {widget.type === 'CAD_3D' && <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />}
                     {widget.type === 'CAD_2D' && <CAD2DWidget id={widget.id} isMaximized={widget.isMaximized} />}
                     {widget.type === 'SPREADSHEET' && <SpreadsheetWidget id={widget.id} initialData={widget.data?.spreadsheet} isMaximized={widget.isMaximized} />}

@@ -22,40 +22,6 @@ export interface SnapPoint {
     type: SnapType;
 }
 
-// Native CAD API type (exposed by Electron preload)
-interface NativeCADAPI {
-    createEngine: () => boolean;
-    destroyEngine: () => boolean;
-    addLine: (x1: number, y1: number, x2: number, y2: number) => number;
-    addCircle: (cx: number, cy: number, radius: number) => number;
-    addRectangle: (x1: number, y1: number, x2: number, y2: number) => number;
-    addArc: (cx: number, cy: number, radius: number, startAngle: number, endAngle: number) => number;
-    addRegularPolygon: (cx: number, cy: number, sides: number, radius: number) => number;
-    addPolyline: (points: { x: number; y: number }[], closed: boolean) => number;
-    clear: () => void;
-    deleteEntity: (id: number) => void;
-    hitTest: (x: number, y: number, threshold: number) => number;
-    selectEntity: (id: number) => void;
-    deselectAll: () => void;
-    deleteSelected: () => void;
-    moveSelected: (dx: number, dy: number) => void;
-    copySelected: (dx: number, dy: number) => void;
-    selectByWindow: (x1: number, y1: number, x2: number, y2: number) => void;
-    selectByCrossing: (x1: number, y1: number, x2: number, y2: number) => void;
-    rotateSelected: (cx: number, cy: number, angle: number) => void;
-    offsetEntity: (id: number, distance: number, clickX: number, clickY: number) => number;
-    exportDatabase: () => string;
-    importDatabase: (json: string) => void;
-    findClosestSnapPoint: (x: number, y: number, threshold: number) => { x: number; y: number; type: number };
-    getRenderBuffer: () => Float32Array;
-}
-
-interface ElectronAPI {
-    platform: string;
-    isElectron: boolean;
-    hasNativeCAD: boolean;
-}
-
 // WASM types
 interface VectorPoint {
     push_back(point: Point): void;
@@ -93,16 +59,10 @@ interface CppEngine {
     selectByCrossing(x1: number, y1: number, x2: number, y2: number): void;
     rotateSelected(cx: number, cy: number, angle: number): void;
     offsetEntity(id: number, distance: number, clickX: number, clickY: number): number;
-    delete(): void;
+    delete(): void;  // WASM cleanup
 }
 
-declare global {
-    interface Window {
-        createCADEngine?: () => Promise<CADModule>;
-        electronAPI?: ElectronAPI;
-        nativeCAD?: NativeCADAPI;
-    }
-}
+// Window interface extensions are declared in src/types/electron.d.ts
 
 type EngineType = 'native' | 'wasm' | 'none';
 
@@ -145,8 +105,8 @@ export class CADEngine {
             });
         }
 
-        this.module = await window.createCADEngine!();
-        this.wasmEngine = new this.module.Engine();
+        this.module = await window.createCADEngine!() as CADModule;
+        this.wasmEngine = new this.module!.Engine();
         this.engineType = 'wasm';
         this.isReady = true;
         console.log('✅ CAD Engine Initialized (C++/WASM)');

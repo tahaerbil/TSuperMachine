@@ -27,6 +27,11 @@ dist-ssr
 src-tauri/target/
 src-tauri/gen/schemas
 
+# Python
+python/.venv/
+python/__pycache__/
+*.pyc
+
 # Electron
 out/
 dist-electron/

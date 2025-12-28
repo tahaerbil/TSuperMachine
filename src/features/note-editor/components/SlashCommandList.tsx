@@ -1,4 +1,4 @@
-import React, { useState, useCallback, forwardRef, useImperativeHandle, useRef } from 'react';
+import React, { useState, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react';
 import {
     Heading1,
     Heading2,
@@ -48,17 +48,12 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
     ({ items, command }, ref) => {
         const [selectedIndex, setSelectedIndex] = useState(0);
 
-        // Track previous items length to reset selection without useEffect
-        const prevItemsLengthRef = useRef(items.length);
-
-        // Reset selection when items change (without useEffect)
-        if (prevItemsLengthRef.current !== items.length) {
-            prevItemsLengthRef.current = items.length;
-            // Only reset if selectedIndex is out of bounds
-            if (selectedIndex >= items.length) {
-                setSelectedIndex(0);
-            }
-        }
+        // Compute safe selected index - always within bounds
+        // This is a derived value, not state mutation during render
+        const safeSelectedIndex = useMemo(() => {
+            if (items.length === 0) return 0;
+            return Math.min(selectedIndex, items.length - 1);
+        }, [selectedIndex, items.length]);
 
         const selectItem = useCallback((index: number) => {
             const item = items[index];
@@ -67,24 +62,42 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
             }
         }, [items, command]);
 
+        const upHandler = useCallback(() => {
+            setSelectedIndex((prev) => {
+                const maxIndex = Math.max(0, items.length - 1);
+                return prev <= 0 ? maxIndex : prev - 1;
+            });
+        }, [items.length]);
+
+        const downHandler = useCallback(() => {
+            setSelectedIndex((prev) => {
+                const maxIndex = Math.max(0, items.length - 1);
+                return prev >= maxIndex ? 0 : prev + 1;
+            });
+        }, [items.length]);
+
+        const enterHandler = useCallback(() => {
+            selectItem(safeSelectedIndex);
+        }, [selectItem, safeSelectedIndex]);
+
         // Expose keyboard handler to parent
         useImperativeHandle(ref, () => ({
             onKeyDown: ({ event }: { event: KeyboardEvent }) => {
                 if (event.key === 'ArrowUp') {
-                    setSelectedIndex((prev) => (prev - 1 + items.length) % items.length);
+                    upHandler();
                     return true;
                 }
                 if (event.key === 'ArrowDown') {
-                    setSelectedIndex((prev) => (prev + 1) % items.length);
+                    downHandler();
                     return true;
                 }
                 if (event.key === 'Enter') {
-                    selectItem(selectedIndex);
+                    enterHandler();
                     return true;
                 }
                 return false;
             },
-        }), [items.length, selectedIndex, selectItem]);
+        }), [upHandler, downHandler, enterHandler]);
 
         if (items.length === 0) {
             return (
@@ -97,9 +110,6 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
                 </div>
             );
         }
-
-        // Ensure selectedIndex is within bounds
-        const safeSelectedIndex = Math.min(selectedIndex, items.length - 1);
 
         return (
             <div className="slash-command-menu">

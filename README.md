@@ -112,10 +112,11 @@ npm run tauri:build
 ### 2D CAD Commands
 | Command | Shortcut | Description |
 |---------|----------|-------------|
-| Line | `L` | Draw a line between two points |
-| Circle | `C` | Draw a circle by center and radius |
-| Rectangle | `REC` | Draw a rectangle |
-| Polyline | `PL` | Draw connected line segments |
+| Line | `L` | Draw a line (Close `C`, Undo `U`) |
+| Circle | `C` | Draw a circle (Center+Radius, Diameter `D`, `2P`, `3P`) |
+| Rectangle | `REC` | Draw a rectangle (Dimensions `D`, Chamfer `C`, Fillet `F`) |
+| Polyline | `PL` | Draw connected lines (Close `C`, Undo `U`) |
+| Polygon | `POL` | Draw regular polygon |
 | Arc | `ARC` | Draw an arc |
 | Move | `M` | Move selected entities |
 | Copy | `CO` | Copy selected entities |

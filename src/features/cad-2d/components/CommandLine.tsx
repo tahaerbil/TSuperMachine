@@ -90,32 +90,37 @@ export const CommandLine = forwardRef<CommandLineRef, CommandLineProps>(({ onCom
                 }
             }
         } else if (e.key === ' ') {
-            // Space key behavior (AutoCAD style)
-            // If a drawing command is active, let CAD2DWidget handle it
-            if (activeCommand) {
-                // Don't preventDefault - let the event bubble to CAD2DWidget
-                return;
-            }
+            // =========================================================
+            // AutoCAD-style Space key behavior:
+            // Space = Enter (ALWAYS - never types a space character)
+            // 1. If input has text -> execute that text as command
+            // 2. If command expects empty input (default value) -> send empty
+            // 3. If input is empty -> repeat last command
+            // =========================================================
+            e.preventDefault(); // ALWAYS prevent space from typing
+            e.stopPropagation(); // Prevent bubbling
 
             if (input.trim()) {
-                // If there's text in input, execute it
-                e.preventDefault();
+                // Case 1: Input has text - execute it
                 onCommand(input);
                 commandHistoryRef.current.push(input);
                 lastCommandRef.current = input;
                 setInput("");
                 setHistoryIndex(-1);
-            } else if (allowEmptyInput) {
-                // Explicitly allow empty input (for default values like <10>)
-                e.preventDefault();
-                onCommand("");
-                // Don't update history or last command for empty input
+            } else if (activeCommand) {
+                // Case 2: Command is active, input is empty
+                // This could mean "confirm current step" or "use default value"
+                if (allowEmptyInput) {
+                    // Allow empty input for default values (like OFFSET distance)
+                    onCommand("");
+                } else {
+                    // Send empty string to signal "confirm" (like closing POLYLINE)
+                    onCommand("");
+                }
             } else if (lastCommandRef.current) {
-                // If input is empty, repeat last command
-                e.preventDefault();
+                // Case 3: No active command, repeat last command
                 onCommand(lastCommandRef.current);
                 commandHistoryRef.current.push(lastCommandRef.current);
-                // lastCommandRef stays the same
             }
         } else if (e.key === 'Delete') {
             // If input is empty, trigger onDelete
