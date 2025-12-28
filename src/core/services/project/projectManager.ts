@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
-import { fileSystemAdapter } from './fileSystemAdapter';
-import { cadEngine } from '../components/widgets/CAD2D/CADEngine';
+import { fileSystemAdapter } from '../filesystem/fileSystemAdapter';
+import { cadEngine } from '../cad-engine/CADEngine';
 
 // Project metadata interface
 export interface ProjectMetadata {

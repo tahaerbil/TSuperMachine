@@ -12,8 +12,8 @@ import {
     hasFileSystemAccess,
     getCurrentFilePath,
     clearCurrentFile
-} from '../../utils/projectManager';
-import type { CanvasState } from '../../utils/projectManager';
+} from '../../core/services/project/projectManager';
+import type { CanvasState } from '../../core/services/project/projectManager';
 import { Save, SaveAll, FolderOpen, FileText, Trash2, Clock } from 'lucide-react';
 
 export const ProjectMenuWidget: React.FC = () => {

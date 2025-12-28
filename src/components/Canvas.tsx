@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useStore } from '../store/store';
 import { WidgetContainer } from './WidgetContainer';
 
-import { NoteWidget } from './widgets/NoteWidget';
+import { NoteWidget } from '../features/note-editor';
 import { CalculatorWidget } from './widgets/CalculatorWidget';
 import { SettingsWidget } from './widgets/SettingsWidget';
 import { TodoWidget } from './widgets/TodoWidget';
@@ -10,7 +10,7 @@ import { SpreadsheetWidget } from './widgets/SpreadsheetWidget';
 import { ImageViewerWidget } from './widgets/ImageViewerWidget';
 import { PDFViewerWidget } from './widgets/PDFViewerWidget';
 import { PresentationWidget } from './widgets/PresentationWidget';
-import { CAD2DWidget } from './widgets/CAD2D/CAD2DWidget';
+import { CAD2DWidget } from '../features/cad-editor/CAD2DWidget';
 import { CAD3DWidget } from './widgets/CAD3DWidget';
 import { ProjectMenuWidget } from './widgets/ProjectMenuWidget';
 import { AlignmentToolbar } from './AlignmentToolbar';

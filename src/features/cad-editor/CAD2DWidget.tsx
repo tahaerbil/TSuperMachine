@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { cadEngine, SnapType, type SnapPoint } from './CADEngine';
+import { cadEngine, SnapType, type SnapPoint } from '../../core/services/cad-engine/CADEngine';
 import { WasmCanvas } from './WasmCanvas';
 import { CommandLine, type CommandLineRef } from './CommandLine';
 import { CommandParser } from './CommandParser';

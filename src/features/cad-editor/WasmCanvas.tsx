@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { cadEngine, SnapType, type SnapPoint } from './CADEngine';
+import { cadEngine, SnapType, type SnapPoint } from '../../core/services/cad-engine/CADEngine';
 
 // CAD 2D has its own grid style type - independent from main canvas
 type CADGridStyle = 'none' | 'lines' | 'dots';
