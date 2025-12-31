@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useStore } from '../store/store';
+import type { Widget } from '../store/store';
 import { WidgetContainer } from './WidgetContainer';
 import { AlignmentToolbar } from './AlignmentToolbar';
 
@@ -16,6 +17,35 @@ import { PDFViewerWidget } from '../features/pdf-viewer';
 import { PresentationWidget } from '../features/presentation';
 import { ProjectMenuWidget } from '../features/project-menu';
 
+// Widget Component Renderer - centralized to avoid duplication and missing widgets
+const renderWidgetContent = (widget: Widget): React.ReactNode => {
+    switch (widget.type) {
+        case 'NOTE':
+            return <NoteWidget id={widget.id} initialContent={widget.data?.content} isMaximized={widget.isMaximized} />;
+        case 'CALCULATOR':
+            return <EngineeringCalculator id={widget.id} isMaximized={widget.isMaximized} />;
+        case 'CAD_2D':
+            return <CAD2DWidget id={widget.id} isMaximized={widget.isMaximized} />;
+        case 'CAD_3D':
+            return <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />;
+        case 'SPREADSHEET':
+            return <SpreadsheetWidget id={widget.id} initialData={widget.data?.spreadsheet} isMaximized={widget.isMaximized} />;
+        case 'TODO':
+            return <TodoWidget id={widget.id} initialTodos={widget.data?.todos} />;
+        case 'SETTINGS':
+            return <SettingsWidget />;
+        case 'IMAGE':
+            return <ImageViewerWidget id={widget.id} initialImage={widget.data?.image} />;
+        case 'PDF':
+            return <PDFViewerWidget id={widget.id} initialPDF={widget.data?.pdf} />;
+        case 'PRESENTATION':
+            return <PresentationWidget id={widget.id} initialSlides={widget.data?.slides} />;
+        case 'PROJECT':
+            return <ProjectMenuWidget />;
+        default:
+            return null;
+    }
+};
 
 
 export const Canvas: React.FC = () => {
@@ -24,6 +54,8 @@ export const Canvas: React.FC = () => {
     const gridCanvasRef = useRef<HTMLCanvasElement>(null);
     const isDragging = useRef(false);
     const lastMousePos = useRef({ x: 0, y: 0 });
+    // Track current mouse position for paste operations
+    const currentMousePos = useRef({ x: 0, y: 0 });
 
     // Lasso selection state
     const [lassoStart, setLassoStart] = useState<{ x: number; y: number } | null>(null);
@@ -76,9 +108,134 @@ export const Canvas: React.FC = () => {
             handleWheelRef.current(e);
         };
 
+        // LINUX FIX: Block middle-click paste behavior natively
+        // React's onMouseDown is sometimes too late or doesn't catch the specific "paste" intent of X11
+
+        /**
+         * Fits all non-maximized widgets into the visible viewport.
+         * Calculates bounding box, determines optimal scale, and centers the view.
+         */
+        const fitToScreen = () => {
+            const allWidgets = useStore.getState().widgets;
+            // Filter out maximized widgets - they are rendered outside the canvas transform
+            const currentWidgets = allWidgets.filter(w => !w.isMaximized);
+
+            if (currentWidgets.length === 0) {
+                setCanvasOffset({ x: 0, y: 0 });
+                setCanvasScale(1);
+                return;
+            }
+
+            // 1. Calculate bounding box world coordinates
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            currentWidgets.forEach(w => {
+                minX = Math.min(minX, w.position.x);
+                minY = Math.min(minY, w.position.y);
+                maxX = Math.max(maxX, w.position.x + w.size.width);
+                maxY = Math.max(maxY, w.position.y + w.size.height);
+            });
+
+            const container = containerRef.current;
+            if (!container) return;
+
+            const viewportW = container.clientWidth;
+            const viewportH = container.clientHeight;
+            const padding = 50; // Fixed screen pixels padding
+
+            const contentW = maxX - minX;
+            const contentH = maxY - minY;
+
+            // 2. Calculate Scale to fit content within viewport minus padding
+            const scaleX = (viewportW - (padding * 2)) / Math.max(contentW, 1);
+            const scaleY = (viewportH - (padding * 2)) / Math.max(contentH, 1);
+
+            let newScale = Math.min(scaleX, scaleY);
+            newScale = Math.min(Math.max(newScale, 0.1), 2.0); // Clamp scale
+
+            // 3. Calculate Center
+            const centerX = (minX + maxX) / 2;
+            const centerY = (minY + maxY) / 2;
+
+            // 4. Calculate Offset
+            // ScreenCenter = Offset + (WorldCenter * Scale) (Standard translate(offset) scale(s) with origin 0 0)
+            const newOffsetX = (viewportW / 2) - (centerX * newScale);
+            const newOffsetY = (viewportH / 2) - (centerY * newScale);
+
+            setCanvasScale(newScale);
+            setCanvasOffset({ x: newOffsetX, y: newOffsetY });
+        };
+
+        // LINUX FIX: Robust middle-click handling
+        // 1. We block ALL default behavior (especially Paste)
+        // 2. We trigger Pan manually here because we stop propagation
+        // Manual double-click detection variable
+        let lastClickTime = 0;
+
+        const handleNativeMiddleDown = (e: MouseEvent) => {
+            if (e.button === 1) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const now = Date.now();
+                // Check if double click (within 300ms) OR if browser reports detail=2
+                if ((now - lastClickTime < 300) || e.detail === 2) {
+                    fitToScreen();
+                    return; // Do not start dragging
+                }
+                lastClickTime = now;
+
+                // Check for maximized widgets via store to avoid stale closure in useEffect([])
+                const currentWidgets = useStore.getState().widgets;
+                if (!currentWidgets.some(w => w.isMaximized)) {
+                    isDragging.current = true;
+                    lastMousePos.current = { x: e.clientX, y: e.clientY };
+                }
+            }
+        };
+
+        const blockMiddleClickEvents = (e: MouseEvent) => {
+            if (e.button === 1) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        };
+
+        const handleNativeMiddleUp = (e: MouseEvent) => {
+            if (e.button === 1) {
+                e.preventDefault();
+                e.stopPropagation();
+                // Critical: This must happen INSIDE the blocked event handler
+                // because we stop propagation, so window listeners might not see it.
+                isDragging.current = false;
+            }
+        };
+
+        const handleGlobalMouseUp = (e: MouseEvent) => {
+            if (e.button === 1) {
+                isDragging.current = false;
+            }
+        };
+
         container.addEventListener('wheel', onWheel, { passive: false });
-        return () => container.removeEventListener('wheel', onWheel);
-    }, []); // Only setup listener once
+
+        // Capture phase listeners to preempt browser behavior
+        container.addEventListener('mousedown', handleNativeMiddleDown, true);
+        container.addEventListener('mouseup', handleNativeMiddleUp, true); // Use specfic handler
+        container.addEventListener('click', blockMiddleClickEvents, true);
+        container.addEventListener('auxclick', blockMiddleClickEvents, true);
+
+        // Global mouse up to reliably stop dragging (Capture phase to catch it before it disappears)
+        window.addEventListener('mouseup', handleGlobalMouseUp, true);
+
+        return () => {
+            container.removeEventListener('wheel', onWheel);
+            container.removeEventListener('mousedown', handleNativeMiddleDown, true);
+            container.removeEventListener('mouseup', handleNativeMiddleUp, true);
+            container.removeEventListener('click', blockMiddleClickEvents, true);
+            container.removeEventListener('auxclick', blockMiddleClickEvents, true);
+            window.removeEventListener('mouseup', handleGlobalMouseUp, true);
+        };
+    }, [setCanvasScale, setCanvasOffset]); // Listeners establish only on mount/unmount usually, but deps added for correctness
 
     // deleted useDrop block
 
@@ -97,11 +254,20 @@ export const Canvas: React.FC = () => {
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
+        // Always track mouse position for paste operations
+        currentMousePos.current = { x: e.clientX, y: e.clientY };
+
         // Pan: Only if dragging (middle-click or Alt+Left)
         if (isDragging.current) {
             const dx = e.clientX - lastMousePos.current.x;
             const dy = e.clientY - lastMousePos.current.y;
-            setCanvasOffset({ x: canvas.offset.x + dx, y: canvas.offset.y + dy });
+
+            // Correct logic: Offset is in SCREEN pixels. 1:1 mapping.
+            setCanvasOffset({
+                x: canvas.offset.x + dx,
+                y: canvas.offset.y + dy
+            });
+
             lastMousePos.current = { x: e.clientX, y: e.clientY };
         }
     };
@@ -109,12 +275,23 @@ export const Canvas: React.FC = () => {
     const handleMouseUp = () => {
         // Handle lasso selection
         if (isLassoing && lassoStart && lassoEnd) {
-            // Select widgets in lasso rectangle
+            // Convert screen coordinates to world (canvas) coordinates
+            // This fixes the bug where lasso selection fails at zoom != 1
+            const worldLassoStart = {
+                x: (lassoStart.x - canvas.offset.x) / canvas.scale,
+                y: (lassoStart.y - canvas.offset.y) / canvas.scale
+            };
+            const worldLassoEnd = {
+                x: (lassoEnd.x - canvas.offset.x) / canvas.scale,
+                y: (lassoEnd.y - canvas.offset.y) / canvas.scale
+            };
+
+            // Create selection rectangle in world coordinates
             const rect = {
-                x1: Math.min(lassoStart.x, lassoEnd.x),
-                y1: Math.min(lassoStart.y, lassoEnd.y),
-                x2: Math.max(lassoStart.x, lassoEnd.x),
-                y2: Math.max(lassoStart.y, lassoEnd.y)
+                x1: Math.min(worldLassoStart.x, worldLassoEnd.x),
+                y1: Math.min(worldLassoStart.y, worldLassoEnd.y),
+                x2: Math.max(worldLassoStart.x, worldLassoEnd.x),
+                y2: Math.max(worldLassoStart.y, worldLassoEnd.y)
             };
 
             const selectedIds = widgets.filter(widget => {
@@ -125,7 +302,7 @@ export const Canvas: React.FC = () => {
                     y2: widget.position.y + widget.size.height
                 };
 
-                // Check if widget intersects with lasso rectangle
+                // Check if widget intersects with lasso rectangle (both in world coords now)
                 return !(
                     widgetRect.x2 < rect.x1 ||
                     widgetRect.x1 > rect.x2 ||
@@ -259,9 +436,81 @@ export const Canvas: React.FC = () => {
     }, [gridStyle, canvas.scale, canvas.offset.x, canvas.offset.y]);
 
 
+    /**
+     * Handle Paste (Ctrl+V) - creates widget at current mouse position
+     */
+    useEffect(() => {
+        const handlePaste = (e: ClipboardEvent) => {
+            // Ignore if active element is an input or textarea
+            if (
+                e.target instanceof HTMLInputElement ||
+                e.target instanceof HTMLTextAreaElement ||
+                (e.target as HTMLElement).isContentEditable
+            ) {
+                return;
+            }
+
+            const items = e.clipboardData?.items;
+            if (!items) return;
+
+            const { canvas, addWidget } = useStore.getState();
+            const container = containerRef.current;
+            if (!container) return;
+
+            // Get container bounds for coordinate conversion
+            const rect = container.getBoundingClientRect();
+
+            // Convert mouse screen position to world coordinates
+            // mouseX/Y are relative to viewport, need to subtract container offset
+            const mouseX = currentMousePos.current.x - rect.left;
+            const mouseY = currentMousePos.current.y - rect.top;
+
+            // Transform to world coordinates: worldPos = (screenPos - offset) / scale
+            const worldX = (mouseX - canvas.offset.x) / canvas.scale;
+            const worldY = (mouseY - canvas.offset.y) / canvas.scale;
+
+            // Position widget so its top-left is at mouse position
+            const position = { x: worldX, y: worldY };
+
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+
+                if (item.type.indexOf('image') !== -1) {
+                    const blob = item.getAsFile();
+                    if (blob) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            const base64 = event.target?.result as string;
+                            if (base64) {
+                                addWidget('IMAGE', position, { image: base64 });
+                            }
+                        };
+                        reader.readAsDataURL(blob);
+                        // Stop after handling one main item to avoid spamming widgets
+                        e.preventDefault();
+                        return;
+                    }
+                } else if (item.type.indexOf('text/plain') !== -1) {
+                    item.getAsString((text) => {
+                        if (text && text.trim().length > 0) {
+                            addWidget('NOTE', position, { content: text });
+                        }
+                    });
+                    e.preventDefault();
+                    return;
+                }
+            }
+        };
+
+        window.addEventListener('paste', handlePaste);
+        return () => window.removeEventListener('paste', handlePaste);
+    }, []);
+
+
     return (
         <div
             ref={containerRef}
+            data-main-canvas="true"
             className="w-full h-full overflow-hidden relative cursor-crosshair"
             onMouseDown={(e) => {
                 handleMouseDown(e);
@@ -312,18 +561,7 @@ export const Canvas: React.FC = () => {
             >
                 {widgets.filter(w => !w.isMaximized).map(widget => (
                     <WidgetContainer key={widget.id} widget={widget}>
-                        {widget.type === 'NOTE' && <NoteWidget id={widget.id} initialContent={widget.data?.content} isMaximized={widget.isMaximized} />}
-                        {widget.type === 'CALCULATOR' && <EngineeringCalculator id={widget.id} isMaximized={true} />}
-                        {widget.type === 'CAD_3D' && <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />}
-                        {widget.type === 'CAD_3D' && <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />}
-                        {widget.type === 'CAD_2D' && <CAD2DWidget id={widget.id} isMaximized={widget.isMaximized} />}
-                        {widget.type === 'SPREADSHEET' && <SpreadsheetWidget id={widget.id} initialData={widget.data?.spreadsheet} isMaximized={widget.isMaximized} />}
-                        {widget.type === 'TODO' && <TodoWidget id={widget.id} initialTodos={widget.data?.todos} />}
-                        {widget.type === 'SETTINGS' && <SettingsWidget />}
-                        {widget.type === 'IMAGE' && <ImageViewerWidget id={widget.id} initialImage={widget.data?.image} />}
-                        {widget.type === 'PDF' && <PDFViewerWidget id={widget.id} initialPDF={widget.data?.pdf} />}
-                        {widget.type === 'PRESENTATION' && <PresentationWidget id={widget.id} initialSlides={widget.data?.slides} />}
-                        {widget.type === 'PROJECT' && <ProjectMenuWidget />}
+                        {renderWidgetContent(widget)}
                     </WidgetContainer>
                 ))}
             </div>
@@ -331,17 +569,7 @@ export const Canvas: React.FC = () => {
             {/* Maximized Widgets (Rendered outside transformed container) */}
             {widgets.filter(w => w.isMaximized).map(widget => (
                 <WidgetContainer key={widget.id} widget={widget}>
-                    {widget.type === 'NOTE' && <NoteWidget id={widget.id} initialContent={widget.data?.content} isMaximized={widget.isMaximized} />}
-                    {widget.type === 'CALCULATOR' && <EngineeringCalculator id={widget.id} isMaximized={false} />}
-                    {widget.type === 'CAD_3D' && <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />}
-                    {widget.type === 'CAD_2D' && <CAD2DWidget id={widget.id} isMaximized={widget.isMaximized} />}
-                    {widget.type === 'SPREADSHEET' && <SpreadsheetWidget id={widget.id} initialData={widget.data?.spreadsheet} isMaximized={widget.isMaximized} />}
-                    {widget.type === 'TODO' && <TodoWidget id={widget.id} initialTodos={widget.data?.todos} />}
-                    {widget.type === 'SETTINGS' && <SettingsWidget />}
-                    {widget.type === 'IMAGE' && <ImageViewerWidget id={widget.id} initialImage={widget.data?.image} />}
-                    {widget.type === 'PDF' && <PDFViewerWidget id={widget.id} initialPDF={widget.data?.pdf} />}
-                    {widget.type === 'PRESENTATION' && <PresentationWidget id={widget.id} initialSlides={widget.data?.slides} />}
-                    {widget.type === 'PROJECT' && <ProjectMenuWidget />}
+                    {renderWidgetContent(widget)}
                 </WidgetContainer>
             ))}
 

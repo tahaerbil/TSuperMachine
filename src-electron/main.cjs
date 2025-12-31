@@ -229,3 +229,37 @@ ipcMain.handle('open-project-file', async (event) => {
         return { success: false, error: err.message };
     }
 });
+
+// =============================================================================
+// Config Management (Persistent Settings)
+// =============================================================================
+const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
+
+ipcMain.handle('load-config', async () => {
+    try {
+        if (fs.existsSync(CONFIG_PATH)) {
+            const data = fs.readFileSync(CONFIG_PATH, 'utf-8');
+            return JSON.parse(data);
+        }
+        return null; // Return null if no config exists yet
+    } catch (error) {
+        console.error('Failed to load config:', error);
+        return null;
+    }
+});
+
+ipcMain.handle('save-config', async (event, config) => {
+    try {
+        // Ensure the directory exists before writing (Critical for first run)
+        const dir = path.dirname(CONFIG_PATH);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
+        fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to save config:', error);
+        return { success: false, error: error.message };
+    }
+});

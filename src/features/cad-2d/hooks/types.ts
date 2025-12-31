@@ -57,6 +57,5 @@ export const INITIAL_PREVIEW_STATE: PreviewState = {
 
 export const INITIAL_COMMAND_HISTORY = [
     "Welcome to TSuperMachine CAD",
-    "Type 'LINE' or 'CIRCLE' to start drawing.",
     "Type 'HELP' for commands."
 ];

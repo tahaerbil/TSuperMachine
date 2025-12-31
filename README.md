@@ -99,15 +99,21 @@ npm run tauri:build
 ## 🎮 Usage
 
 ### Canvas Controls
-- **Zoom**: Mouse wheel
+- **Zoom**: Mouse wheel (zoom to cursor position)
 - **Pan**: Middle-click + drag OR Alt + Left-click + drag
+- **Fit to Screen**: Middle-click double-click (fits all widgets in view)
+- **Lasso Selection**: Left-click + drag on empty canvas (multi-select widgets)
+- **Paste Widget**: Ctrl+V with text/image in clipboard (creates Note/Image at mouse position)
 
 ### Widget Management
-- **Add Widget**: Click icon in left toolbar
+- **Add Widget**: Click icon in left toolbar (adds at viewport center)
 - **Move Widget**: Drag from title bar
 - **Resize Widget**: Drag from corners/edges
-- **Close Widget**: Click X button
+- **Close Widget**: Click X button (hover to reveal)
 - **Focus Widget**: Click anywhere on widget
+- **Multi-select**: Ctrl+Click or lasso selection
+- **Maximize**: Click maximize button (full screen mode)
+- **Pop-out**: Click pop-out button (opens in new window)
 
 ### 2D CAD Commands
 | Command | Shortcut | Description |
@@ -159,49 +165,62 @@ npm run tauri:build
 tsupermachinev2/
 ├── src/
 │   ├── components/
-│   │   ├── Canvas.tsx              # Infinite canvas
-│   │   ├── Toolbar.tsx             # Widget launcher
-│   │   ├── WidgetContainer.tsx     # Draggable window wrapper
-│   │   └── widgets/
-│   │       ├── CAD2D/
-│   │       │   ├── CADEngine.ts    # Hybrid engine (Native/WASM)
-│   │       │   ├── WasmCanvas.tsx  # 2D CAD canvas renderer
-│   │       │   └── CAD2DWidget.tsx # Widget wrapper
-│   │       ├── CAD3DWidget.tsx
-│   │       ├── NoteWidget.tsx
-│   │       └── ... (other widgets)
+│   │   ├── Canvas.tsx              # Infinite canvas with zoom/pan
+│   │   ├── Toolbar.tsx             # Widget launcher sidebar
+│   │   └── WidgetContainer.tsx     # Draggable window wrapper (react-rnd)
+│   │
+│   ├── features/                   # All widget modules
+│   │   ├── cad-2d/                 # 2D CAD Editor (C++ Native/WASM)
+│   │   │   ├── CADEngine.ts        # Hybrid engine facade
+│   │   │   ├── WasmCanvas.tsx      # 2D CAD canvas renderer
+│   │   │   ├── CAD2DWidget.tsx     # Widget wrapper
+│   │   │   ├── hooks/              # CAD hooks (useCADCommand, etc.)
+│   │   │   └── COMMANDS.md         # Command reference
+│   │   ├── cad-3d/                 # 3D CAD Viewer (Three.js)
+│   │   ├── engineering-calculator/ # Engineering calculator
+│   │   ├── image-viewer/           # Image display widget
+│   │   ├── note-editor/            # Rich text editor (TipTap)
+│   │   ├── pdf-viewer/             # PDF viewer
+│   │   ├── presentation/           # Slide viewer
+│   │   ├── project/                # Project manager
+│   │   ├── project-menu/           # Project menu UI
+│   │   ├── settings/               # App settings
+│   │   ├── spreadsheet/            # Excel-like grid (Fortune Sheet)
+│   │   └── todo/                   # Task management
+│   │
 │   ├── store/
-│   │   ├── store.ts               # Main app state
-│   │   └── themeStore.ts          # Theme state
-│   ├── locales/                   # i18n translations
+│   │   ├── store.ts                # Main app state (Zustand)
+│   │   └── themeStore.ts           # Theme state
+│   ├── locales/                    # i18n translations
+│   ├── ARCHITECTURE.md             # Code architecture guide
 │   ├── i18n.ts
 │   ├── App.tsx
 │   └── main.tsx
 │
-├── native/                        # C++ Native CAD Engine
-│   ├── CMakeLists.txt             # CMake build config
-│   ├── package.json               # Node addon config
+├── native/                         # C++ Native CAD Engine
+│   ├── CMakeLists.txt              # CMake build config
+│   ├── package.json                # Node addon config
 │   ├── src/
-│   │   ├── cad2d/                 # 2D CAD Engine
-│   │   │   ├── Geometry.h         # Entity classes
-│   │   │   ├── Database.h         # Entity storage
-│   │   │   ├── Engine.h           # Engine API
-│   │   │   └── Engine.cpp         # Engine implementation
+│   │   ├── cad2d/                  # 2D CAD Engine
+│   │   │   ├── Geometry.h          # Entity classes
+│   │   │   ├── Database.h          # Entity storage
+│   │   │   ├── Engine.h            # Engine API
+│   │   │   └── Engine.cpp          # Engine implementation
 │   │   └── bindings/
 │   │       └── node/
-│   │           └── addon.cpp      # N-API bindings
+│   │           └── addon.cpp       # N-API bindings
 │   └── build/Release/
-│       └── cad_addon.node         # Compiled addon
+│       └── cad_addon.node          # Compiled addon
 │
-├── public/wasm/                   # WASM CAD Engine (fallback)
+├── public/wasm/                    # WASM CAD Engine (fallback)
 │   ├── cad_engine.js
 │   └── cad_engine.wasm
 │
-├── src-electron/                  # Electron backend
-│   ├── main.cjs                   # Main process
-│   └── preload.cjs                # Preload script
+├── src-electron/                   # Electron backend
+│   ├── main.cjs                    # Main process
+│   └── preload.cjs                 # Preload script
 │
-└── src-tauri/                     # Tauri backend (optional)
+└── src-tauri/                      # Tauri backend (optional)
     ├── Cargo.toml
     ├── tauri.conf.json
     └── src/
@@ -327,4 +346,18 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
+## 📋 Recent Updates
+
+### v2.0 (2025-12-31)
+- **Widget Positioning Fix**: Widgets now correctly appear at viewport center regardless of zoom level
+- **Paste at Mouse Position**: Ctrl+V creates widgets at cursor location instead of screen center
+- **Lasso Selection Fix**: Multi-select now works correctly at all zoom levels
+- **Fit to Screen**: Middle-click double-click properly fits all non-maximized widgets
+- **Code Architecture**: Migrated all widgets to `src/features/` modular structure
+- **react-rnd Scale Fix**: Widget dragging now respects canvas zoom level
+
+---
+
 **Made with ❤️ using React + TypeScript + C++**
+
+*Last updated: 2025-12-31*

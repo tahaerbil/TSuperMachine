@@ -1,11 +1,11 @@
 import React from 'react';
-import { useStore } from '../store/store';
+import { useStore, getWidgetSize } from '../store/store';
 import type { WidgetType } from '../store/store';
-import { Calculator, StickyNote, FileSpreadsheet, Box, PenTool, CheckSquare, Settings, Image, FileText, Presentation, FolderKanban, Pencil } from 'lucide-react';
+import { Calculator, StickyNote, FileSpreadsheet, Box, PenTool, CheckSquare, Settings, Image, FileText, Presentation, FolderKanban } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export const Toolbar: React.FC = () => {
-    const { addWidget, canvas } = useStore();
+    const { addWidget } = useStore();
     const { t } = useTranslation();
 
     const tools: { type: WidgetType; icon: React.ReactNode; label: string }[] = [
@@ -13,7 +13,6 @@ export const Toolbar: React.FC = () => {
         { type: 'CALCULATOR', icon: <Calculator size={20} />, label: t('app.toolbar.calculator') },
         { type: 'CAD_2D', icon: <PenTool size={20} />, label: t('app.toolbar.cad2d') },
         { type: 'CAD_3D', icon: <Box size={20} />, label: t('app.toolbar.cad3d') },
-        { type: 'SKETCH', icon: <Pencil size={20} />, label: t('app.toolbar.sketch') },
         { type: 'SPREADSHEET', icon: <FileSpreadsheet size={20} />, label: t('app.toolbar.spreadsheet') },
         { type: 'TODO', icon: <CheckSquare size={20} />, label: t('app.toolbar.todo') },
         { type: 'IMAGE', icon: <Image size={20} />, label: t('app.toolbar.image') },
@@ -23,26 +22,28 @@ export const Toolbar: React.FC = () => {
         { type: 'SETTINGS', icon: <Settings size={20} />, label: t('app.toolbar.settings') },
     ];
 
+    /**
+     * Adds a new widget at the center of the visible canvas viewport.
+     * Uses direct store access to get current canvas state (avoids stale closure).
+     */
     const handleAddWidget = (type: WidgetType) => {
-        // Calculate viewport center in canvas coordinates
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
+        const { canvas } = useStore.getState();
 
-        // Center of viewport in screen coordinates
-        const screenCenterX = viewportWidth / 2;
-        const screenCenterY = viewportHeight / 2;
+        // Get main canvas container dimensions (unique selector prevents CAD internal canvas conflicts)
+        const canvasContainer = document.querySelector('[data-main-canvas="true"]') as HTMLElement;
+        const viewportWidth = canvasContainer?.clientWidth ?? window.innerWidth;
+        const viewportHeight = canvasContainer?.clientHeight ?? window.innerHeight;
 
-        // Convert to canvas coordinates (accounting for offset and scale)
-        const canvasCenterX = (screenCenterX - canvas.offset.x) / canvas.scale;
-        const canvasCenterY = (screenCenterY - canvas.offset.y) / canvas.scale;
+        // Transform viewport center to world coordinates
+        // Formula: worldPos = (viewportCenter - offset) / scale
+        const worldCenterX = (viewportWidth / 2 - canvas.offset.x) / canvas.scale;
+        const worldCenterY = (viewportHeight / 2 - canvas.offset.y) / canvas.scale;
 
-        // Offset by half the default widget size so it's truly centered
-        const defaultWidth = 300;
-        const defaultHeight = 200;
-
+        // Position widget so its center aligns with world center
+        const { width, height } = getWidgetSize(type);
         addWidget(type, {
-            x: canvasCenterX - defaultWidth / 2,
-            y: canvasCenterY - defaultHeight / 2
+            x: worldCenterX - width / 2,
+            y: worldCenterY - height / 2
         });
     };
 

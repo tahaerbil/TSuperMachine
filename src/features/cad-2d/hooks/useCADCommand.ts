@@ -122,13 +122,31 @@ export const useCADCommand = ({ onEngineUpdate, scale, onCommandCompleted }: Use
     // Command Parser Handler
     // =========================================================================
     const handleCommand = useCallback((input: string) => {
+        // Handle "Unknown command" messages from CommandLine
+        if (input.startsWith('UNKNOWN:')) {
+            const parts = input.split(':');
+            const unknownCmd = parts[1];
+            const suggestion = parts[2];
+            setCommandHistory(prev => [...prev,
+            `> ${unknownCmd}`,
+            `Unknown command "${unknownCmd}". Did you mean "${suggestion}"?`
+            ]);
+            return;
+        }
+
         const action = CommandParser.parse(input);
         setCommandHistory(prev => [...prev, `> ${input}`]);
 
         if (action.type === 'START_COMMAND') {
-            // Intercept 'C' (Circle) when in RECTANGLE command -> treat as Chamfer
             if (commandStateRef.current.type === 'RECTANGLE' && action.command === 'CIRCLE') {
                 if (processSubCommand('CHAMFER', commandStateRef.current)) {
+                    return;
+                }
+            }
+
+            // Intercept 'A' (Arc) when in RECTANGLE command -> treat as Area
+            if (commandStateRef.current.type === 'RECTANGLE' && action.command === 'ARC') {
+                if (processSubCommand('AREA', commandStateRef.current)) {
                     return;
                 }
             }
@@ -138,49 +156,49 @@ export const useCADCommand = ({ onEngineUpdate, scale, onCommandCompleted }: Use
             switch (action.command) {
                 case 'LINE':
                     setCommandState({ type: 'LINE', step: 'START' });
-                    setCurrentPrompt("Specify first point:");
+                    setCurrentPrompt("Specify first point");
                     break;
                 case 'CIRCLE':
                     setCommandState({ type: 'CIRCLE', step: 'CENTER' });
-                    setCurrentPrompt("Specify center point or [2P/3P]:");
+                    setCurrentPrompt("Specify center point or [2P] [3P]");
                     break;
                 case 'POLYLINE':
                     setCommandState({ type: 'POLYLINE', points: [] });
-                    setCurrentPrompt("Specify first point:");
+                    setCurrentPrompt("Specify first point");
                     break;
                 case 'RECTANGLE':
                     setCommandState({ type: 'RECTANGLE', step: 'START' });
-                    setCurrentPrompt("Specify first corner:");
+                    setCurrentPrompt("Specify first corner or [Chamfer] [Fillet]");
                     break;
                 case 'ARC':
                     setCommandState({ type: 'ARC', step: 'CENTER' });
-                    setCurrentPrompt("Specify center point:");
+                    setCurrentPrompt("Specify center point");
                     break;
                 case 'POLYGON':
                     setCommandState({ type: 'POLYGON', step: 'SIDES', sides: 4 });
-                    setCurrentPrompt("Enter number of sides <4>:");
+                    setCurrentPrompt("Enter number of sides <4>");
                     break;
                 case 'MOVE':
                     setCommandState({ type: 'MOVE', step: 'BASE' });
-                    setCurrentPrompt("Specify base point:");
+                    setCurrentPrompt("Specify base point");
                     break;
                 case 'COPY':
                     setCommandState({ type: 'COPY', step: 'BASE' });
-                    setCurrentPrompt("Specify base point:");
+                    setCurrentPrompt("Specify base point");
                     break;
                 case 'ROTATE':
                     setCommandState({ type: 'ROTATE', step: 'BASE' });
-                    setCurrentPrompt("Specify base point:");
+                    setCurrentPrompt("Specify base point");
                     break;
                 case 'OFFSET': {
                     setCommandState({ type: 'OFFSET', step: 'DISTANCE' });
                     const lastDist = getLastOffsetDistance();
-                    setCurrentPrompt(`Specify distance${lastDist ? ` <${lastDist}>` : ''}:`);
+                    setCurrentPrompt(`Specify offset distance${lastDist ? ` <${lastDist}>` : ''}`);
                     break;
                 }
                 case 'ERASE':
                     setCommandState({ type: 'ERASE' });
-                    setCurrentPrompt("Select objects to erase (Space/Enter to finish):");
+                    setCurrentPrompt("Select objects to erase, then press Enter");
                     break;
             }
         } else if (action.type === 'ENTER_POINT' && action.point) {
@@ -211,9 +229,13 @@ export const useCADCommand = ({ onEngineUpdate, scale, onCommandCompleted }: Use
         } else if (action.type === 'CANCEL') {
             cancel();
         } else {
-            // Treat unknown as value input if active
+            // Handle unknown command
             if (commandStateRef.current.type !== 'IDLE') {
+                // Active command - treat as value input
                 processValueInput(input);
+            } else if (input.trim()) {
+                // IDLE - unknown command message
+                setCommandHistory(prev => [...prev, `Unknown command: "${input}"`]);
             }
         }
     }, [cancel, clearPreviews, processPointInput, processValueInput, processSubCommand, getLastOffsetDistance]);

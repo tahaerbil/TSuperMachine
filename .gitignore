@@ -59,3 +59,8 @@ Thumbs.db
 
 # Project Files
 *.tsm
+
+# Agent/AI Files
+.gemini/
+.agent/
+.claude/

@@ -60,12 +60,15 @@ export const AlignmentToolbar: React.FC = () => {
         });
     };
 
+    const buttonStyle = { color: 'var(--color-primary)' };
+    const buttonHoverClass = "p-2 rounded transition-colors hover:opacity-80";
+
     return (
         <div
             className="fixed bottom-4 left-1/2 transform -translate-x-1/2 px-3 py-2 rounded-lg shadow-lg border flex items-center gap-1"
             style={{
                 backgroundColor: 'var(--color-surface)',
-                borderColor: '#3b82f6',
+                borderColor: 'var(--color-primary)',
                 zIndex: 10000
             }}
         >
@@ -75,56 +78,68 @@ export const AlignmentToolbar: React.FC = () => {
 
             <button
                 onClick={alignLeft}
-                className="p-2 rounded hover:bg-blue-100 transition-colors"
+                className={buttonHoverClass}
                 title="Align Left"
-                style={{ color: '#3b82f6' }}
+                style={{ ...buttonStyle, backgroundColor: 'transparent' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
                 <AlignLeft size={16} />
             </button>
 
             <button
                 onClick={alignCenterHorizontal}
-                className="p-2 rounded hover:bg-blue-100 transition-colors"
+                className={buttonHoverClass}
                 title="Align Center Horizontal"
-                style={{ color: '#3b82f6' }}
+                style={{ ...buttonStyle, backgroundColor: 'transparent' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
                 <AlignCenterHorizontal size={16} />
             </button>
 
             <button
                 onClick={alignRight}
-                className="p-2 rounded hover:bg-blue-100 transition-colors"
+                className={buttonHoverClass}
                 title="Align Right"
-                style={{ color: '#3b82f6' }}
+                style={{ ...buttonStyle, backgroundColor: 'transparent' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
                 <AlignRight size={16} />
             </button>
 
-            <div className="w-px h-6 bg-gray-300 mx-1"></div>
+            <div className="w-px h-6 mx-1" style={{ backgroundColor: 'var(--color-border)' }}></div>
 
             <button
                 onClick={alignTop}
-                className="p-2 rounded hover:bg-blue-100 transition-colors"
+                className={buttonHoverClass}
                 title="Align Top"
-                style={{ color: '#3b82f6' }}
+                style={{ ...buttonStyle, backgroundColor: 'transparent' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
                 <AlignVerticalJustifyStart size={16} />
             </button>
 
             <button
                 onClick={alignCenterVertical}
-                className="p-2 rounded hover:bg-blue-100 transition-colors"
+                className={buttonHoverClass}
                 title="Align Center Vertical"
-                style={{ color: '#3b82f6' }}
+                style={{ ...buttonStyle, backgroundColor: 'transparent' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
                 <AlignCenterVertical size={16} />
             </button>
 
             <button
                 onClick={alignBottom}
-                className="p-2 rounded hover:bg-blue-100 transition-colors"
+                className={buttonHoverClass}
                 title="Align Bottom"
-                style={{ color: '#3b82f6' }}
+                style={{ ...buttonStyle, backgroundColor: 'transparent' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
                 <AlignVerticalJustifyEnd size={16} />
             </button>

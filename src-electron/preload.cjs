@@ -29,6 +29,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onLoadProjectData: (callback) => ipcRenderer.on('load-project-data', (_event, payload) => callback(payload)),
     saveProject: (data, filePath, saveAs) => ipcRenderer.invoke('save-project-file', { data, filePath, saveAs }),
     openProjectDialog: () => ipcRenderer.invoke('open-project-file'),
+
+    // Config Ops
+    saveConfig: (config) => ipcRenderer.invoke('save-config', config),
+    loadConfig: () => ipcRenderer.invoke('load-config'),
+
     removeListeners: () => {
         ipcRenderer.removeAllListeners('menu-action');
         ipcRenderer.removeAllListeners('load-project-data');

@@ -68,7 +68,7 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 | Chamfer (C) | ✅ | Köşe pahı |
 | Fillet (F) | ✅ | Köşe yuvarlatma |
 | Width (W) | ❌ | Çizgi kalınlığı |
-| Area (A) | ❌ | Alan ile boyut belirleme |
+| Area (A) | ✅ | Alan ile boyut belirleme |
 | Dimensions (D) | ✅ | En-boy ile boyut belirleme |
 
 ---
@@ -451,4 +451,4 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 
 ---
 
-*Son güncelleme: 2025-12-28*
+*Son güncelleme: 2025-12-31*

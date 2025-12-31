@@ -1,6 +1,6 @@
 export type CommandType = 'LINE' | 'CIRCLE' | 'POLYLINE' | 'RECTANGLE' | 'ARC' | 'POLYGON' | 'MOVE' | 'COPY' | 'ROTATE' | 'OFFSET' | 'ERASE' | 'PAN' | 'ZOOM' | 'IDLE';
 
-export type SubCommandType = 'CLOSE' | 'UNDO' | 'DIAMETER' | '2P' | '3P' | 'DIMENSIONS' | 'FILLET' | 'CHAMFER';
+export type SubCommandType = 'CLOSE' | 'UNDO' | 'DIAMETER' | '2P' | '3P' | 'DIMENSIONS' | 'FILLET' | 'CHAMFER' | 'AREA';
 
 export interface CommandAction {
     type: 'START_COMMAND' | 'ENTER_POINT' | 'ENTER_VALUE' | 'SUBCOMMAND' | 'CANCEL' | 'UNKNOWN';
@@ -34,6 +34,7 @@ export class CommandParser {
             case 'REC':
             case 'RECTANGLE':
                 return { type: 'START_COMMAND', command: 'RECTANGLE', raw: input };
+            case 'A':
             case 'ARC':
                 return { type: 'START_COMMAND', command: 'ARC', raw: input };
             case 'POL':
@@ -78,6 +79,8 @@ export class CommandParser {
             case 'CHA':
             case 'CHAMFER':
                 return { type: 'SUBCOMMAND', subCommand: 'CHAMFER', raw: input };
+            case 'AREA':
+                return { type: 'SUBCOMMAND', subCommand: 'AREA', raw: input };
             case 'ESC':
             case 'CANCEL':
                 return { type: 'CANCEL', raw: input };

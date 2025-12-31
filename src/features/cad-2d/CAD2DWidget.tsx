@@ -107,8 +107,16 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
         return () => container.removeEventListener('wheel', handleWheel);
     }, [handleWheel]);
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e: React.MouseEvent) => {
         isPanning.current = false;
+
+        // Prevent middle-click paste on button release (Linux primary selection)
+        if (e.button === 1) {
+            const isConsoleClick = (e.target as HTMLElement).closest('.command-line-container');
+            if (!isConsoleClick) {
+                e.preventDefault();
+            }
+        }
     };
 
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -116,9 +124,13 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
 
         // Pan Logic (Middle Mouse or Alt+Left)
         if (e.button === 1 || (e.button === 0 && e.altKey)) {
+            // Skip preventDefault if clicking on console (allow paste there)
+            const isConsoleClick = (e.target as HTMLElement).closest('.command-line-container');
+            if (!isConsoleClick) {
+                e.preventDefault();
+            }
             isPanning.current = true;
             lastMousePos.current = { x: e.clientX, y: e.clientY };
-            e.preventDefault();
             return;
         }
 
@@ -193,15 +205,22 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
     return (
         <div
             ref={containerRef}
-            className="w-full h-full relative overflow-hidden cursor-crosshair flex flex-col"
+            className="w-full h-full relative overflow-hidden cursor-crosshair"
             style={{ backgroundColor: '#1e1e1e' }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
+            onMouseLeave={() => { isPanning.current = false; }}
             onContextMenu={(e) => e.preventDefault()}
+            onAuxClick={(e) => {
+                // Only prevent middle-click paste on canvas, not on console
+                const isConsoleClick = (e.target as HTMLElement).closest('.command-line-container');
+                if (!isConsoleClick) {
+                    e.preventDefault();
+                }
+            }}
         >
-            <div className="flex-1 relative overflow-hidden w-full">
+            <div className="absolute inset-0">
                 {!isEngineReady && (
                     <div className="absolute inset-0 flex items-center justify-center text-gray-400">
                         Initializing C++ Engine...
@@ -210,7 +229,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
                 {isEngineReady && dimensions.width > 0 && (
                     <WasmCanvas
                         width={dimensions.width}
-                        height={isMaximized ? dimensions.height - 128 : dimensions.height}
+                        height={dimensions.height}
                         scale={scale}
                         offset={offset}
                         version={engineVersion}

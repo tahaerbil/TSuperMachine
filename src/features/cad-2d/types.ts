@@ -25,6 +25,9 @@ export type CommandState =
     | { type: 'RECTANGLE', step: 'DIMENSIONS_LENGTH', p1: { x: number, y: number }, options?: { fillet?: number, chamfer?: number } }
     | { type: 'RECTANGLE', step: 'DIMENSIONS_WIDTH', p1: { x: number, y: number }, length: number, options?: { fillet?: number, chamfer?: number } }
     | { type: 'RECTANGLE', step: 'DIMENSIONS_CORNER', p1: { x: number, y: number }, length: number, width: number, options?: { fillet?: number, chamfer?: number } }
+    | { type: 'RECTANGLE', step: 'AREA_INPUT', p1: { x: number, y: number }, options?: { fillet?: number, chamfer?: number } }
+    | { type: 'RECTANGLE', step: 'AREA_DIMENSION_SELECT', p1: { x: number, y: number }, area: number, options?: { fillet?: number, chamfer?: number } }
+    | { type: 'RECTANGLE', step: 'AREA_LENGTH_INPUT', p1: { x: number, y: number }, area: number, calculateFor: 'length' | 'width', options?: { fillet?: number, chamfer?: number } }
     | { type: 'RECTANGLE', step: 'SET_FILLET', p1?: { x: number, y: number }, previousStep: 'START' | 'END' }
     | { type: 'RECTANGLE', step: 'SET_CHAMFER', p1?: { x: number, y: number }, previousStep: 'START' | 'END' }
     | { type: 'ARC', step: 'CENTER' }

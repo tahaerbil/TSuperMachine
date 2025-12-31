@@ -93,7 +93,7 @@ export const useCADDrawing = ({
                     firstPoint: { x, y },  // Remember first point for Close
                     allPoints: [{ x, y }]  // Start tracking all points for Undo
                 });
-                setCurrentPrompt("Specify next point or [Close/Undo]:");
+                setCurrentPrompt("Specify next point or [Close] [Undo]");
                 setPreviewState(prev => ({ ...prev, line: { x1: x, y1: y, x2: x, y2: y } }));
                 return true;
             } else if (state.step === 'END') {
@@ -110,7 +110,7 @@ export const useCADDrawing = ({
                     allPoints: newAllPoints
                 });
                 setPreviewState(prev => ({ ...prev, line: { x1: x, y1: y, x2: x, y2: y } }));
-                setCurrentPrompt("Specify next point or [Close/Undo]:");
+                setCurrentPrompt("Specify next point or [Close] [Undo]");
                 return true;
             }
         }
@@ -120,7 +120,7 @@ export const useCADDrawing = ({
             // Mode: Center + Radius (default)
             if (state.step === 'CENTER') {
                 setCommandState({ type: 'CIRCLE', step: 'RADIUS', center: { x, y } });
-                setCurrentPrompt("Specify radius of circle or [Diameter]:");
+                setCurrentPrompt("Specify radius or [Diameter]");
                 setPreviewState(prev => ({ ...prev, circle: { cx: x, cy: y, r: 0 } }));
                 return true;
             }
@@ -236,7 +236,7 @@ export const useCADDrawing = ({
         if (state.type === 'POLYLINE') {
             const newPoints = [...state.points, { x, y }];
             setCommandState({ type: 'POLYLINE', points: newPoints });
-            setCurrentPrompt(`Specify next point (${newPoints.length} points, press Enter to finish):`);
+            setCurrentPrompt(`Specify next point or [Close] [Undo] (${newPoints.length} pts)`);
             setPreviewState(prev => ({ ...prev, polyline: newPoints }));
             return true;
         }
@@ -245,7 +245,7 @@ export const useCADDrawing = ({
         if (state.type === 'RECTANGLE') {
             if (state.step === 'START') {
                 setCommandState({ type: 'RECTANGLE', step: 'END', p1: { x, y }, options: state.options });
-                setCurrentPrompt("Specify opposite corner or [Dimensions]:");
+                setCurrentPrompt("Specify opposite corner or [Dimensions]");
                 setPreviewState(prev => ({ ...prev, rectangle: { x1: x, y1: y, x2: x, y2: y } }));
                 return true;
             } else if (state.step === 'END') {
@@ -430,6 +430,61 @@ export const useCADDrawing = ({
             }
         }
 
+        // RECTANGLE Area Steps
+        if (state.type === 'RECTANGLE') {
+            if (state.step === 'AREA_INPUT') {
+                const area = parseFloat(val);
+                if (!isNaN(area) && area > 0) {
+                    setCommandState({
+                        type: 'RECTANGLE',
+                        step: 'AREA_DIMENSION_SELECT',
+                        p1: state.p1,
+                        area,
+                        options: state.options
+                    });
+                    setCurrentPrompt("Calculate rectangle dimensions based on [Length/Width] <Length>:");
+                    return true;
+                } else {
+                    setCommandHistory(prev => [...prev, "Invalid area."]);
+                    return true;
+                }
+            }
+            if (state.step === 'AREA_DIMENSION_SELECT') {
+                const choice = val.toUpperCase().startsWith('W') ? 'width' : 'length'; // Default length
+                setCommandState({
+                    type: 'RECTANGLE',
+                    step: 'AREA_LENGTH_INPUT',
+                    p1: state.p1,
+                    area: state.area,
+                    calculateFor: choice,
+                    options: state.options
+                });
+                setCurrentPrompt(`Enter rectangle ${choice}:`);
+                return true;
+            }
+            if (state.step === 'AREA_LENGTH_INPUT') {
+                const dim = parseFloat(val);
+                if (!isNaN(dim) && dim > 0) {
+                    const otherDim = state.area / dim;
+                    const length = state.calculateFor === 'length' ? dim : otherDim;
+                    const width = state.calculateFor === 'width' ? dim : otherDim;
+
+                    // Draw in positive quadrant relative to p1
+                    drawRectangle(state.p1, { x: state.p1.x + length, y: state.p1.y + width }, state.options);
+                    onEngineUpdate();
+                    setCommandState({ type: 'IDLE' });
+                    clearPreviews();
+                    setCurrentPrompt("Command:");
+                    setCommandHistory(prev => [...prev, `Rectangle created (Area: ${state.area})`]);
+                    onCommandCompleted?.('RECTANGLE');
+                    return true;
+                } else {
+                    setCommandHistory(prev => [...prev, "Invalid dimension."]);
+                    return true;
+                }
+            }
+        }
+
         // RECTANGLE Fillet Value
         if (state.type === 'RECTANGLE' && state.step === 'SET_FILLET') {
             const r = parseFloat(val);
@@ -503,18 +558,28 @@ export const useCADDrawing = ({
         }
 
         return false;
-    }, [onEngineUpdate, onCommandCompleted, setCommandState, setCurrentPrompt, setCommandHistory, clearPreviews]);
+    }, [onEngineUpdate, onCommandCompleted, setCommandState, setCurrentPrompt, setCommandHistory, clearPreviews, drawRectangle]);
 
     /**
      * Process subcommands (Close, Undo, Diameter, Dimensions, 2P, 3P, Fillet, Chamfer) for drawing commands
      * @returns true if the subcommand was handled, false otherwise
      */
-    const processSubCommand = useCallback((subCmd: 'CLOSE' | 'UNDO' | 'DIAMETER' | 'DIMENSIONS' | '2P' | '3P' | 'FILLET' | 'CHAMFER', state: CommandState): boolean => {
+    const processSubCommand = useCallback((subCmd: 'CLOSE' | 'UNDO' | 'DIAMETER' | 'DIMENSIONS' | '2P' | '3P' | 'FILLET' | 'CHAMFER' | 'AREA', state: CommandState): boolean => {
 
         // ... existing LINE close ...
 
-        // RECTANGLE Options (Fillet/Chamfer)
+        // RECTANGLE Options (Fillet/Chamfer/Area)
         if (state.type === 'RECTANGLE' && (state.step === 'START' || state.step === 'END')) {
+            if (subCmd === 'AREA' && state.step === 'END') {
+                setCommandState({
+                    type: 'RECTANGLE',
+                    step: 'AREA_INPUT',
+                    p1: state.p1,
+                    options: state.options
+                });
+                setCurrentPrompt("Enter area of rectangle:");
+                return true;
+            }
             if (subCmd === 'FILLET') {
                 setCommandState({
                     type: 'RECTANGLE',
