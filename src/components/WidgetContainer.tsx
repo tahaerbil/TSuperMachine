@@ -5,6 +5,7 @@ import { Trash2, Maximize2, Minimize2, ExternalLink, LogIn, RotateCw } from 'luc
 import { useStore } from '../store/store';
 import type { Widget } from '../store/store';
 import clsx from 'clsx';
+import { ConnectorHandle } from './automation';
 
 interface WidgetContainerProps {
     widget: Widget;
@@ -12,9 +13,12 @@ interface WidgetContainerProps {
 }
 
 export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, children }) => {
-    const { updateWidget, removeWidget, bringToFront, activeWidgetId, canvas, selectedWidgetIds, selectWidget, widgets } = useStore();
+    const { updateWidget, removeWidget, bringToFront, activeWidgetId, canvas, selectedWidgetIds, selectWidget, widgets, removeConnectionsForWidget } = useStore();
     const isActive = activeWidgetId === widget.id;
     const isSelected = selectedWidgetIds.includes(widget.id);
+
+    // Hover state for connector handle visibility
+    const [isHovered, setIsHovered] = useState(false);
 
     const isMaximized = widget.isMaximized || false;
     const [externalWindow, setExternalWindow] = useState<Window | null>(null);
@@ -146,29 +150,31 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                 position={isMaximized ? { x: 0, y: 0 } : localPos}
                 disableDragging={isMaximized || !!externalWindow}
                 enableResizing={!isMaximized && !externalWindow}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
                 onDragStart={() => {
                     isDragging.current = true;
                 }}
                 onDrag={(_e, d) => {
                     if (isMaximized || externalWindow) return;
 
-                    // Convert screen-space delta to world-space delta
-                    // react-rnd's deltaX/Y are in screen pixels, we need world units
-                    const scale = canvas.scale;
-                    setLocalPos(prev => ({
-                        x: prev.x + d.deltaX / scale,
-                        y: prev.y + d.deltaY / scale
-                    }));
+                    // react-rnd's scale prop handles coordinate transformation
+                    // d.x and d.y are already in world coordinates when scale is set
+                    const newPos = { x: d.x, y: d.y };
+                    setLocalPos(newPos);
+
+                    // Update store immediately so wires follow the widget
+                    updateWidget(widget.id, { position: newPos });
 
                     if (isSelected && selectedWidgetIds.length > 1) {
-                        const scaledDeltaX = d.deltaX / scale;
-                        const scaledDeltaY = d.deltaY / scale;
-                        if (scaledDeltaX !== 0 || scaledDeltaY !== 0) {
+                        const deltaX = d.x - localPos.x;
+                        const deltaY = d.y - localPos.y;
+                        if (deltaX !== 0 || deltaY !== 0) {
                             selectedWidgetIds.forEach(id => {
                                 if (id !== widget.id) {
                                     const w = widgets.find(w => w.id === id);
                                     if (w) {
-                                        updateWidget(id, { position: { x: w.position.x + scaledDeltaX, y: w.position.y + scaledDeltaY } });
+                                        updateWidget(id, { position: { x: w.position.x + deltaX, y: w.position.y + deltaY } });
                                     }
                                 }
                             });
@@ -177,8 +183,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                 }}
                 onDragStop={() => {
                     isDragging.current = false;
-                    if (isMaximized || externalWindow) return;
-                    updateWidget(widget.id, { position: localPos });
+                    // Position already updated in onDrag, just reset dragging flag
                 }}
                 onResizeStop={(_e, _direction, ref, _delta, position) => {
                     if (isMaximized || externalWindow) return;
@@ -200,7 +205,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                     position: isMaximized ? 'fixed' : 'absolute',
                 }}
                 className={clsx(
-                    "flex flex-col overflow-hidden group/widget",
+                    "flex flex-col overflow-visible group/widget", // Changed to overflow-visible for toolbar
                     "transition-[box-shadow,opacity] duration-300", // Replaced transition-all with specific props
                     !isMaximized && "rounded-xl", // More rounded corners
                     // Glassmorphism Base
@@ -213,60 +218,118 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                         ? "shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] ring-2 ring-blue-500/50" // Removed scale transform
                         : !isMaximized && "shadow-xl hover:shadow-2xl hover:ring-1 hover:ring-white/20"
                 )}
-                dragHandleClassName={(!isMaximized && !externalWindow) ? "widget-header" : ""}
+                dragHandleClassName={(!isMaximized && !externalWindow) ? "widget-drag-handle" : ""}
+                onMouseUp={(e) => {
+                    // Handle wire drop connection
+                    const state = useStore.getState();
+                    const { wireDragState, addConnection, clearWireDragState, canvas } = state;
+
+                    if (wireDragState.isDragging && wireDragState.sourceWidgetId && wireDragState.sourceWidgetId !== widget.id) {
+                        e.stopPropagation();
+
+                        // Calculate which side (handle) was dropped on
+                        // Transform mouse position to widget-local space to find closest edge
+                        // Or simpler: compare mouse screen pos to transformed widget screen pos
+
+                        // Current widget screen coordinates
+                        const screenX = widget.position.x * canvas.scale + canvas.offset.x;
+                        const screenY = widget.position.y * canvas.scale + canvas.offset.y;
+                        const screenW = widget.size.width * canvas.scale;
+                        const screenH = widget.size.height * canvas.scale;
+
+                        const mouseX = e.clientX;
+                        const mouseY = e.clientY;
+
+                        // Calculate distance to each edge
+                        const distLeft = Math.abs(mouseX - screenX);
+                        const distRight = Math.abs(mouseX - (screenX + screenW));
+                        const distTop = Math.abs(mouseY - screenY);
+                        const distBottom = Math.abs(mouseY - (screenY + screenH));
+
+                        const min = Math.min(distLeft, distRight, distTop, distBottom);
+
+                        let targetHandle: 'left' | 'right' | 'top' | 'bottom' = 'left';
+                        if (min === distRight) targetHandle = 'right';
+                        else if (min === distTop) targetHandle = 'top';
+                        else if (min === distBottom) targetHandle = 'bottom';
+                        else targetHandle = 'left'; // default to left for safety
+
+                        addConnection(
+                            wireDragState.sourceWidgetId,
+                            widget.id,
+                            'manual', // Default trigger
+                            wireDragState.sourceHandle, // Pass the stored source handle
+                            targetHandle // Pass the calculated target handle
+                        );
+
+                        clearWireDragState();
+                    }
+                }}
             >
-                {/* Cinematic Floating Header */}
+                {/* Floating Toolbar - Positioned ABOVE the widget */}
                 {!isMaximized && (
                     <div
-                        className="widget-header absolute top-0 left-0 right-0 z-10 h-10 flex items-center justify-between px-3 cursor-move select-none opacity-0 group-hover/widget:opacity-100 transition-opacity duration-300"
+                        className="widget-drag-handle absolute left-0 right-0 z-20 flex items-center justify-center opacity-0 group-hover/widget:opacity-100 transition-all duration-200 cursor-move"
                         style={{
-                            background: 'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)', // Gradient fade
+                            top: '-42px',
                         }}
                     >
-                        {/* Title Capsule */}
-                        <div className="bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'bg-gray-500'}`} />
-                            <span className="text-xs font-medium text-white/90 tracking-wide">{widget.title}</span>
-                        </div>
+                        <div className="flex items-center justify-between w-full mx-1 gap-3 bg-[#0f1115]/90 backdrop-blur-xl px-3 py-1.5 rounded-2xl border border-white/10 shadow-[0_8px_16px_rgba(0,0,0,0.3)] ring-1 ring-white/5">
 
-                        {/* Control Capsule */}
-                        <div className="flex items-center gap-1 bg-black/40 backdrop-blur-md px-1.5 py-1 rounded-full border border-white/10 shadow-lg">
-                            <button
-                                onClick={handleRotate}
-                                className="p-1.5 hover:bg-white/20 text-white/70 hover:text-white rounded-full transition-all"
-                                title="Rotate Orientation"
-                            >
-                                <RotateCw size={12} />
-                            </button>
-                            <div className="w-px h-3 bg-white/20 mx-0.5" /> {/* Divider */}
-                            {!externalWindow && (
+                            {/* Title Section */}
+                            <div className="flex items-center gap-2 overflow-hidden">
+                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${(isActive || isSelected) ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)] animate-pulse' : 'bg-white/20'}`} />
+                                <span className="text-xs font-semibold text-white/90 tracking-wide select-none whitespace-nowrap truncate">
+                                    {widget.title}
+                                </span>
+                            </div>
+
+                            {/* Actions Section */}
+                            <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
+                                {/* Divider - Only show if enough space (optional logic, but keeping simple for now) */}
+                                <div className="w-px h-4 bg-white/10 mr-2" />
+
                                 <button
-                                    onClick={handlePopOut}
-                                    className="p-1.5 hover:bg-white/20 text-white/70 hover:text-white rounded-full transition-all"
-                                    title="Pop Out"
+                                    onClick={handleRotate}
+                                    className="p-1.5 text-white/50 hover:text-white hover:bg-white/10 rounded-lg transition-colors group/btn relative"
+                                    title="Rotate"
                                 >
-                                    <ExternalLink size={12} />
+                                    <RotateCw size={13} />
                                 </button>
-                            )}
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    updateWidget(widget.id, { isMaximized: !isMaximized });
-                                }}
-                                className="p-1.5 hover:bg-white/20 text-white/70 hover:text-white rounded-full transition-all"
-                            >
-                                {isMaximized ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
-                            </button>
-                            <div className="w-px h-3 bg-white/20 mx-0.5" /> {/* Divider */}
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    removeWidget(widget.id);
-                                }}
-                                className="p-1.5 hover:bg-red-500/80 text-white/70 hover:text-white rounded-full transition-all"
-                            >
-                                <Trash2 size={12} />
-                            </button>
+
+                                {!externalWindow && (
+                                    <button
+                                        onClick={handlePopOut}
+                                        className="p-1.5 text-white/50 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                        title="Pop Out"
+                                    >
+                                        <ExternalLink size={13} />
+                                    </button>
+                                )}
+
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        updateWidget(widget.id, { isMaximized: !isMaximized });
+                                    }}
+                                    className="p-1.5 text-white/50 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                    title="Maximize"
+                                >
+                                    <Maximize2 size={13} />
+                                </button>
+
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        removeConnectionsForWidget(widget.id);
+                                        removeWidget(widget.id);
+                                    }}
+                                    className="p-1.5 text-white/50 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors ml-1"
+                                    title="Delete"
+                                >
+                                    <Trash2 size={13} />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -310,6 +373,44 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                         children
                     )}
                 </div>
+
+                {/* Connector Handles for Automation - All 4 Sides */}
+                {!isMaximized && !externalWindow && (
+                    <>
+                        <ConnectorHandle
+                            widgetId={widget.id}
+                            widgetType={widget.type}
+                            widgetPosition={widget.position}
+                            widgetSize={widget.size}
+                            isVisible={isHovered}
+                            placement="top"
+                        />
+                        <ConnectorHandle
+                            widgetId={widget.id}
+                            widgetType={widget.type}
+                            widgetPosition={widget.position}
+                            widgetSize={widget.size}
+                            isVisible={isHovered}
+                            placement="right"
+                        />
+                        <ConnectorHandle
+                            widgetId={widget.id}
+                            widgetType={widget.type}
+                            widgetPosition={widget.position}
+                            widgetSize={widget.size}
+                            isVisible={isHovered}
+                            placement="bottom"
+                        />
+                        <ConnectorHandle
+                            widgetId={widget.id}
+                            widgetType={widget.type}
+                            widgetPosition={widget.position}
+                            widgetSize={widget.size}
+                            isVisible={isHovered}
+                            placement="left"
+                        />
+                    </>
+                )}
             </Rnd>
         </React.Fragment>
     );

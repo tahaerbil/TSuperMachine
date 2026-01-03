@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { useStore } from '../../store/store';
+import { useStore, getIncomingConnections } from '../../store/store';
 import { Upload, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { eventBus } from '../../core/services/automation';
+import type { AutomationEvent, TriggerEvent } from '../../core/services/automation';
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -14,13 +16,62 @@ interface PDFViewerWidgetProps {
     initialPDF?: string;
 }
 
+interface PDFPayload {
+    filename?: string;
+    pdfBlobUrl?: string;
+    success?: boolean;
+}
+
 export const PDFViewerWidget: React.FC<PDFViewerWidgetProps> = ({ id, initialPDF }) => {
     const [pdfUrl, setPdfUrl] = useState<string | null>(initialPDF || null);
     const [numPages, setNumPages] = useState<number>(0);
     const [pageNumber, setPageNumber] = useState<number>(1);
     const [scale, setScale] = useState<number>(1.0);
+    const [lastReceivedFilename, setLastReceivedFilename] = useState<string | null>(null);
     const { updateWidget } = useStore();
     const { t } = useTranslation();
+
+    const processedEvents = useRef<Set<string>>(new Set());
+
+    // Check for incoming connections (for debugging)
+    useEffect(() => {
+        const connections = getIncomingConnections(id);
+        if (connections.length > 0) {
+            console.log('[PDFViewer] Has', connections.length, 'incoming connections');
+        }
+    }, [id]);
+
+    // Handle incoming automation events (from PDF Export)
+    const handleAutomationEvent = useCallback((event: AutomationEvent<PDFPayload>) => {
+        // Deduplicate events
+        const eventKey = `${event.sourceWidgetId}-${event.timestamp}`;
+        if (processedEvents.current.has(eventKey)) {
+            return;
+        }
+        processedEvents.current.add(eventKey);
+
+        console.log('[PDFViewer] Received event:', event);
+
+        // Check if payload has a PDF blob URL
+        if (event.payload?.pdfBlobUrl) {
+            setPdfUrl(event.payload.pdfBlobUrl);
+            setPageNumber(1);
+            setLastReceivedFilename(event.payload.filename || 'generated.pdf');
+            updateWidget(id, { data: { pdf: event.payload.pdfBlobUrl } });
+        }
+    }, [id, updateWidget]);
+
+    // Subscribe to events from PDF Export widgets
+    useEffect(() => {
+        const events: TriggerEvent[] = ['onGenerate'];
+        const unsubscribers = events.map(eventType =>
+            eventBus.subscribe(id, eventType, handleAutomationEvent)
+        );
+
+        return () => {
+            unsubscribers.forEach(unsub => unsub());
+        };
+    }, [id, handleAutomationEvent]);
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -31,6 +82,7 @@ export const PDFViewerWidget: React.FC<PDFViewerWidgetProps> = ({ id, initialPDF
             const url = event.target?.result as string;
             setPdfUrl(url);
             setPageNumber(1);
+            setLastReceivedFilename(null);
             updateWidget(id, { data: { pdf: url } });
         };
         reader.readAsDataURL(file);
@@ -49,7 +101,7 @@ export const PDFViewerWidget: React.FC<PDFViewerWidgetProps> = ({ id, initialPDF
         if (!pdfUrl) return;
         const link = document.createElement('a');
         link.href = pdfUrl;
-        link.download = 'document.pdf';
+        link.download = lastReceivedFilename || 'document.pdf';
         link.click();
     };
 

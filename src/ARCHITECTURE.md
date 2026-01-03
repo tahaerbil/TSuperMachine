@@ -10,6 +10,7 @@ All widgets in TSuperMachine are organized under `src/features/`. Each widget is
 
 ```
 src/features/
+├── automations/        ← Automation & Workflow system (complex)
 ├── cad-2d/                 ← 2D CAD Editor (complex)
 ├── cad-3d/                 ← 3D CAD Viewer
 ├── engineering-calculator/ ← Calculator (complex)
@@ -65,7 +66,7 @@ feature-name/
 └── types.ts              ← Type definitions
 ```
 
-**Examples:** `cad-2d`, `engineering-calculator`, `note-editor`
+**Examples:** `cad-2d`, `engineering-calculator`, `note-editor`, `automations`
 
 ---
 
@@ -73,6 +74,7 @@ feature-name/
 
 | Feature | Files | Complexity | Key Dependencies |
 |---------|-------|------------|------------------|
+| `automations` | 3+ | High | - |
 | `cad-2d` | 12 | High | C++ Native, WASM |
 | `cad-3d` | 2 | Low | Three.js |
 | `engineering-calculator` | 20 | High | C++ Native, Python |
@@ -121,7 +123,8 @@ cad-2d/hooks/
 
 - **2025-12-28**: Consolidated all widgets from `components/widgets/` to `features/`
 - **2025-12-28**: Refactored `useCADCommand.ts` into modular hooks
+- **2026-01-03**: Added `automations` feature for cross-widget workflows
 
 ---
 
-*Last updated: 2025-12-31*
+*Last updated: 2026-01-03*

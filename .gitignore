@@ -64,3 +64,14 @@ Thumbs.db
 .gemini/
 .agent/
 .claude/
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+junit.xml
+
+# Temporary
+tmp/
+temp/

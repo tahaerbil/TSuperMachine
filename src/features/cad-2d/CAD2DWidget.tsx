@@ -3,13 +3,16 @@ import { cadEngine, SnapType } from '../../core/services/cad-engine/CADEngine';
 import { WasmCanvas } from './components/WasmCanvas';
 import { CommandLine, type CommandLineRef } from './components/CommandLine';
 import { useCADCommand } from './hooks/useCADCommand';
+import { getOutgoingConnections } from '../../store/store';
+import { eventBus } from '../../core/services/automation';
+import type { AutomationEvent, TriggerEvent } from '../../core/services/automation';
 
 interface CAD2DWidgetProps {
-    id?: string;
+    id: string;
     isMaximized?: boolean;
 }
 
-export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
+export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
     const [scale, setScale] = useState(1);
@@ -21,9 +24,41 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ isMaximized }) => {
     const forceUpdate = useCallback(() => setEngineVersion(v => v + 1), []);
     const commandLineRef = useRef<CommandLineRef>(null);
 
+    // Emit automation event to connected widgets
+    const emitAutomationEvent = useCallback((type: TriggerEvent, payload: unknown) => {
+        if (!id) return;
+        const connections = getOutgoingConnections(id);
+        if (connections.length === 0) return;
+
+        const event: AutomationEvent = {
+            type,
+            sourceWidgetId: id,
+            sourceWidgetType: 'CAD_2D',
+            timestamp: new Date().toISOString(),
+            payload
+        };
+
+        // Send to all active connections
+        const targetIds = connections
+            .filter(c => c.isActive)
+            .map(c => c.targetWidgetId);
+
+        if (targetIds.length > 0) {
+            console.log('[CAD2DWidget] Emitting event:', type, 'to', targetIds.length, 'targets');
+            eventBus.emit(event, targetIds);
+        }
+    }, [id]);
+
     const handleCommandCompleted = useCallback((cmd: string) => {
         commandLineRef.current?.setLastCommand(cmd);
-    }, []);
+
+        // Emit onSave event with CAD command info when command completes
+        emitAutomationEvent('onSave', {
+            command: cmd,
+            timestamp: new Date().toISOString(),
+            source: 'CAD_2D'
+        });
+    }, [emitAutomationEvent]);
 
     const {
         commandState,

@@ -1,12 +1,14 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { EditorContent } from '@tiptap/react';
-import { useStore } from '../../store/store';
+import { useStore, getOutgoingConnections } from '../../store/store';
 import { useTranslation } from 'react-i18next';
 import { useNoteEditor } from './hooks/useNoteEditor';
 import { Toolbar } from './components/Toolbar';
 import { BubbleMenu } from './components/BubbleMenu';
 import { exportToMarkdown, downloadAsFile } from './utils/export';
 import { Download, FileText } from 'lucide-react';
+import { eventBus } from '../../core/services/automation';
+import type { AutomationEvent, TriggerEvent } from '../../core/services/automation';
 
 // Import editor styles
 import './styles/editor.css';
@@ -25,10 +27,48 @@ export const NoteWidget: React.FC<NoteWidgetProps> = ({
     const { updateWidget } = useStore();
     const { t } = useTranslation();
 
+    // Debounce ref for onChange events
+    const changeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Emit automation event to connected widgets
+    const emitAutomationEvent = useCallback((type: TriggerEvent, payload: unknown) => {
+        const connections = getOutgoingConnections(id);
+        if (connections.length === 0) return;
+
+        const event: AutomationEvent = {
+            type,
+            sourceWidgetId: id,
+            sourceWidgetType: 'NOTE',
+            timestamp: new Date().toISOString(),
+            payload
+        };
+
+        // Send to all active connections (PDF_EXPORT accepts all event types)
+        const targetIds = connections
+            .filter(c => c.isActive)
+            .map(c => c.targetWidgetId);
+
+        if (targetIds.length > 0) {
+            console.log('[NoteWidget] Emitting event:', type, 'to', targetIds.length, 'targets');
+            eventBus.emit(event, targetIds);
+        }
+    }, [id]);
+
     // Handle content updates
     const handleUpdate = useCallback((json: object) => {
         updateWidget(id, { data: { content: json } });
-    }, [id, updateWidget]);
+
+        // Debounced onChange emission (to avoid spamming on every keystroke)
+        if (changeDebounceRef.current) {
+            clearTimeout(changeDebounceRef.current);
+        }
+        changeDebounceRef.current = setTimeout(() => {
+            emitAutomationEvent('onChange', {
+                content: json,
+                wordCount: 0 // Will be calculated by receiver if needed
+            });
+        }, 1000); // 1 second debounce
+    }, [id, updateWidget, emitAutomationEvent]);
 
     // Initialize editor with custom hook
     const editor = useNoteEditor({
@@ -47,13 +87,27 @@ export const NoteWidget: React.FC<NoteWidgetProps> = ({
         if (!editor) return;
         const markdown = exportToMarkdown(editor);
         downloadAsFile(markdown, 'note.md', 'text/markdown');
-    }, [editor]);
+
+        // Emit onSave event with markdown content
+        emitAutomationEvent('onSave', {
+            format: 'markdown',
+            content: markdown,
+            filename: 'note.md'
+        });
+    }, [editor, emitAutomationEvent]);
 
     const handleExportText = useCallback(() => {
         if (!editor) return;
         const text = editor.getText();
         downloadAsFile(text, 'note.txt', 'text/plain');
-    }, [editor]);
+
+        // Emit onSave event with text content
+        emitAutomationEvent('onSave', {
+            format: 'text',
+            content: text,
+            filename: 'note.txt'
+        });
+    }, [editor, emitAutomationEvent]);
 
     if (!editor) {
         return (

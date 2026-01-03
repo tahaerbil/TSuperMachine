@@ -1,12 +1,21 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import type { Connection, TriggerEvent, WireDragState } from '../core/services/automation/types';
+import { connectionManager } from '../core/services/automation/connectionManager';
 
-export type WidgetType = 'NOTE' | 'CALCULATOR' | 'CAD_3D' | 'CAD_2D' | 'SPREADSHEET' | 'TODO' | 'SETTINGS' | 'IMAGE' | 'PDF' | 'PRESENTATION' | 'PROJECT';
+// Regular widget types + automation widget types
+export type WidgetType =
+    | 'NOTE' | 'CALCULATOR' | 'CAD_3D' | 'CAD_2D' | 'SPREADSHEET'
+    | 'TODO' | 'SETTINGS' | 'IMAGE' | 'PDF' | 'PRESENTATION' | 'PROJECT'
+    // Automation widgets
+    | 'PDF_EXPORT' | 'CHART_GENERATOR' | 'DATA_LOGGER' | 'SCHEDULER';
+
 export type GridStyle = 'none' | 'lines' | 'dots';
 
 export const DEFAULT_WIDGET_SIZES = {
     PORTRAIT: { width: 360, height: 509 },  // A4 Ratio (360 * 1.414)
-    LANDSCAPE: { width: 509, height: 360 }  // A4 Ratio Transposed
+    LANDSCAPE: { width: 509, height: 360 }, // A4 Ratio Transposed
+    COMPACT: { width: 320, height: 400 }    // Compact size for automation widgets
 };
 
 export const getWidgetSize = (type: WidgetType) => {
@@ -16,6 +25,13 @@ export const getWidgetSize = (type: WidgetType) => {
         case 'TODO':
         case 'PDF':
             return DEFAULT_WIDGET_SIZES.PORTRAIT;
+
+        // Automation widgets - compact size
+        case 'PDF_EXPORT':
+        case 'CHART_GENERATOR':
+        case 'DATA_LOGGER':
+        case 'SCHEDULER':
+            return DEFAULT_WIDGET_SIZES.COMPACT;
 
         case 'CALCULATOR':
         case 'CAD_2D':
@@ -40,6 +56,7 @@ export interface Widget {
     data?: any;
     zIndex: number;
     isMaximized?: boolean;
+    isAutomation?: boolean; // True for automation widgets (different styling)
 }
 
 interface AppState {
@@ -59,6 +76,10 @@ interface AppState {
     } | null;
     zoomSensitivity: number; // 1.0 = normal, higher = faster, lower = slower
     gridStyle: GridStyle; // Grid display style: none, lines, or dots
+
+    // Automation System
+    connections: Connection[];
+    wireDragState: WireDragState;
 
     // Actions
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -80,6 +101,14 @@ interface AppState {
     selectAll: () => void;
     setZoomSensitivity: (sensitivity: number) => void;
     setGridStyle: (style: GridStyle) => void;
+
+    // Automation Actions
+    addConnection: (sourceWidgetId: string, targetWidgetId: string, triggerEvent: TriggerEvent, sourceHandle?: 'top' | 'right' | 'bottom' | 'left', targetHandle?: 'top' | 'right' | 'bottom' | 'left') => void;
+    removeConnection: (connectionId: string) => void;
+    toggleConnectionActive: (connectionId: string) => void;
+    removeConnectionsForWidget: (widgetId: string) => void;
+    setWireDragState: (state: Partial<WireDragState>) => void;
+    clearWireDragState: () => void;
 }
 
 export const useStore = create<AppState>()(
@@ -166,6 +195,60 @@ export const useStore = create<AppState>()(
 
             setZoomSensitivity: (sensitivity) => set({ zoomSensitivity: sensitivity }),
             setGridStyle: (style) => set({ gridStyle: style }),
+
+            // Automation State
+            connections: [],
+            wireDragState: {
+                isDragging: false,
+                sourceWidgetId: null,
+                startPosition: null,
+                currentPosition: null
+            },
+
+            // Automation Actions
+            addConnection: (sourceWidgetId, targetWidgetId, triggerEvent, sourceHandle, targetHandle) => set((state) => {
+                const newConnection = connectionManager.createConnection(
+                    sourceWidgetId,
+                    targetWidgetId,
+                    triggerEvent,
+                );
+                // Manually add handle info as connectionManager might not support it yet (or update it next)
+                const connectionWithHandles = {
+                    ...newConnection,
+                    sourceHandle,
+                    targetHandle
+                };
+                return { connections: [...state.connections, connectionWithHandles] };
+            }),
+
+            removeConnection: (connectionId) => set((state) => ({
+                connections: state.connections.filter(c => c.id !== connectionId)
+            })),
+
+            toggleConnectionActive: (connectionId) => set((state) => ({
+                connections: state.connections.map(c =>
+                    c.id === connectionId ? { ...c, isActive: !c.isActive } : c
+                )
+            })),
+
+            removeConnectionsForWidget: (widgetId) => set((state) => ({
+                connections: state.connections.filter(
+                    c => c.sourceWidgetId !== widgetId && c.targetWidgetId !== widgetId
+                )
+            })),
+
+            setWireDragState: (newState) => set((state) => ({
+                wireDragState: { ...state.wireDragState, ...newState }
+            })),
+
+            clearWireDragState: () => set({
+                wireDragState: {
+                    isDragging: false,
+                    sourceWidgetId: null,
+                    startPosition: null,
+                    currentPosition: null
+                }
+            }),
         }),
         {
             name: 'tsuper-storage',
@@ -196,17 +279,46 @@ export const useStore = create<AppState>()(
                     }
                     localStorage.setItem(name, value);
                 },
-                removeItem: (name) => localStorage.removeItem(name),
+                removeItem: async (name) => { localStorage.removeItem(name); },
             })),
             partialize: (state) => ({
                 widgets: state.widgets,
                 canvas: state.canvas,
                 projectName: state.projectName,
                 gridStyle: state.gridStyle,
-                zoomSensitivity: state.zoomSensitivity
+                zoomSensitivity: state.zoomSensitivity,
+                connections: state.connections // Persist connections too
             }),
         }
     )
 );
 
+// =============================================================================
+// Utility Functions (called outside of store to avoid circular references)
+// =============================================================================
 
+/**
+ * Get all connections for a specific widget (as source or target).
+ */
+export function getConnectionsForWidget(widgetId: string): Connection[] {
+    const { connections } = useStore.getState();
+    return connections.filter(
+        c => c.sourceWidgetId === widgetId || c.targetWidgetId === widgetId
+    );
+}
+
+/**
+ * Get outgoing connections from a widget.
+ */
+export function getOutgoingConnections(widgetId: string): Connection[] {
+    const { connections } = useStore.getState();
+    return connections.filter(c => c.sourceWidgetId === widgetId);
+}
+
+/**
+ * Get incoming connections to a widget.
+ */
+export function getIncomingConnections(widgetId: string): Connection[] {
+    const { connections } = useStore.getState();
+    return connections.filter(c => c.targetWidgetId === widgetId);
+}

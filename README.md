@@ -30,7 +30,8 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 - **Native File Dialogs** - Uses OS native save/load dialogs in Electron
 - **Auto-Serialization** - CAD data is automatically serialized to `cadData.json` within the project file
 
-### 📦 10 Specialized Widgets
+### 📦 11 Specialized Widgets
+
 
 1. **📝 Note** - Simple notepad with auto-save
 2. **🧮 Calculator** - MathJS-powered engineering calculator (supports `sin`, `cos`, `sqrt`, etc.)
@@ -42,6 +43,7 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 8. **✏️ 2D CAD** - Vector drawing with C++ engine (lines, circles, arcs, polylines, rectangles)
 9. **🎲 3D CAD** - 3D object viewer with orbit controls (Three.js)
 10. **⚙️ Settings** - Theme and language configuration
+11. **🤖 Automations** - Workflow automation and batch processing (e.g., PDF Export)
 
 ## 🚀 Quick Start
 
@@ -158,6 +160,7 @@ npm run tauri:build
 | **PDF Viewer** | react-pdf |
 | **2D Graphics** | C++ Native Addon / WASM + react-konva |
 | **3D Graphics** | @react-three/fiber + drei |
+| **PDF Generation** | jsPDF + html2canvas |
 
 ## 📁 Project Structure
 
@@ -170,6 +173,7 @@ tsupermachinev2/
 │   │   └── WidgetContainer.tsx     # Draggable window wrapper (react-rnd)
 │   │
 │   ├── features/                   # All widget modules
+│   │   ├── automations/            # Automation flows (PDF Export, etc.)
 │   │   ├── cad-2d/                 # 2D CAD Editor (C++ Native/WASM)
 │   │   │   ├── CADEngine.ts        # Hybrid engine facade
 │   │   │   ├── WasmCanvas.tsx      # 2D CAD canvas renderer
@@ -346,18 +350,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-## 📋 Recent Updates
-
-### v2.0 (2025-12-31)
-- **Widget Positioning Fix**: Widgets now correctly appear at viewport center regardless of zoom level
-- **Paste at Mouse Position**: Ctrl+V creates widgets at cursor location instead of screen center
-- **Lasso Selection Fix**: Multi-select now works correctly at all zoom levels
-- **Fit to Screen**: Middle-click double-click properly fits all non-maximized widgets
-- **Code Architecture**: Migrated all widgets to `src/features/` modular structure
-- **react-rnd Scale Fix**: Widget dragging now respects canvas zoom level
-
----
-
 **Made with ❤️ using React + TypeScript + C++**
-
-*Last updated: 2025-12-31*

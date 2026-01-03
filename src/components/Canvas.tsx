@@ -1,8 +1,10 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useStore } from '../store/store';
-import type { Widget } from '../store/store';
+import type { Widget, WidgetType } from '../store/store';
 import { WidgetContainer } from './WidgetContainer';
 import { AlignmentToolbar } from './AlignmentToolbar';
+import { WireLayer, ConnectionContextMenu } from './automation';
+import type { AutomationWidgetType, TriggerEvent } from '../core/services/automation';
 
 // Feature imports (all widgets now in features/)
 import { NoteWidget } from '../features/note-editor';
@@ -16,6 +18,9 @@ import { ImageViewerWidget } from '../features/image-viewer';
 import { PDFViewerWidget } from '../features/pdf-viewer';
 import { PresentationWidget } from '../features/presentation';
 import { ProjectMenuWidget } from '../features/project-menu';
+
+// Automation widget imports
+import { PDFExportWidget } from '../features/automations';
 
 // Widget Component Renderer - centralized to avoid duplication and missing widgets
 const renderWidgetContent = (widget: Widget): React.ReactNode => {
@@ -42,6 +47,9 @@ const renderWidgetContent = (widget: Widget): React.ReactNode => {
             return <PresentationWidget id={widget.id} initialSlides={widget.data?.slides} />;
         case 'PROJECT':
             return <ProjectMenuWidget />;
+        // Automation widgets
+        case 'PDF_EXPORT':
+            return <PDFExportWidget id={widget.id} isMaximized={widget.isMaximized} />;
         default:
             return null;
     }
@@ -61,6 +69,20 @@ export const Canvas: React.FC = () => {
     const [lassoStart, setLassoStart] = useState<{ x: number; y: number } | null>(null);
     const [lassoEnd, setLassoEnd] = useState<{ x: number; y: number } | null>(null);
     const [isLassoing, setIsLassoing] = useState(false);
+
+    // Automation context menu state
+    const [contextMenu, setContextMenu] = useState<{
+        isOpen: boolean;
+        position: { x: number; y: number };
+        sourceWidgetId: string;
+        sourceWidgetType: WidgetType;
+    } | null>(null);
+
+    // Get automation-related store actions
+    const wireDragState = useStore(state => state.wireDragState);
+    const clearWireDragState = useStore(state => state.clearWireDragState);
+    const addWidget = useStore(state => state.addWidget);
+    const addConnection = useStore(state => state.addConnection);
 
     const handleWheel = (e: WheelEvent) => {
         // If any widget is maximized, do not zoom the canvas.
@@ -506,6 +528,61 @@ export const Canvas: React.FC = () => {
         return () => window.removeEventListener('paste', handlePaste);
     }, []);
 
+    // Handle wire drop - when user releases mouse while dragging a wire
+    const handleWireDrop = useCallback((e: React.MouseEvent) => {
+        if (!wireDragState.isDragging || !wireDragState.sourceWidgetId) {
+            return;
+        }
+
+        // Check if dropped on a widget (would be handled by WidgetContainer)
+        // If dropped on empty canvas, show context menu
+        const sourceWidget = widgets.find(w => w.id === wireDragState.sourceWidgetId);
+        if (sourceWidget) {
+            setContextMenu({
+                isOpen: true,
+                position: { x: e.clientX, y: e.clientY },
+                sourceWidgetId: wireDragState.sourceWidgetId,
+                sourceWidgetType: sourceWidget.type
+            });
+        }
+
+        clearWireDragState();
+    }, [wireDragState, widgets, clearWireDragState]);
+
+    // Handle automation widget creation from context menu
+    const handleCreateAutomation = useCallback((
+        automationType: AutomationWidgetType,
+        triggerEvent: TriggerEvent
+    ) => {
+        if (!contextMenu) return;
+
+        // Convert screen position to world coordinates
+        const worldX = (contextMenu.position.x - canvas.offset.x) / canvas.scale;
+        const worldY = (contextMenu.position.y - canvas.offset.y) / canvas.scale;
+
+        // Create the automation widget
+        addWidget(automationType as WidgetType, { x: worldX, y: worldY }, {
+            _isAutomation: true,
+            _automationType: automationType
+        });
+
+        // Get the newly created widget ID (it's the last one added)
+        const { widgets: updatedWidgets } = useStore.getState();
+        const newWidget = updatedWidgets[updatedWidgets.length - 1];
+
+        // Create connection between source and new automation widget
+        if (newWidget) {
+            addConnection(contextMenu.sourceWidgetId, newWidget.id, triggerEvent);
+        }
+
+        // Close menu
+        setContextMenu(null);
+    }, [contextMenu, canvas, addWidget, addConnection]);
+
+    // Handle context menu close
+    const handleCloseContextMenu = useCallback(() => {
+        setContextMenu(null);
+    }, []);
 
     return (
         <div
@@ -520,7 +597,10 @@ export const Canvas: React.FC = () => {
                 handleMouseMove(e);
                 handleCanvasMouseMove(e);
             }}
-            onMouseUp={handleMouseUp}
+            onMouseUp={(e) => {
+                handleMouseUp();
+                handleWireDrop(e);
+            }}
             onMouseLeave={handleMouseUp}
             style={{
                 backgroundColor: 'var(--color-background)',
@@ -616,6 +696,21 @@ export const Canvas: React.FC = () => {
 
             {/* Alignment Toolbar */}
             {!widgets.some(w => w.isMaximized) && <AlignmentToolbar />}
+
+            {/* Wire Layer - renders connections between widgets */}
+            <WireLayer />
+
+            {/* Connection Context Menu - shows when wire is dropped on canvas */}
+            {contextMenu && (
+                <ConnectionContextMenu
+                    isOpen={contextMenu.isOpen}
+                    position={contextMenu.position}
+                    sourceWidgetId={contextMenu.sourceWidgetId}
+                    sourceWidgetType={contextMenu.sourceWidgetType}
+                    onSelect={handleCreateAutomation}
+                    onClose={handleCloseContextMenu}
+                />
+            )}
         </div>
     );
 };
