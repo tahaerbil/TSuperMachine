@@ -38,8 +38,8 @@ interface FilePickerAcceptType {
 
 // File System Adapter Interface
 export interface IFileSystemAdapter {
-    saveProject(data: Blob, projectName: string, isNewProject: boolean): Promise<void>;
-    loadProject(): Promise<{ file: File; path?: string }>;
+    saveProject(data: Blob | Record<string, string>, projectName: string, isNewProject: boolean, asFolder?: boolean): Promise<void>;
+    loadProject(fromFolder?: boolean): Promise<{ file?: File; files?: Record<string, string>; path?: string; isFolder?: boolean }>;
     hasFileSystemAccess(): boolean;
     getCurrentFilePath(): string | null;
     clearCurrentFile(): void;
@@ -53,11 +53,17 @@ class ElectronAdapter implements IFileSystemAdapter {
         return true;
     }
 
-    async saveProject(data: Blob, _projectName: string, isNewProject: boolean): Promise<void> {
-        const buffer = await data.arrayBuffer();
-        const byteArray = new Uint8Array(buffer); // Typed array for IPC
+    async saveProject(data: Blob | Record<string, string>, _projectName: string, isNewProject: boolean, asFolder: boolean = false): Promise<void> {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let payload: any = data;
 
-        const result = await window.electronAPI!.saveProject(byteArray, this.currentPath, isNewProject);
+        // If blob (ZIP), convert to Uint8Array
+        if (data instanceof Blob) {
+            const buffer = await data.arrayBuffer();
+            payload = new Uint8Array(buffer);
+        }
+
+        const result = await window.electronAPI!.saveProject(payload, this.currentPath, isNewProject, asFolder);
 
         if (result.success && result.filePath) {
             this.currentPath = result.filePath;
@@ -68,22 +74,31 @@ class ElectronAdapter implements IFileSystemAdapter {
         }
     }
 
-    async loadProject(): Promise<{ file: File; path?: string }> {
-        const result = await window.electronAPI!.openProjectDialog();
+    async loadProject(fromFolder: boolean = false): Promise<{ file?: File; files?: Record<string, string>; path?: string; isFolder?: boolean }> {
+        const result = await window.electronAPI!.openProjectDialog(fromFolder);
 
         if (result.canceled) throw new Error('Open cancelled');
         if (!result.success || !result.data) throw new Error(result.error || 'Failed to open file');
 
-        const filePath = result.filePath!;
-        const fileName = filePath.split(/[\\/]/).pop() || 'project.tsm';
+        this.currentPath = result.filePath!;
 
-        // Convert Uint8Array back to File object for JSZip
-        // Cast to unknown then BlobPart to satisfy TS about ArrayBufferLike
-        const blob = new Blob([result.data as unknown as BlobPart]);
-        const file = new File([blob], fileName);
+        if (result.isFolder) {
+            // Return map of files
+            return {
+                files: result.data as Record<string, string>,
+                path: result.filePath,
+                isFolder: true
+            };
+        } else {
+            // Return single file (TSM Zip)
+            const filePath = result.filePath!;
+            const fileName = filePath.split(/[\\/]/).pop() || 'project.tsm';
 
-        this.currentPath = filePath;
-        return { file, path: filePath };
+            const blob = new Blob([result.data as unknown as BlobPart]);
+            const file = new File([blob], fileName);
+
+            return { file, path: filePath, isFolder: false };
+        }
     }
 
     getCurrentFilePath(): string | null {
@@ -104,7 +119,10 @@ class FileSystemAccessAdapter implements IFileSystemAdapter {
         return 'showSaveFilePicker' in window;
     }
 
-    async saveProject(data: Blob, projectName: string, isNewProject: boolean): Promise<void> {
+    async saveProject(data: Blob | Record<string, string>, projectName: string, isNewProject: boolean, asFolder: boolean = false): Promise<void> {
+        if (asFolder) throw new Error("Folder save not supported in Web mode yet.");
+        if (!(data instanceof Blob)) throw new Error("Folder save logic failed.");
+
         try {
             // If new project or no handle, show save dialog
             if (isNewProject || !this.fileHandle) {
@@ -182,7 +200,8 @@ class DownloadAdapter implements IFileSystemAdapter {
         return false;
     }
 
-    async saveProject(data: Blob, projectName: string): Promise<void> {
+    async saveProject(data: Blob | Record<string, string>, projectName: string): Promise<void> {
+        if (!(data instanceof Blob)) throw new Error("Folder save not supported in Download mode.");
         // Use FileSaver.js
         const { saveAs } = await import('file-saver');
         const fileName = `${projectName.replace(/[^a-z0-9]/gi, '_')}.tsm`;

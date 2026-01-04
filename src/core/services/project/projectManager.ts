@@ -27,13 +27,12 @@ export interface CanvasState {
 }
 
 // Create project ZIP blob
-async function createProjectBlob(
+// Prepare project data map (file name -> content)
+async function prepareProjectFiles(
     projectName: string,
     canvasState: CanvasState,
     author: string = 'User'
-): Promise<Blob> {
-    const zip = new JSZip();
-
+): Promise<Record<string, string>> {
     // Create project metadata
     const metadata: ProjectMetadata = {
         name: projectName,
@@ -44,45 +43,66 @@ async function createProjectBlob(
         description: `TSuperMachine project: ${projectName}`,
     };
 
-    // Add files to ZIP
-    zip.file('project.json', JSON.stringify(metadata, null, 2));
-    zip.file('canvas.json', JSON.stringify(canvasState, null, 2));
+    const files: Record<string, string> = {};
+    files['project.json'] = JSON.stringify(metadata, null, 2);
+    files['canvas.json'] = JSON.stringify(canvasState, null, 2);
 
-    // Add CAD Data (if available and native)
+    // Add CAD Data
     try {
         if (cadEngine.getEngineType() === 'native') {
             const cadData = cadEngine.exportDatabase();
-            zip.file('cadData.json', cadData);
+            if (cadData) files['cadData.json'] = cadData;
         }
     } catch (e) {
         console.warn("Failed to export CAD data:", e);
     }
 
-    // Create folder structure
+    // Create empty folder markers if needed, or just skip them for now as folders are implicit
+    return files;
+}
+
+// Create project ZIP blob from pre-prepared files
+async function createProjectBlob(files: Record<string, string>): Promise<Blob> {
+    const zip = new JSZip();
+
+    for (const [name, content] of Object.entries(files)) {
+        zip.file(name, content);
+    }
+
+    // Create standard folder structure (empty)
     zip.folder('parts');
     zip.folder('assemblies');
     zip.folder('drawings');
     zip.folder('resources');
     zip.folder('calculations');
 
-    // Generate ZIP blob
     return await zip.generateAsync({ type: 'blob' });
 }
 
 // Save project (uses File System Access API if available)
+// Save project
 export async function saveProject(
     projectName: string,
     canvasState: CanvasState,
     author: string = 'User',
-    isNewProject: boolean = false
+    isNewProject: boolean = false,
+    asFolder: boolean = false
 ): Promise<void> {
     try {
-        const blob = await createProjectBlob(projectName, canvasState, author);
-        await fileSystemAdapter.saveProject(blob, projectName, isNewProject);
+        const files = await prepareProjectFiles(projectName, canvasState, author);
+
+        if (asFolder) {
+            // Pass raw files map to adapter
+            await fileSystemAdapter.saveProject(files, projectName, isNewProject, true);
+        } else {
+            // Create ZIP blob
+            const blob = await createProjectBlob(files);
+            await fileSystemAdapter.saveProject(blob, projectName, isNewProject, false);
+        }
     } catch (error) {
         console.error('Error saving project:', error);
         if ((error as Error).message === 'Save cancelled') {
-            throw error; // User cancelled, don't show error
+            throw error;
         }
         throw new Error('Failed to save project');
     }
@@ -97,66 +117,82 @@ export async function saveProjectAs(
     return saveProject(projectName, canvasState, author, true);
 }
 
-// Load project from .tsm file
-export async function loadProject(file?: File): Promise<{
+// Load project from .tsm file or Folder
+export async function loadProject(file?: File, fromFolder: boolean = false): Promise<{
     metadata: ProjectMetadata;
     canvasState: CanvasState;
 }> {
     try {
-        // If no file provided, use file system adapter to pick one
-        const fileToLoad = file || (await fileSystemAdapter.loadProject()).file;
+        let filesMap: Record<string, string> = {};
 
-        const zip = new JSZip();
-        const contents = await zip.loadAsync(fileToLoad);
+        if (file) {
+            // Loading from provided file (ZIP)
+            const zip = new JSZip();
+            const contents = await zip.loadAsync(file);
 
-        // Read project.json
-        const projectFile = contents.file('project.json');
-        if (!projectFile) {
-            throw new Error('Invalid project file: missing project.json');
+            // Extract to map
+            const pText = await contents.file('project.json')?.async('text');
+            if (pText) filesMap['project.json'] = pText;
+
+            const cText = await contents.file('canvas.json')?.async('text');
+            if (cText) filesMap['canvas.json'] = cText;
+
+            const cadText = await contents.file('cadData.json')?.async('text');
+            if (cadText) filesMap['cadData.json'] = cadText;
+
+        } else {
+            // Let adapter pick
+            const result = await fileSystemAdapter.loadProject(fromFolder);
+
+            if (result.isFolder && result.files) {
+                filesMap = result.files;
+            } else if (result.file) {
+                const zip = new JSZip();
+                const contents = await zip.loadAsync(result.file);
+
+                const pText = await contents.file('project.json')?.async('text');
+                if (pText) filesMap['project.json'] = pText;
+
+                const cText = await contents.file('canvas.json')?.async('text');
+                if (cText) filesMap['canvas.json'] = cText;
+
+                const cadText = await contents.file('cadData.json')?.async('text');
+                if (cadText) filesMap['cadData.json'] = cadText;
+            }
         }
-        const metadataText = await projectFile.async('text');
-        const metadata: ProjectMetadata = JSON.parse(metadataText);
 
-        // Read canvas.json
-        const canvasFile = contents.file('canvas.json');
-        if (!canvasFile) {
-            throw new Error('Invalid project file: missing canvas.json');
-        }
-        const canvasText = await canvasFile.async('text');
-        const canvasState: CanvasState = JSON.parse(canvasText);
+        // Validate and Parse
+        if (!filesMap['project.json']) throw new Error('Missing project.json');
+        if (!filesMap['canvas.json']) throw new Error('Missing canvas.json');
 
-        // Read and import CAD Data
-        const cadFile = contents.file('cadData.json');
-        if (cadFile) {
-            const cadData = await cadFile.async('text');
+        const metadata: ProjectMetadata = JSON.parse(filesMap['project.json']);
+        const canvasState: CanvasState = JSON.parse(filesMap['canvas.json']);
+
+        // Import CAD Data
+        if (filesMap['cadData.json']) {
             try {
                 if (cadEngine.getEngineType() === 'native') {
-                    cadEngine.importDatabase(cadData);
+                    cadEngine.importDatabase(filesMap['cadData.json']);
                 }
             } catch (e) {
                 console.warn("Failed to import CAD data:", e);
             }
         } else {
-            // If no CAD data found, clear the engine
             if (cadEngine.getEngineType() === 'native') {
                 cadEngine.clear();
             }
         }
 
         // Validate data
-        if (!metadata.name || !metadata.version) {
-            throw new Error('Invalid project metadata');
-        }
-
-        if (!canvasState.canvas || !canvasState.widgets) {
-            throw new Error('Invalid canvas state');
-        }
+        if (!metadata.name || !metadata.version) throw new Error('Invalid project metadata');
+        if (!canvasState.canvas || !canvasState.widgets) throw new Error('Invalid canvas state');
 
         return { metadata, canvasState };
+
     } catch (error) {
         console.error('Error loading project:', error);
         if ((error as Error).message === 'Open cancelled') {
-            throw error; // User cancelled
+            throw error;
         }
         throw new Error('Failed to load project: ' + (error as Error).message);
     }

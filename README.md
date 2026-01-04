@@ -26,9 +26,13 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 - **Full State Saving** - Saves all CAD entities (lines, circles, etc.) to `.tsm` project file via native serialization
 
 ### 💾 Robust Save System
-- **.tsm File Format** - ZIP-based project file containing metadata, canvas state, and CAD data
-- **Native File Dialogs** - Uses OS native save/load dialogs in Electron
-- **Auto-Serialization** - CAD data is automatically serialized to `cadData.json` within the project file
+- **Dual Save Modes**:
+  - **.tsm File**: Compressed single file for easy sharing (ZIP-based).
+  - **Folder Structure**: Save as an open folder for version control or external editing.
+- **Native File Dialogs**: Uses OS-native dialogs for both files and directories.
+- **Virtual File Tree**: In-app project explorer to manage project structure.
+- **Drag & Drop Workflow**: Drag files from the project explorer directly onto the canvas to open them (DXF, PDF, JSON).
+- **Auto-Serialization**: CAD data is automatically serialized to `cadData.json`.
 
 ### 📦 11 Specialized Widgets
 

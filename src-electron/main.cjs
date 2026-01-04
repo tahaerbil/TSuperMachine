@@ -177,56 +177,130 @@ app.on('window-all-closed', () => {
 });
 
 // IPC Handlers for File System
-ipcMain.handle('save-project-file', async (event, { data, filePath, saveAs }) => {
+// IPC Handlers for File System
+ipcMain.handle('save-project-file', async (event, { data, filePath, saveAs, asFolder }) => {
     let targetPath = filePath;
 
     if (!targetPath || saveAs) {
-        const { canceled, filePath: promptPath } = await dialog.showSaveDialog(mainWindow, {
-            title: 'Save Project',
-            defaultPath: 'Untitled.tsm',
-            filters: [{ name: 'TSM Project', extensions: ['tsm'] }]
-        });
-
-        if (canceled) return { success: false, canceled: true };
-        targetPath = promptPath;
+        if (asFolder) {
+            const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+                title: 'Select Project Folder',
+                properties: ['openDirectory', 'createDirectory']
+            });
+            if (canceled || filePaths.length === 0) return { success: false, canceled: true };
+            targetPath = filePaths[0]; // This is a directory path
+        } else {
+            const { canceled, filePath: promptPath } = await dialog.showSaveDialog(mainWindow, {
+                title: 'Save Project',
+                defaultPath: 'Untitled.tsm',
+                filters: [{ name: 'TSM Project', extensions: ['tsm'] }]
+            });
+            if (canceled) return { success: false, canceled: true };
+            targetPath = promptPath;
+        }
     }
 
     try {
-        let contentToWrite;
-        // Check if data is binary (Buffer, Uint8Array, or Array from IPC)
-        if (Buffer.isBuffer(data) || data instanceof Uint8Array || Array.isArray(data)) {
-            contentToWrite = Buffer.from(data);
+        if (asFolder) {
+            // Data is expected to be a map of { filename: content }
+            // If data is passed as a Map, it will be an array of entries via IPC
+            // or a plain object. Let's assume plain object for IPC simplicity.
+            const files = data; // { "project.json": string, "canvas.json": string, ... }
+
+            // Ensure directory exists
+            if (!fs.existsSync(targetPath)) {
+                fs.mkdirSync(targetPath, { recursive: true });
+            }
+
+            for (const [relativePath, content] of Object.entries(files)) {
+                const fullPath = path.join(targetPath, relativePath);
+                const dir = path.dirname(fullPath);
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+                // If content is string or buffer, write it
+                fs.writeFileSync(fullPath, content);
+            }
+            return { success: true, filePath: targetPath };
+
         } else {
-            // Default to JSON
-            contentToWrite = JSON.stringify(data, null, 2);
+            // Existing Logic for Single File (.tsm)
+            let contentToWrite;
+            if (Buffer.isBuffer(data) || data instanceof Uint8Array || Array.isArray(data)) {
+                contentToWrite = Buffer.from(data);
+            } else {
+                contentToWrite = JSON.stringify(data, null, 2);
+            }
+            fs.writeFileSync(targetPath, contentToWrite);
+            return { success: true, filePath: targetPath };
         }
 
-        // Write file (no encoding specified allows Buffer writing)
-        fs.writeFileSync(targetPath, contentToWrite);
-        return { success: true, filePath: targetPath };
     } catch (err) {
         return { success: false, error: err.message };
     }
 });
 
 // Open Project Handler (Returns binary data for ZIP support)
-ipcMain.handle('open-project-file', async (event) => {
-    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
-        title: 'Open TSuperMachine Project',
-        filters: [{ name: 'TSM Project', extensions: ['tsm'] }],
-        properties: ['openFile']
-    });
+// Open Project Handler (Returns binary data for ZIP support)
+ipcMain.handle('open-project-file', async (event, { asFolder } = { asFolder: false }) => {
 
-    if (canceled || filePaths.length === 0) {
-        return { canceled: true };
-    }
+    if (asFolder) {
+        const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+            title: 'Open Project Folder',
+            properties: ['openDirectory']
+        });
 
-    const filePath = filePaths[0];
-    try {
-        const data = fs.readFileSync(filePath); // Returns Buffer
-        return { success: true, data: data, filePath };
-    } catch (err) {
-        return { success: false, error: err.message };
+        if (canceled || filePaths.length === 0) return { canceled: true };
+        const dirPath = filePaths[0];
+
+        // Read directory recursively and build a file map
+        // We only need specific files for now, or we can read all.
+        // Let's simple read the expected JSONs.
+        try {
+            const files = {};
+            const readDirRecursive = (dir, baseDir) => {
+                const entries = fs.readdirSync(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    const fullPath = path.join(dir, entry.name);
+                    const relPath = path.relative(baseDir, fullPath);
+
+                    if (entry.isDirectory()) {
+                        readDirRecursive(fullPath, baseDir);
+                    } else {
+                        // Read as buffer to be safe, convert to string on client if needed
+                        // Or read text files as utf-8
+                        if (entry.name.endsWith('.json')) {
+                            files[relPath] = fs.readFileSync(fullPath, 'utf-8');
+                        }
+                        // read .dxf, .png etc later
+                    }
+                }
+            };
+
+            readDirRecursive(dirPath, dirPath);
+            return { success: true, data: files, filePath: dirPath, isFolder: true };
+
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+
+    } else {
+        const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+            title: 'Open TSuperMachine Project',
+            filters: [{ name: 'TSM Project', extensions: ['tsm'] }],
+            properties: ['openFile']
+        });
+
+        if (canceled || filePaths.length === 0) {
+            return { canceled: true };
+        }
+
+        const filePath = filePaths[0];
+        try {
+            const data = fs.readFileSync(filePath); // Returns Buffer
+            return { success: true, data: data, filePath, isFolder: false };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
     }
 });
 

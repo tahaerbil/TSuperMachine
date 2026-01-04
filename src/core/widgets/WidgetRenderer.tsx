@@ -44,8 +44,8 @@ const PDFViewerWidget = React.lazy(() =>
 const PresentationWidget = React.lazy(() =>
     import('../../features/presentation').then(m => ({ default: m.PresentationWidget }))
 );
-const ProjectMenuWidget = React.lazy(() =>
-    import('../../features/project-menu').then(m => ({ default: m.ProjectMenuWidget }))
+const ProjectWidget = React.lazy(() =>
+    import('../../features/project').then(m => ({ default: m.ProjectWidget }))
 );
 
 // Automation widgets
@@ -91,7 +91,7 @@ const WidgetContentInner: React.FC<{ widget: Widget }> = ({ widget }) => {
         case 'PRESENTATION':
             return <PresentationWidget id={widget.id} initialSlides={widget.data?.slides} />;
         case 'PROJECT':
-            return <ProjectMenuWidget />;
+            return <ProjectWidget />;
         // Automation widgets
         case 'PDF_EXPORT':
             return <PDFExportWidget id={widget.id} isMaximized={widget.isMaximized} />;

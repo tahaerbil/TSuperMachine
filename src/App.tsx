@@ -1,6 +1,6 @@
 import { Canvas } from './components/Canvas';
 import { Toolbar } from './components/Toolbar';
-import { ProjectManager } from './features/project/ProjectManager';
+import { ProjectController } from './features/project';
 
 import { useStore } from './store/store';
 
@@ -10,7 +10,7 @@ function App() {
 
   return (
     <div className="w-screen h-screen overflow-hidden">
-      <ProjectManager />
+      <ProjectController />
       <Canvas />
       {!isAnyWidgetMaximized && <Toolbar />}
     </div>

@@ -24,6 +24,8 @@ export const getWidgetSize = (type: WidgetType) => {
         case 'NOTE':
         case 'TODO':
         case 'PDF':
+        case 'SETTINGS':
+        case 'PROJECT':
             return DEFAULT_WIDGET_SIZES.PORTRAIT;
 
         // Automation widgets - compact size
@@ -39,8 +41,6 @@ export const getWidgetSize = (type: WidgetType) => {
         case 'SPREADSHEET':
         case 'IMAGE':
         case 'PRESENTATION':
-        case 'PROJECT':
-        case 'SETTINGS':
         default:
             return DEFAULT_WIDGET_SIZES.LANDSCAPE;
     }

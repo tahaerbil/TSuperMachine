@@ -162,6 +162,40 @@ export const Canvas: React.FC = () => {
                 handleNavigationMouseMove(e);
                 handleLassoMove(e);
             }}
+            onDragOver={(e) => {
+                e.preventDefault(); // allow drop
+            }}
+            onDrop={(e) => {
+                e.preventDefault();
+                const data = e.dataTransfer.getData('application/tsm-project-file');
+                if (data) {
+                    try {
+                        const fileNode = JSON.parse(data);
+                        console.log('Dropped file:', fileNode);
+
+                        // Calculate world position
+                        const rect = containerRef.current?.getBoundingClientRect();
+                        if (!rect) return;
+
+                        const clientX = e.clientX;
+                        const clientY = e.clientY;
+
+                        const worldX = (clientX - rect.left - canvas.offset.x) / canvas.scale;
+                        const worldY = (clientY - rect.top - canvas.offset.y) / canvas.scale;
+
+                        // Logic to determine widget type based on file extension
+                        if (fileNode.name.endsWith('.dxf')) {
+                            addWidget('CAD_2D', { x: worldX, y: worldY }, { file: fileNode.name });
+                        } else if (fileNode.name.endsWith('.pdf')) {
+                            addWidget('PDF', { x: worldX, y: worldY }, { file: fileNode.name });
+                        } else if (fileNode.name.endsWith('.json')) {
+                            addWidget('NOTE', { x: worldX, y: worldY }, { content: 'Content of ' + fileNode.name });
+                        }
+                    } catch (err) {
+                        console.error('Failed to handle dropped file', err);
+                    }
+                }
+            }}
             onMouseUp={(e) => {
                 handleMouseUp();
                 handleWireDrop(e);

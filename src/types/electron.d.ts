@@ -14,8 +14,8 @@ interface ElectronAPI {
     hasNativeCAD: boolean;
     onMenuAction: (callback: (action: string) => void) => void;
     onLoadProjectData: (callback: (payload: { data: unknown; filePath: string }) => void) => void;
-    saveProject: (data: unknown | Uint8Array, filePath: string | null, saveAs: boolean) => Promise<{ success: boolean; filePath?: string; error?: string; canceled?: boolean }>;
-    openProjectDialog: () => Promise<{ success: boolean; data?: Uint8Array; filePath?: string; error?: string; canceled?: boolean }>;
+    saveProject: (data: unknown | Uint8Array, filePath: string | null, saveAs: boolean, asFolder: boolean) => Promise<{ success: boolean; filePath?: string; error?: string; canceled?: boolean }>;
+    openProjectDialog: (asFolder: boolean) => Promise<{ success: boolean; data?: Uint8Array | Record<string, string>; filePath?: string; error?: string; canceled?: boolean; isFolder?: boolean }>;
     removeListeners: () => void;
 }
 
