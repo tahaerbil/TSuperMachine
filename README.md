@@ -108,14 +108,18 @@ npm run tauri:build
 - **Paste Widget**: Ctrl+V with text/image in clipboard (creates Note/Image at mouse position)
 
 ### Widget Management
-- **Add Widget**: Click icon in left toolbar (adds at viewport center)
-- **Move Widget**: Drag from title bar
-- **Resize Widget**: Drag from corners/edges
+### Widget Management
+- **Move Widget**: Click and drag **anywhere** on the widget (when in Dormant mode)
+- **Edit Content**: **Double-click** to enter Edit Mode (enables buttons, inputs, scroll)
+- **Exit Edit Mode**: Press **Escape** or click outside the widget
+- **Group Widgets**: Drag a widget close to another to snap them together. Dragging the parent moves the child; dragging the child detaches it.
+- **Resize Widget**: Drag from corners/edges (works in Dormant mode)
 - **Close Widget**: Click X button (hover to reveal)
 - **Focus Widget**: Click anywhere on widget
 - **Multi-select**: Ctrl+Click or lasso selection
 - **Maximize**: Click maximize button (full screen mode)
 - **Pop-out**: Click pop-out button (opens in new window)
+
 
 ### 2D CAD Commands
 | Command | Shortcut | Description |

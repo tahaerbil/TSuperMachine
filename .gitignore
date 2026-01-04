@@ -59,6 +59,9 @@ Thumbs.db
 
 # Project Files
 *.tsm
+*.pdf
+*.dxf
+
 
 # Agent/AI Files
 .gemini/

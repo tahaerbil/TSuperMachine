@@ -1,5 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState } from 'react';
 import { Rnd } from 'react-rnd';
 import { Trash2, Maximize2, Minimize2, ExternalLink, LogIn, RotateCw } from 'lucide-react';
 import { useStore } from '../store/store';
@@ -7,67 +6,56 @@ import type { Widget } from '../store/store';
 import clsx from 'clsx';
 import { ConnectorHandle } from './automation';
 
+// Hooks
+import {
+    useWidgetDrag,
+    useExternalWindow,
+    useWireDropTarget
+} from '../core/widgets/hooks';
+
 interface WidgetContainerProps {
     widget: Widget;
     children: React.ReactNode;
 }
 
 export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, children }) => {
-    const { updateWidget, updateWidgets, removeWidget, bringToFront, activeWidgetId, canvas, selectedWidgetIds, selectWidget, widgets, removeConnectionsForWidget } = useStore();
+    const {
+        updateWidget,
+        removeWidget,
+        bringToFront,
+        activeWidgetId,
+        selectedWidgetIds,
+        selectWidget,
+        canvas,
+        removeConnectionsForWidget
+    } = useStore();
+
     const isActive = activeWidgetId === widget.id;
     const isSelected = selectedWidgetIds.includes(widget.id);
+    const isMaximized = widget.isMaximized || false;
 
     // Hover state for connector handle visibility
     const [isHovered, setIsHovered] = useState(false);
 
-    const isMaximized = widget.isMaximized || false;
-    const [externalWindow, setExternalWindow] = useState<Window | null>(null);
+    // Custom Hooks
+    const { localPos, onDragStart, onDrag, onDragStop } = useWidgetDrag({ widget });
+    const { externalWindow, handlePopOut, handleBringBack, renderContent } = useExternalWindow({
+        widgetId: widget.id,
+        widgetTitle: widget.title || 'Widget',
+        widgetSize: widget.size,
+        children
+    });
+    const { handleWireDrop } = useWireDropTarget({
+        widgetId: widget.id,
+        widgetPosition: widget.position,
+        widgetSize: widget.size
+    });
 
-    // Local state for smooth dragging
-    const [localPos, setLocalPos] = React.useState(widget.position);
-    const isDragging = useRef(false);
+    // Automation Widgets Check
+    const AUTOMATION_TYPES = ['PDF_EXPORT', 'CHART_GENERATOR', 'DATA_LOGGER', 'SCHEDULER'];
+    const isAutomationWidget = widget.isAutomation || AUTOMATION_TYPES.includes(widget.type);
 
-    // Drag State for Ghost Position Tracking
-    const dragStartPos = useRef<{ x: number, y: number } | null>(null);
-    const dragStartMouse = useRef<{ x: number, y: number } | null>(null);
-
-    // Group Dragging State
-    const draggingGroup = useRef<string[]>([]);
-    const potentialParentId = useRef<string | null>(null);
-
-    // Helper to find all descendants (recursive children)
-    const findDescendants = (rootId: string, allWidgets: Widget[]): string[] => {
-        const descendants: string[] = [];
-        const queue = [rootId];
-
-        while (queue.length > 0) {
-            const currentId = queue.shift()!;
-            // Find all widgets attached TO currentId
-            const children = allWidgets.filter(w => w.attachedToId === currentId);
-            children.forEach(child => {
-                descendants.push(child.id);
-                queue.push(child.id);
-            });
-        }
-        return descendants;
-    };
-
-    // Sync local state with store when not dragging
-    React.useEffect(() => {
-        if (!isDragging.current) {
-            setLocalPos(widget.position);
-        }
-    }, [widget.position]);
-
-    // Close external window when component unmounts
-    useEffect(() => {
-        return () => {
-            if (externalWindow) {
-                externalWindow.close();
-            }
-        };
-    }, [externalWindow]);
-
+    // Local Handlers
     const handleRotate = (e: React.MouseEvent) => {
         e.stopPropagation();
         updateWidget(widget.id, {
@@ -78,98 +66,26 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
         });
     };
 
-    const handlePopOut = (e: React.MouseEvent) => {
-        e.stopPropagation();
-
-        // Open new window
-        const width = widget.size.width || 600;
-        const height = widget.size.height || 400;
-        const left = (window.screen.width - width) / 2;
-        const top = (window.screen.height - height) / 2;
-
-        const newWindow = window.open(
-            '',
-            `widget-${widget.id}`,
-            `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`
-        );
-
-        if (newWindow) {
-            newWindow.document.title = widget.title;
-
-            // Critical: Copy all styles so Tailwind/CSS vars work
-            Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).forEach(node => {
-                newWindow.document.head.appendChild(node.cloneNode(true));
-            });
-
-            // Set dark mode class if present in parent
-            if (document.documentElement.classList.contains('dark')) {
-                newWindow.document.documentElement.classList.add('dark');
-            }
-
-            // Copy root CSS variables explicitly if they are inline on body or root
-            const rootStyle = window.getComputedStyle(document.documentElement);
-            newWindow.document.body.style.backgroundColor = rootStyle.getPropertyValue('--color-background');
-            newWindow.document.body.style.color = rootStyle.getPropertyValue('--color-text');
-            newWindow.document.body.className = document.body.className;
-
-            // Handle window closing manually by user
-            newWindow.addEventListener('beforeunload', () => {
-                setExternalWindow(null);
-            });
-
-            setExternalWindow(newWindow);
-        }
+    // Rnd Adapters
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleRndDragStart = (e: any) => {
+        onDragStart(e);
     };
 
-    const handleBringBack = () => {
-        if (externalWindow) {
-            externalWindow.close();
-            setExternalWindow(null);
-        }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleRndDrag = (e: any) => {
+        onDrag(e);
     };
 
-    // Render content either in local div or portal
-    const renderContent = () => {
-        if (externalWindow) {
-            // Force children to behave as maximized when in a dedicated window
-            // This ensures components like CAD2DWidget show their full UI (e.g. CommandLine)
-            // regardless of the widget's state in the main store.
-            const enhancedChildren = React.Children.map(children, child => {
-                if (React.isValidElement(child)) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    return React.cloneElement(child, { isMaximized: true } as any);
-                }
-                return child;
-            });
-
-            return createPortal(
-                <div
-                    className="h-full w-full bg-[#111827] text-white p-0 overflow-hidden" // Removed padding p-4 -> p-0 for full edge-to-edge
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onMouseUp={(e) => e.stopPropagation()}
-                    onMouseMove={(e) => e.stopPropagation()}
-                    onWheel={(e) => e.stopPropagation()}
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    onKeyUp={(e) => e.stopPropagation()}
-                    onContextMenu={(e) => e.stopPropagation()}
-                >
-                    <div className="h-full w-full flex flex-col">
-                        {enhancedChildren}
-                    </div>
-                </div>,
-                externalWindow.document.body
-            );
-        }
-        return children;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleRndMouseUp = (e: any) => {
+        // Trigger wire drop logic
+        handleWireDrop(e);
     };
-
-    const AUTOMATION_TYPES = ['PDF_EXPORT', 'CHART_GENERATOR', 'DATA_LOGGER', 'SCHEDULER'];
-    const isAutomationWidget = widget.isAutomation || AUTOMATION_TYPES.includes(widget.type);
 
     return (
         <React.Fragment>
-            {/* The Portal Target (renders nothing in DOM tree, but keeps React tree alive) */}
+            {/* The Portal Target (renders nothing in DOM tree unless external window is active) */}
             {externalWindow && renderContent()}
 
             <Rnd
@@ -180,132 +96,9 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                 enableResizing={!isMaximized && !externalWindow && !isAutomationWidget}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
-                onDragStart={(e) => {
-                    isDragging.current = true;
-                    const me = e as MouseEvent;
-
-                    // Capture start state for "Ghost Position" tracking
-                    dragStartPos.current = { x: localPos.x, y: localPos.y };
-                    dragStartMouse.current = { x: me.clientX, y: me.clientY };
-
-                    // 1. Detach Self
-                    if (widget.attachedToId) {
-                        updateWidget(widget.id, { attachedToId: null });
-                    }
-
-                    // 2. Find Descendants
-                    draggingGroup.current = findDescendants(widget.id, widgets);
-                }}
-                onDrag={(e) => {
-                    if (isMaximized || externalWindow) return;
-
-                    const me = e as MouseEvent;
-
-                    // Calculate TRUE position based on mouse delta (Pure, no snapping influence)
-                    // This prevents "drift" where snapping alters the anchor point
-                    if (!dragStartPos.current || !dragStartMouse.current) return;
-
-                    const deltaX = (me.clientX - dragStartMouse.current.x) / canvas.scale; // Adjust for zoom!
-                    const deltaY = (me.clientY - dragStartMouse.current.y) / canvas.scale;
-
-                    let newX = dragStartPos.current.x + deltaX;
-                    let newY = dragStartPos.current.y + deltaY;
-
-                    const SNAP_DIST = 15;
-                    let snappedToId: string | null = null;
-
-                    // Candidates for snapping
-                    const descendantsSet = new Set(draggingGroup.current);
-                    const candidates = widgets.filter(w => w.id !== widget.id && !descendantsSet.has(w.id));
-
-                    for (const other of candidates) {
-                        // Check for overlaps (Cross-Axis)
-                        const vertOverlap = (newY < other.position.y + other.size.height + SNAP_DIST) && (newY + widget.size.height > other.position.y - SNAP_DIST);
-                        const horzOverlap = (newX < other.position.x + other.size.width + SNAP_DIST) && (newX + widget.size.width > other.position.x - SNAP_DIST);
-
-                        let snapped = false;
-
-                        // Snap Left/Right
-                        if (vertOverlap) {
-                            if (Math.abs(newX - (other.position.x + other.size.width)) < SNAP_DIST) {
-                                newX = other.position.x + other.size.width;
-                                snapped = true;
-                            } else if (Math.abs((newX + widget.size.width) - other.position.x) < SNAP_DIST) {
-                                newX = other.position.x - widget.size.width;
-                                snapped = true;
-                            }
-                        }
-
-                        // Snap Top/Bottom
-                        if (horzOverlap) {
-                            if (Math.abs(newY - (other.position.y + other.size.height)) < SNAP_DIST) {
-                                newY = other.position.y + other.size.height;
-                                snapped = true;
-                            } else if (Math.abs((newY + widget.size.height) - other.position.y) < SNAP_DIST) {
-                                newY = other.position.y - widget.size.height;
-                                snapped = true;
-                            }
-                        }
-
-                        if (snapped) {
-                            snappedToId = other.id;
-                            break;
-                        }
-                    }
-
-                    potentialParentId.current = snappedToId;
-
-                    // Update Visual Position
-                    const newPos = { x: newX, y: newY };
-                    setLocalPos(newPos);
-
-                    // Move Group (Batch Update) based on newPos vs STORED widget.position (not local start)
-                    // We need to calculate delta from *Last Frame's visual pos* ? 
-                    // Or re-calculate everything from base? 
-                    // Better: Update store with newPos for lead, and use delta (newPos - oldPos) for children.
-
-                    // Note: widget.position (prop) might lag behind high-freq drag events if we rely on it for delta.
-                    // But for `updateWidgets`, we are setting absolute positions.
-
-                    const moveDeltaX = newPos.x - widget.position.x;
-                    const moveDeltaY = newPos.y - widget.position.y;
-
-                    const updates = [];
-                    updates.push({ id: widget.id, updates: { position: newPos } });
-
-                    draggingGroup.current.forEach(descendantId => {
-                        const child = widgets.find(w => w.id === descendantId);
-                        if (child) {
-                            updates.push({
-                                id: descendantId,
-                                updates: {
-                                    position: {
-                                        x: child.position.x + moveDeltaX,
-                                        y: child.position.y + moveDeltaY
-                                    }
-                                }
-                            });
-                        }
-                    });
-
-                    if (updates.length > 0) updateWidgets(updates);
-                }}
-                onDragStop={() => {
-                    isDragging.current = false;
-                    dragStartPos.current = null;
-                    dragStartMouse.current = null;
-
-                    // Apply Attachment if Snapped
-                    if (potentialParentId.current) {
-                        const isSafe = !draggingGroup.current.includes(potentialParentId.current);
-                        if (isSafe) {
-                            updateWidget(widget.id, { attachedToId: potentialParentId.current });
-                        }
-                    }
-
-                    potentialParentId.current = null;
-                    draggingGroup.current = [];
-                }}
+                onDragStart={handleRndDragStart}
+                onDrag={handleRndDrag}
+                onDragStop={onDragStop}
                 onResizeStop={(_e, _direction, ref, _delta, position) => {
                     if (isMaximized || externalWindow) return;
                     updateWidget(widget.id, {
@@ -313,21 +106,23 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                         position: position,
                     });
                 }}
-                onMouseDown={(e) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                onMouseDown={(e: any) => {
                     if (e.ctrlKey || e.metaKey) selectWidget(widget.id, 'add');
                     else if (e.shiftKey) selectWidget(widget.id, 'range');
                     else selectWidget(widget.id, 'single');
                     bringToFront(widget.id);
                 }}
+                onMouseUp={handleRndMouseUp}
                 style={{
                     zIndex: isMaximized ? 9999 : widget.zIndex,
                     pointerEvents: 'auto',
-                    transition: 'box-shadow 0.2s', // Removed transform transition
+                    transition: 'box-shadow 0.2s',
                     position: isMaximized ? 'fixed' : 'absolute',
                 }}
                 className={clsx(
                     "flex flex-col overflow-visible group/widget",
-                    "transition-[box-shadow,opacity,width,height] duration-300 ease-in-out", // Added width/height transition
+                    "transition-[box-shadow,opacity,width,height] duration-300 ease-in-out",
                     !isMaximized && "rounded-xl",
                     // Glassmorphism Base
                     (widget.type === 'CAD_2D' || widget.type === 'CAD_3D')
@@ -336,64 +131,16 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
 
                     // Shadow & Glow Logic
                     !isMaximized && (isSelected || isActive)
-                        ? "shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] ring-2 ring-blue-500/50" // Removed scale transform
+                        ? "shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] ring-2 ring-blue-500/50"
                         : !isMaximized && "shadow-xl hover:shadow-2xl hover:ring-1 hover:ring-white/20"
                 )}
                 dragHandleClassName={(!isMaximized && !externalWindow) ? "widget-drag-handle" : ""}
-                onMouseUp={(e) => {
-                    // Handle wire drop connection
-                    const state = useStore.getState();
-                    const { wireDragState, addConnection, clearWireDragState, canvas } = state;
-
-                    if (wireDragState.isDragging && wireDragState.sourceWidgetId && wireDragState.sourceWidgetId !== widget.id) {
-                        e.stopPropagation();
-
-                        // Calculate which side (handle) was dropped on
-                        // Transform mouse position to widget-local space to find closest edge
-                        // Or simpler: compare mouse screen pos to transformed widget screen pos
-
-                        // Current widget screen coordinates
-                        const screenX = widget.position.x * canvas.scale + canvas.offset.x;
-                        const screenY = widget.position.y * canvas.scale + canvas.offset.y;
-                        const screenW = widget.size.width * canvas.scale;
-                        const screenH = widget.size.height * canvas.scale;
-
-                        const mouseX = e.clientX;
-                        const mouseY = e.clientY;
-
-                        // Calculate distance to each edge
-                        const distLeft = Math.abs(mouseX - screenX);
-                        const distRight = Math.abs(mouseX - (screenX + screenW));
-                        const distTop = Math.abs(mouseY - screenY);
-                        const distBottom = Math.abs(mouseY - (screenY + screenH));
-
-                        const min = Math.min(distLeft, distRight, distTop, distBottom);
-
-                        let targetHandle: 'left' | 'right' | 'top' | 'bottom' = 'left';
-                        if (min === distRight) targetHandle = 'right';
-                        else if (min === distTop) targetHandle = 'top';
-                        else if (min === distBottom) targetHandle = 'bottom';
-                        else targetHandle = 'left'; // default to left for safety
-
-                        addConnection(
-                            wireDragState.sourceWidgetId,
-                            widget.id,
-                            'manual', // Default trigger
-                            wireDragState.sourceHandle, // Pass the stored source handle
-                            targetHandle // Pass the calculated target handle
-                        );
-
-                        clearWireDragState();
-                    }
-                }}
             >
                 {/* Floating Toolbar - Positioned ABOVE the widget */}
                 {!isMaximized && (
                     <div
                         className="widget-drag-handle absolute left-0 right-0 z-20 flex items-center justify-center opacity-0 group-hover/widget:opacity-100 transition-all duration-200 cursor-move"
-                        style={{
-                            top: '-42px',
-                        }}
+                        style={{ top: '-42px' }}
                     >
                         <div className="flex items-center justify-between w-full mx-1 gap-3 bg-[#0f1115]/90 backdrop-blur-xl px-3 py-1.5 rounded-2xl border border-white/10 shadow-[0_8px_16px_rgba(0,0,0,0.3)] ring-1 ring-white/5">
 
@@ -407,7 +154,6 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
 
                             {/* Actions Section */}
                             <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
-                                {/* Divider - Only show if enough space (optional logic, but keeping simple for now) */}
                                 <div className="w-px h-4 bg-white/10 mr-2" />
 
                                 <button
@@ -468,9 +214,9 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
 
                 {/* Content Area - Full Height & Width */}
                 <div
-                    className="w-full h-full overflow-hidden relative" // Removed height calc(), it's 100% now
+                    className="w-full h-full overflow-hidden relative"
                     style={{
-                        borderRadius: !isMaximized ? '0.75rem' : '0', // Clip content to rounded corners
+                        borderRadius: !isMaximized ? '0.75rem' : '0',
                     }}
                 >
                     {externalWindow ? (

@@ -1,41 +1,98 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useStore, getWidgetSize } from '../store/store';
 import type { WidgetType } from '../store/store';
-import { Calculator, StickyNote, FileSpreadsheet, Box, PenTool, CheckSquare, Settings, Image, FileText, Presentation, FolderKanban } from 'lucide-react';
+import { Calculator, StickyNote, FileSpreadsheet, Box, PenTool, CheckSquare, Settings, Image, FileText, Presentation, FolderKanban, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
+// =========================================================================
+// TYPES
+// =========================================================================
+
+interface ToolConfig {
+    type: WidgetType;
+    Icon: LucideIcon;
+    labelKey: string;
+}
+
+interface ToolButtonProps {
+    type: WidgetType;
+    Icon: LucideIcon;
+    label: string;
+    onClick: (type: WidgetType) => void;
+}
+
+// =========================================================================
+// CONSTANTS
+// =========================================================================
+
+/**
+ * Tool configuration - defines available widgets in toolbar
+ */
+const TOOL_CONFIG: ToolConfig[] = [
+    { type: 'NOTE', Icon: StickyNote, labelKey: 'app.toolbar.note' },
+    { type: 'CALCULATOR', Icon: Calculator, labelKey: 'app.toolbar.calculator' },
+    { type: 'CAD_2D', Icon: PenTool, labelKey: 'app.toolbar.cad2d' },
+    { type: 'CAD_3D', Icon: Box, labelKey: 'app.toolbar.cad3d' },
+    { type: 'SPREADSHEET', Icon: FileSpreadsheet, labelKey: 'app.toolbar.spreadsheet' },
+    { type: 'TODO', Icon: CheckSquare, labelKey: 'app.toolbar.todo' },
+    { type: 'IMAGE', Icon: Image, labelKey: 'app.toolbar.image' },
+    { type: 'PDF', Icon: FileText, labelKey: 'app.toolbar.pdf' },
+    { type: 'PRESENTATION', Icon: Presentation, labelKey: 'app.toolbar.presentation' },
+    { type: 'PROJECT', Icon: FolderKanban, labelKey: 'app.toolbar.project' },
+    { type: 'SETTINGS', Icon: Settings, labelKey: 'app.toolbar.settings' },
+];
+
+// =========================================================================
+// COMPONENTS
+// =========================================================================
+
+/**
+ * Individual tool button with tooltip
+ */
+const ToolButton: React.FC<ToolButtonProps> = React.memo(({ type, Icon, label, onClick }) => (
+    <button
+        className="p-3 hover:bg-blue-50 rounded-lg transition-colors flex flex-col items-center gap-1 group relative focus:outline-none focus:ring-2 focus:ring-blue-500"
+        style={{ color: 'var(--color-text)' }}
+        onClick={() => onClick(type)}
+        title={label}
+        aria-label={label}
+    >
+        <Icon size={20} aria-hidden="true" />
+        <span
+            className="absolute left-full ml-2 px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none"
+            style={{
+                backgroundColor: 'var(--color-text)',
+                color: 'var(--color-surface)'
+            }}
+        >
+            {label}
+        </span>
+    </button>
+));
+
+ToolButton.displayName = 'ToolButton';
+
+// =========================================================================
+// MAIN COMPONENT
+// =========================================================================
 
 export const Toolbar: React.FC = () => {
     const { addWidget } = useStore();
     const { t } = useTranslation();
 
-    const tools: { type: WidgetType; icon: React.ReactNode; label: string }[] = [
-        { type: 'NOTE', icon: <StickyNote size={20} />, label: t('app.toolbar.note') },
-        { type: 'CALCULATOR', icon: <Calculator size={20} />, label: t('app.toolbar.calculator') },
-        { type: 'CAD_2D', icon: <PenTool size={20} />, label: t('app.toolbar.cad2d') },
-        { type: 'CAD_3D', icon: <Box size={20} />, label: t('app.toolbar.cad3d') },
-        { type: 'SPREADSHEET', icon: <FileSpreadsheet size={20} />, label: t('app.toolbar.spreadsheet') },
-        { type: 'TODO', icon: <CheckSquare size={20} />, label: t('app.toolbar.todo') },
-        { type: 'IMAGE', icon: <Image size={20} />, label: t('app.toolbar.image') },
-        { type: 'PDF', icon: <FileText size={20} />, label: t('app.toolbar.pdf') },
-        { type: 'PRESENTATION', icon: <Presentation size={20} />, label: t('app.toolbar.presentation') },
-        { type: 'PROJECT', icon: <FolderKanban size={20} />, label: t('app.toolbar.project') },
-        { type: 'SETTINGS', icon: <Settings size={20} />, label: t('app.toolbar.settings') },
-    ];
-
     /**
      * Adds a new widget at the center of the visible canvas viewport.
      * Uses direct store access to get current canvas state (avoids stale closure).
      */
-    const handleAddWidget = (type: WidgetType) => {
+    const handleAddWidget = useCallback((type: WidgetType) => {
         const { canvas } = useStore.getState();
 
-        // Get main canvas container dimensions (unique selector prevents CAD internal canvas conflicts)
+        // Get main canvas container dimensions
         const canvasContainer = document.querySelector('[data-main-canvas="true"]') as HTMLElement;
         const viewportWidth = canvasContainer?.clientWidth ?? window.innerWidth;
         const viewportHeight = canvasContainer?.clientHeight ?? window.innerHeight;
 
         // Transform viewport center to world coordinates
-        // Formula: worldPos = (viewportCenter - offset) / scale
         const worldCenterX = (viewportWidth / 2 - canvas.offset.x) / canvas.scale;
         const worldCenterY = (viewportHeight / 2 - canvas.offset.y) / canvas.scale;
 
@@ -45,7 +102,16 @@ export const Toolbar: React.FC = () => {
             x: worldCenterX - width / 2,
             y: worldCenterY - height / 2
         });
-    };
+    }, [addWidget]);
+
+    // Memoize tools with translated labels
+    const tools = useMemo(() =>
+        TOOL_CONFIG.map(tool => ({
+            ...tool,
+            label: t(tool.labelKey)
+        })),
+        [t]
+    );
 
     return (
         <div
@@ -56,24 +122,13 @@ export const Toolbar: React.FC = () => {
             }}
         >
             {tools.map((tool) => (
-                <button
+                <ToolButton
                     key={tool.type}
-                    className="p-3 hover:bg-blue-50 rounded-lg transition-colors flex flex-col items-center gap-1 group relative"
-                    style={{ color: 'var(--color-text)' }}
-                    onClick={() => handleAddWidget(tool.type)}
-                    title={tool.label}
-                >
-                    {tool.icon}
-                    <span
-                        className="absolute left-full ml-2 px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none"
-                        style={{
-                            backgroundColor: 'var(--color-text)',
-                            color: 'var(--color-surface)'
-                        }}
-                    >
-                        {tool.label}
-                    </span>
-                </button>
+                    type={tool.type}
+                    Icon={tool.Icon}
+                    label={tool.label}
+                    onClick={handleAddWidget}
+                />
             ))}
         </div>
     );

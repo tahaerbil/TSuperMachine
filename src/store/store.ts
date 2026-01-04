@@ -78,6 +78,9 @@ interface AppState {
     zoomSensitivity: number; // 1.0 = normal, higher = faster, lower = slower
     gridStyle: GridStyle; // Grid display style: none, lines, or dots
 
+    // Widget Edit Mode - only one widget can be in edit mode at a time
+    editingWidgetId: string | null;
+
     // Automation System
     connections: Connection[];
     wireDragState: WireDragState;
@@ -104,6 +107,10 @@ interface AppState {
     setZoomSensitivity: (sensitivity: number) => void;
     setGridStyle: (style: GridStyle) => void;
 
+    // Widget Edit Mode Actions
+    enterEditMode: (widgetId: string) => void;
+    exitEditMode: () => void;
+
     // Automation Actions
     addConnection: (sourceWidgetId: string, targetWidgetId: string, triggerEvent: TriggerEvent, sourceHandle?: 'top' | 'right' | 'bottom' | 'left', targetHandle?: 'top' | 'right' | 'bottom' | 'left') => void;
     removeConnection: (connectionId: string) => void;
@@ -128,6 +135,7 @@ export const useStore = create<AppState>()(
             projectMetadata: null,
             zoomSensitivity: 1.0,
             gridStyle: 'lines',
+            editingWidgetId: null,
 
             addWidget: (type, position = { x: 100, y: 100 }, data = {}) => set((state) => {
                 const id = crypto.randomUUID();
@@ -207,6 +215,10 @@ export const useStore = create<AppState>()(
 
             setZoomSensitivity: (sensitivity) => set({ zoomSensitivity: sensitivity }),
             setGridStyle: (style) => set({ gridStyle: style }),
+
+            // Widget Edit Mode Actions
+            enterEditMode: (widgetId) => set({ editingWidgetId: widgetId, activeWidgetId: widgetId }),
+            exitEditMode: () => set({ editingWidgetId: null }),
 
             // Automation State
             connections: [],

@@ -150,13 +150,82 @@ pdf-viewer/
 
 ---
 
+## Core Modules
+
+### Canvas System (`src/core/canvas/`)
+
+The canvas system has been refactored into modular hooks for maintainability:
+
+```
+core/canvas/
+├── index.ts              ← Barrel export
+├── constants.ts          ← Configuration values (zoom limits, grid spacing, z-index)
+└── hooks/
+    ├── index.ts          ← Hook exports
+    ├── useCanvasNavigation.ts  ← Pan, zoom, middle-click, fit-to-screen
+    ├── useLassoSelection.ts    ← Marquee selection with world coords
+    ├── useCanvasPaste.ts       ← Clipboard paste (image/text)
+    ├── useCanvasGrid.ts        ← Dot grid rendering with RAF throttling
+    └── useCanvasKeyboard.ts    ← Keyboard shortcuts (Ctrl+A, Delete, Escape)
+```
+
+**Principle:** Each hook handles a single canvas concern. The main `Canvas.tsx` composes these hooks.
+
+### Widget System (`src/core/widgets/`)
+
+Centralized widget rendering and utilities:
+
+```
+core/widgets/
+├── index.ts              ← Barrel export
+├── WidgetRenderer.tsx    ← Central widget type → component mapping
+└── hooks/
+    ├── index.ts          ← Hook exports
+    ├── useWidgetDrag.ts      ← Drag, snap, group movement
+    ├── useExternalWindow.tsx ← Pop-out to browser window
+    ├── useContextMenu.ts     ← Right-click menu handling
+    └── useWireDropTarget.ts  ← Automation wire connection
+```
+
+**Note:** WidgetContainer.tsx implements the "Dormant vs Edit" value interaction model.
+
+
+---
+
 ## Migration History
 
 - **2025-12-28**: Consolidated all widgets from `components/widgets/` to `features/`
 - **2025-12-28**: Refactored `useCADCommand.ts` into modular hooks
 - **2026-01-03**: Added `automations` feature for cross-widget workflows
 - **2026-01-04**: Refactored PDF viewer into modular hooks and components
+- **2026-01-04**: Refactored Canvas.tsx into modular hooks (722 → 282 lines)
+- **2026-01-04**: Created centralized WidgetRenderer and widget hooks
+- **2026-01-04**: Refactored AlignmentToolbar.tsx (batch updates, React.memo, useMemo)
+- **2026-01-04**: Refactored Toolbar.tsx (memoized components, useCallback, extracted config)
+- **2026-01-04**: Implemented "Dormant" vs "Edit" mode interaction model
+- **2026-01-04**: Refined Parent-Child widget grouping and recursive dragging
+- **2026-01-04**: Enhanced PDF Viewer with compact mode scaling fixes
+- **2026-01-04**: Improved Widget Loading state and error boundaries
 
 ---
+
+## Widget Interaction Architecture
+
+The widget system uses a **Dormant vs. Edit** state machine to manage user interactions efficiently:
+
+1.  **Dormant State (Default)**:
+    *   Widget content is **inert** (non-interactive).
+    *   **Single-click & Drag**: Users can click anywhere on the widget to drag it.
+    *   **Visual Cue**: Standard mouse cursor.
+
+2.  **Edit State (Active)**:
+    *   Triggered by **Double-clicking** the widget.
+    *   Widget content becomes **interactive** (buttons click, text types, map pans).
+    *   **Dragging Disabled**: The widget cannot be moved while in edit mode.
+    *   **Visual Cue**: Cursor changes to standard pointers/text cursors, and a visual border/overlay may appear.
+    *   **Exit**: Press `Escape` or click outside the widget to return to Dormant state.
+
+This model removes the need for specific "drag handles" and provides a more intuitive, tablet-friendly experience where windows are easy to move unless specifically focused.
+
 
 *Last updated: 2026-01-04*
