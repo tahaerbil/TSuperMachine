@@ -13,9 +13,9 @@ export type WidgetType =
 export type GridStyle = 'none' | 'lines' | 'dots';
 
 export const DEFAULT_WIDGET_SIZES = {
-    PORTRAIT: { width: 360, height: 509 },  // A4 Ratio (360 * 1.414)
-    LANDSCAPE: { width: 509, height: 360 }, // A4 Ratio Transposed
-    COMPACT: { width: 320, height: 400 }    // Compact size for automation widgets
+    PORTRAIT: { width: 450, height: 636 },  // A4 Ratio (450 * 1.414)
+    LANDSCAPE: { width: 636, height: 450 }, // A4 Ratio Transposed
+    COMPACT: { width: 450, height: 500 }    // Compact size for automation widgets
 };
 
 export const getWidgetSize = (type: WidgetType) => {
@@ -57,6 +57,7 @@ export interface Widget {
     zIndex: number;
     isMaximized?: boolean;
     isAutomation?: boolean; // True for automation widgets (different styling)
+    attachedToId?: string | null; // ID of the widget this widget is attached to (parent)
 }
 
 interface AppState {
@@ -86,6 +87,7 @@ interface AppState {
     addWidget: (type: WidgetType, position?: { x: number; y: number }, data?: any) => void;
     removeWidget: (id: string) => void;
     updateWidget: (id: string, updates: Partial<Widget>) => void;
+    updateWidgets: (updates: { id: string; updates: Partial<Widget> }[]) => void;
     setCanvasOffset: (offset: { x: number; y: number }) => void;
     setCanvasScale: (scale: number) => void;
     setActiveWidget: (id: string | null) => void;
@@ -147,6 +149,16 @@ export const useStore = create<AppState>()(
             updateWidget: (id, updates) => set((state) => ({
                 widgets: state.widgets.map((w) => w.id === id ? { ...w, ...updates } : w)
             })),
+
+            updateWidgets: (updatesList) => set((state) => {
+                const updateMap = new Map(updatesList.map(u => [u.id, u.updates]));
+                return {
+                    widgets: state.widgets.map(w => {
+                        const updates = updateMap.get(w.id);
+                        return updates ? { ...w, ...updates } : w;
+                    })
+                };
+            }),
 
             setCanvasOffset: (offset) => set((state) => ({ canvas: { ...state.canvas, offset } })),
             setCanvasScale: (scale) => set((state) => ({ canvas: { ...state.canvas, scale } })),

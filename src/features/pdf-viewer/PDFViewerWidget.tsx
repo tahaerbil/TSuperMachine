@@ -1,203 +1,469 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useRef, useCallback } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { useStore, getIncomingConnections } from '../../store/store';
-import { Upload, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { eventBus } from '../../core/services/automation';
-import type { AutomationEvent, TriggerEvent } from '../../core/services/automation';
+import { getIncomingConnections } from '../../store/store';
+
+// Types
+import type { PDFViewerWidgetProps } from './types';
+
+// Hooks
+import {
+    usePDFDocument,
+    usePDFNavigation,
+    usePDFZoom,
+    useDragAndDrop,
+    usePDFUI,
+    useAutomationEvents,
+    useKeyboardShortcuts,
+} from './hooks';
+
+// Components
+import {
+    EmptyState,
+    LoadingErrorState,
+    PageNavigator,
+    SearchBar,
+    StatusBar,
+    ThumbnailSidebar,
+    PDFToolbar,
+} from './components';
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-interface PDFViewerWidgetProps {
-    id: string;
-    initialPDF?: string;
-}
-
-interface PDFPayload {
-    filename?: string;
-    pdfBlobUrl?: string;
-    success?: boolean;
-}
-
-export const PDFViewerWidget: React.FC<PDFViewerWidgetProps> = ({ id, initialPDF }) => {
-    const [pdfUrl, setPdfUrl] = useState<string | null>(initialPDF || null);
-    const [numPages, setNumPages] = useState<number>(0);
-    const [pageNumber, setPageNumber] = useState<number>(1);
-    const [scale, setScale] = useState<number>(1.0);
-    const [lastReceivedFilename, setLastReceivedFilename] = useState<string | null>(null);
-    const { updateWidget } = useStore();
+/**
+ * PDF Viewer Widget - Modular Implementation
+ * 
+ * Supports:
+ * - PDF viewing with zoom, rotation, navigation
+ * - Thumbnail sidebar (maximized mode)
+ * - Drag & drop file upload
+ * - Keyboard shortcuts
+ * - Automation events integration
+ * - Compact/Maximized modes
+ */
+export const PDFViewerWidget: React.FC<PDFViewerWidgetProps> = ({
+    id,
+    initialPDF,
+    isMaximized = false
+}) => {
     const { t } = useTranslation();
+    const containerRef = useRef<HTMLDivElement>(null);
 
-    const processedEvents = useRef<Set<string>>(new Set());
+    // =========================================================================
+    // HOOKS - Destructured to avoid lint false positives
+    // =========================================================================
 
-    // Check for incoming connections (for debugging)
-    useEffect(() => {
+    // Document management
+    const {
+        pdfUrl,
+        numPages,
+        isLoading,
+        loadError,
+        filename,
+        loadFile,
+        loadFromUrl,
+        clearError,
+        onDocumentLoadSuccess,
+        onDocumentLoadError,
+        captureDimensions,
+        pdfDimensionsRef,
+    } = usePDFDocument(id, initialPDF);
+
+    // Navigation
+    const {
+        pageNumber,
+        pageInputValue,
+        goToPrevPage,
+        goToNextPage,
+        goToPage,
+        goToFirstPage,
+        goToLastPage,
+        handlePageInputChange,
+        handlePageInputBlur,
+        handlePageInputKeyDown,
+    } = usePDFNavigation(numPages);
+
+    // Zoom & rotation
+    const {
+        scale,
+        compactScale,
+        zoomMode,
+        rotation,
+        handleZoomIn,
+        handleZoomOut,
+        handleZoomPreset,
+        handleFitWidth,
+        handleFitPage,
+        handleRotate,
+        resetZoom,
+        setCompactScale,
+        viewerRef,
+        compactViewerRef,
+    } = usePDFZoom({
+        pdfUrl,
+        isMaximized,
+        pdfDimensionsRef,
+    });
+
+    // Drag & drop
+    const {
+        isDragOver,
+        handleDragOver,
+        handleDragLeave,
+        handleDrop,
+    } = useDragAndDrop(loadFile);
+
+    // UI state
+    const {
+        showSidebar,
+        showSearch,
+        searchQuery,
+        searchInputRef,
+        toggleSidebar,
+        toggleSearch,
+        setSearchQuery,
+        closeSearch,
+    } = usePDFUI();
+
+    // Automation events
+    useAutomationEvents({
+        widgetId: id,
+        onPDFReceived: loadFromUrl,
+    });
+
+    // Keyboard shortcuts
+    useKeyboardShortcuts({
+        numPages,
+        showSearch,
+        goToPrevPage,
+        goToNextPage,
+        goToFirstPage,
+        goToLastPage,
+        handleZoomIn,
+        handleZoomOut,
+        resetZoom,
+        handleRotate,
+        toggleSearch,
+        closeSearch,
+    });
+
+    // =========================================================================
+    // HANDLERS
+    // =========================================================================
+
+    const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) loadFile(file);
+    }, [loadFile]);
+
+    const handleDownload = useCallback(() => {
+        if (!pdfUrl) return;
+        const link = window.document.createElement('a');
+        link.href = pdfUrl;
+        link.download = filename || 'document.pdf';
+        link.click();
+    }, [pdfUrl, filename]);
+
+    // Track if initial scale has been applied for current PDF
+    const initialScaleAppliedRef = useRef(false);
+
+    // Reset initial scale flag when PDF changes
+    React.useEffect(() => {
+        initialScaleAppliedRef.current = false;
+    }, [pdfUrl]);
+
+    // Handle compact mode dimension capture and scale calculation
+    const handleCompactRenderSuccess = useCallback((page: {
+        width: number;
+        height: number;
+        originalWidth?: number;
+        originalHeight?: number;
+    }) => {
+        // Use original dimensions if available, otherwise use rendered dimensions
+        const pageWidth = page.originalWidth || page.width;
+        const pageHeight = page.originalHeight || page.height;
+
+        // Capture original dimensions
+        captureDimensions(pageWidth, pageHeight);
+
+        // Only calculate scale once per PDF load to prevent render loops
+        if (!initialScaleAppliedRef.current && compactViewerRef.current) {
+            initialScaleAppliedRef.current = true;
+
+            // Use setTimeout to ensure layout is fully complete
+            setTimeout(() => {
+                if (!compactViewerRef.current) return;
+
+                const container = compactViewerRef.current;
+                const containerWidth = container.clientWidth;
+                const containerHeight = container.clientHeight;
+
+                // Guard against zero dimensions
+                if (containerWidth <= 0 || containerHeight <= 0) {
+                    initialScaleAppliedRef.current = false; // Retry next time
+                    return;
+                }
+
+                const isRotated = rotation === 90 || rotation === 270;
+                const effectiveWidth = isRotated ? pageHeight : pageWidth;
+                const effectiveHeight = isRotated ? pageWidth : pageHeight;
+                const widthRatio = containerWidth / effectiveWidth;
+                const heightRatio = containerHeight / effectiveHeight;
+
+                // Calculate scale to fit, never exceed 1.0
+                const newScale = Math.min(widthRatio, heightRatio, 1.0);
+                console.log('[PDF Compact] Container:', containerWidth, 'x', containerHeight,
+                    'Original Page:', effectiveWidth, 'x', effectiveHeight,
+                    'Scale:', newScale);
+                setCompactScale(newScale);
+            }, 100);
+        }
+    }, [captureDimensions, compactViewerRef, rotation, setCompactScale]);
+
+    // Log incoming connections on mount
+    React.useEffect(() => {
         const connections = getIncomingConnections(id);
         if (connections.length > 0) {
             console.log('[PDFViewer] Has', connections.length, 'incoming connections');
         }
     }, [id]);
 
-    // Handle incoming automation events (from PDF Export)
-    const handleAutomationEvent = useCallback((event: AutomationEvent<PDFPayload>) => {
-        // Deduplicate events
-        const eventKey = `${event.sourceWidgetId}-${event.timestamp}`;
-        if (processedEvents.current.has(eventKey)) {
-            return;
-        }
-        processedEvents.current.add(eventKey);
+    // =========================================================================
+    // RENDER - COMPACT MODE
+    // =========================================================================
 
-        console.log('[PDFViewer] Received event:', event);
-
-        // Check if payload has a PDF blob URL
-        if (event.payload?.pdfBlobUrl) {
-            setPdfUrl(event.payload.pdfBlobUrl);
-            setPageNumber(1);
-            setLastReceivedFilename(event.payload.filename || 'generated.pdf');
-            updateWidget(id, { data: { pdf: event.payload.pdfBlobUrl } });
-        }
-    }, [id, updateWidget]);
-
-    // Subscribe to events from PDF Export widgets
-    useEffect(() => {
-        const events: TriggerEvent[] = ['onGenerate'];
-        const unsubscribers = events.map(eventType =>
-            eventBus.subscribe(id, eventType, handleAutomationEvent)
-        );
-
-        return () => {
-            unsubscribers.forEach(unsub => unsub());
-        };
-    }, [id, handleAutomationEvent]);
-
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const url = event.target?.result as string;
-            setPdfUrl(url);
-            setPageNumber(1);
-            setLastReceivedFilename(null);
-            updateWidget(id, { data: { pdf: url } });
-        };
-        reader.readAsDataURL(file);
-    };
-
-    const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-        setNumPages(numPages);
-    };
-
-    const goToPrevPage = () => setPageNumber(prev => Math.max(prev - 1, 1));
-    const goToNextPage = () => setPageNumber(prev => Math.min(prev + 1, numPages));
-    const zoomIn = () => setScale(prev => Math.min(prev + 0.25, 3));
-    const zoomOut = () => setScale(prev => Math.max(prev - 0.25, 0.5));
-
-    const handleDownload = () => {
-        if (!pdfUrl) return;
-        const link = document.createElement('a');
-        link.href = pdfUrl;
-        link.download = lastReceivedFilename || 'document.pdf';
-        link.click();
-    };
-
-    return (
-        <div className="w-full h-full flex flex-col bg-gray-100">
-            {/* Toolbar */}
-            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-white">
-                <div className="flex items-center gap-2">
-                    <label className="cursor-pointer">
-                        <div className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-                            <Upload size={14} />
-                            <span>{t('app.widgets.pdf.upload') || 'Upload PDF'}</span>
-                        </div>
-                        <input
-                            type="file"
-                            accept=".pdf"
-                            className="hidden"
-                            onChange={handleFileUpload}
+    if (!isMaximized) {
+        return (
+            <div
+                ref={containerRef}
+                className="w-full h-full flex flex-col bg-[#0a0a0f] text-white overflow-hidden relative group"
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                tabIndex={0}
+            >
+                {/* PDF Display Area */}
+                <div
+                    ref={compactViewerRef}
+                    className={`flex-1 overflow-hidden flex items-center justify-center transition-colors duration-200 ${isDragOver
+                        ? 'bg-[var(--color-primary)]/10 ring-2 ring-inset ring-[var(--color-primary)]/50'
+                        : 'bg-[#0d0d12]'
+                        }`}
+                >
+                    {(isLoading || loadError) && (
+                        <LoadingErrorState
+                            isLoading={isLoading}
+                            loadError={loadError}
+                            compact
                         />
-                    </label>
+                    )}
 
-                    {pdfUrl && (
-                        <>
-                            <button
-                                onClick={goToPrevPage}
-                                disabled={pageNumber <= 1}
-                                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded disabled:opacity-30"
+                    {pdfUrl && !isLoading && !loadError && (
+                        <Document
+                            file={pdfUrl}
+                            onLoadSuccess={onDocumentLoadSuccess}
+                            onLoadError={onDocumentLoadError}
+                            loading={
+                                <div className="flex items-center justify-center p-4">
+                                    <div className="w-6 h-6 border-2 border-white/20 border-t-[var(--color-primary)] rounded-full animate-spin" />
+                                </div>
+                            }
+                            error={null}
+                        >
+                            <div
+                                style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    overflow: 'hidden'
+                                }}
                             >
-                                <ChevronLeft size={16} />
-                            </button>
-                            <span className="text-sm text-gray-600">
-                                {pageNumber} / {numPages}
-                            </span>
-                            <button
-                                onClick={goToNextPage}
-                                disabled={pageNumber >= numPages}
-                                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded disabled:opacity-30"
-                            >
-                                <ChevronRight size={16} />
-                            </button>
+                                <div style={{
+                                    transform: 'scale(0.5)',
+                                    transformOrigin: 'center center',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <Page
+                                        pageNumber={pageNumber}
+                                        scale={compactScale * 2}
+                                        rotate={rotation}
+                                        renderTextLayer={false}
+                                        renderAnnotationLayer={false}
+                                        className="shadow-lg"
+                                        onRenderSuccess={handleCompactRenderSuccess}
+                                    />
+                                </div>
+                            </div>
+                        </Document>
+                    )}
 
-                            <div className="h-4 w-px bg-gray-300 mx-1" />
-
-                            <button
-                                onClick={zoomOut}
-                                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded"
-                            >
-                                <ZoomOut size={16} />
-                            </button>
-                            <span className="text-xs text-gray-600 min-w-12 text-center">
-                                {Math.round(scale * 100)}%
-                            </span>
-                            <button
-                                onClick={zoomIn}
-                                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded"
-                            >
-                                <ZoomIn size={16} />
-                            </button>
-                        </>
+                    {!pdfUrl && !isLoading && (
+                        <EmptyState
+                            isDragOver={isDragOver}
+                            onFileUpload={handleFileUpload}
+                            compact
+                        />
                     )}
                 </div>
 
-                {pdfUrl && (
-                    <button
-                        onClick={handleDownload}
-                        className="p-1.5 text-gray-600 hover:bg-gray-100 rounded"
-                        title="Download"
-                    >
-                        <Download size={16} />
-                    </button>
+                {/* Compact Page Navigator */}
+                {pdfUrl && numPages > 1 && (
+                    <PageNavigator
+                        pageNumber={pageNumber}
+                        numPages={numPages}
+                        pageInputValue={pageInputValue}
+                        onPrevPage={goToPrevPage}
+                        onNextPage={goToNextPage}
+                        onInputChange={handlePageInputChange}
+                        onInputBlur={handlePageInputBlur}
+                        onInputKeyDown={handlePageInputKeyDown}
+                        compact
+                    />
                 )}
+            </div>
+        );
+    }
+
+    // =========================================================================
+    // RENDER - MAXIMIZED MODE
+    // =========================================================================
+
+    return (
+        <div
+            ref={containerRef}
+            className="w-full h-full flex flex-col bg-[#0a0a0f] text-white overflow-hidden"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            tabIndex={0}
+        >
+            {/* Toolbar */}
+            <PDFToolbar
+                pdfUrl={pdfUrl}
+                numPages={numPages}
+                pageNumber={pageNumber}
+                pageInputValue={pageInputValue}
+                onPrevPage={goToPrevPage}
+                onNextPage={goToNextPage}
+                onInputChange={handlePageInputChange}
+                onInputBlur={handlePageInputBlur}
+                onInputKeyDown={handlePageInputKeyDown}
+                scale={scale}
+                zoomMode={zoomMode}
+                onZoomIn={handleZoomIn}
+                onZoomOut={handleZoomOut}
+                onZoomPreset={handleZoomPreset}
+                onFitWidth={handleFitWidth}
+                onFitPage={handleFitPage}
+                showSidebar={showSidebar}
+                showSearch={showSearch}
+                onToggleSidebar={toggleSidebar}
+                onToggleSearch={toggleSearch}
+                onRotate={handleRotate}
+                onDownload={handleDownload}
+                onFileUpload={handleFileUpload}
+                uploadLabel={t('app.widgets.pdf.upload')}
+            />
+
+            {/* Search Bar */}
+            {showSearch && pdfUrl && (
+                <SearchBar
+                    searchQuery={searchQuery}
+                    searchInputRef={searchInputRef}
+                    onSearchChange={setSearchQuery}
+                    onClose={closeSearch}
+                />
+            )}
+
+            {/* Main Content */}
+            <div className="flex-1 flex overflow-hidden">
+                {/* Thumbnail Sidebar */}
+                {pdfUrl && showSidebar && numPages > 1 && (
+                    <ThumbnailSidebar
+                        pdfUrl={pdfUrl}
+                        numPages={numPages}
+                        currentPage={pageNumber}
+                        onPageSelect={goToPage}
+                    />
+                )}
+
+                {/* PDF Display Area */}
+                <div
+                    ref={viewerRef}
+                    className={`flex-1 overflow-auto flex items-start justify-center p-4 transition-colors duration-200 ${isDragOver
+                        ? 'bg-[var(--color-primary)]/10 ring-2 ring-inset ring-[var(--color-primary)]/50'
+                        : 'bg-[#0d0d12]'
+                        }`}
+                >
+                    {(isLoading || loadError) && (
+                        <LoadingErrorState
+                            isLoading={isLoading}
+                            loadError={loadError}
+                            onRetry={clearError}
+                        />
+                    )}
+
+                    {pdfUrl && !isLoading && !loadError && (
+                        <div className="relative">
+                            <Document
+                                file={pdfUrl}
+                                onLoadSuccess={onDocumentLoadSuccess}
+                                onLoadError={onDocumentLoadError}
+                                loading={
+                                    <div className="flex items-center justify-center p-8">
+                                        <div className="w-8 h-8 border-2 border-white/20 border-t-[var(--color-primary)] rounded-full animate-spin" />
+                                    </div>
+                                }
+                                error={
+                                    <div className="text-red-400 p-4 text-center">
+                                        <p>Failed to load PDF</p>
+                                    </div>
+                                }
+                            >
+                                <div style={{
+                                    transform: 'scale(0.5)',
+                                    transformOrigin: 'top center'
+                                }}>
+                                    <Page
+                                        pageNumber={pageNumber}
+                                        scale={scale * 2}
+                                        rotate={rotation}
+                                        renderTextLayer={true}
+                                        renderAnnotationLayer={true}
+                                        className="shadow-2xl rounded-sm"
+                                    />
+                                </div>
+                            </Document>
+                        </div>
+                    )}
+
+                    {!pdfUrl && !isLoading && (
+                        <EmptyState
+                            isDragOver={isDragOver}
+                            onFileUpload={handleFileUpload}
+                            uploadLabel={t('app.widgets.pdf.upload')}
+                            emptyMessage={t('app.widgets.pdf.empty')}
+                        />
+                    )}
+                </div>
             </div>
 
-            {/* PDF Display */}
-            <div className="flex-1 overflow-auto flex items-start justify-center p-4">
-                {pdfUrl ? (
-                    <Document
-                        file={pdfUrl}
-                        onLoadSuccess={onDocumentLoadSuccess}
-                        loading={<div className="text-gray-500">Loading PDF...</div>}
-                        error={<div className="text-red-500">Failed to load PDF</div>}
-                    >
-                        <Page
-                            pageNumber={pageNumber}
-                            scale={scale}
-                            renderTextLayer={true}
-                            renderAnnotationLayer={true}
-                        />
-                    </Document>
-                ) : (
-                    <div className="text-center text-gray-400 mt-8">
-                        <Upload size={48} className="mx-auto mb-3 opacity-50" />
-                        <p className="text-sm">{t('app.widgets.pdf.empty') || 'Click Upload to add a PDF'}</p>
-                    </div>
-                )}
-            </div>
+            {/* Status Bar */}
+            {pdfUrl && (
+                <StatusBar
+                    filename={filename}
+                    numPages={numPages}
+                    scale={scale}
+                    rotation={rotation}
+                />
+            )}
         </div>
     );
 };

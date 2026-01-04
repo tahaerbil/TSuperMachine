@@ -627,6 +627,9 @@ export const Canvas: React.FC = () => {
                     }}
                 />
             )}
+            {/* Wire Layer - renders connections BEHIND widgets */}
+            <WireLayer />
+
             <div
                 style={{
                     transform: `translate(${canvas.offset.x}px, ${canvas.offset.y}px) scale(${canvas.scale})`,
@@ -697,8 +700,7 @@ export const Canvas: React.FC = () => {
             {/* Alignment Toolbar */}
             {!widgets.some(w => w.isMaximized) && <AlignmentToolbar />}
 
-            {/* Wire Layer - renders connections between widgets */}
-            <WireLayer />
+            {/* Wire Layer moved to top for correct z-indexing (behind widgets) */}
 
             {/* Connection Context Menu - shows when wire is dropped on canvas */}
             {contextMenu && (

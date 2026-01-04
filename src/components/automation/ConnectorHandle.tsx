@@ -127,20 +127,27 @@ export const ConnectorHandle: React.FC<ConnectorHandleProps> = ({
                 transition-all duration-200
                 cursor-grab active:cursor-grabbing
                 ${isVisible || isDragging ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}
-                ${isDragging ? 'ring-2 ring-indigo-400' : ''}
+                ${isDragging ? 'ring-2' : ''}
             `}
             style={{
-                backgroundColor: isDragging ? '#818cf8' : '#6366f1', // indigo-400 : indigo-500
-                color: 'white',
-                border: '2px solid white',
+                backgroundColor: 'var(--color-primary)',
+                borderColor: 'var(--color-surface)', // match surface or white? keeping white for contrast usually better but let's see. User said theme compatible. 
+                // actually, let's stick to white border for visibility or use --color-text if background is light. 
+                // But usually handles are colored. 
+                // Let's just change the background color for now as requested.
+                color: 'var(--color-text)',
+                border: '2px solid var(--color-background)', // Use background color for the ring effect to make it look "cut out"
                 boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
                 zIndex: 100,
-                pointerEvents: isVisible || isDragging ? 'auto' : 'none'
+                pointerEvents: isVisible || isDragging ? 'auto' : 'none',
+                // Add ring color via style since tailwind class ring-indigo-400 is static
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ['--tw-ring-color' as any]: 'var(--color-primary)'
             }}
             onMouseDown={handleMouseDown}
             title={`Drag to create automation connection (${placement})`}
         >
-            <Workflow size={12} />
+            <Workflow size={12} strokeWidth={3} />
         </button>
     );
 };

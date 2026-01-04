@@ -38,7 +38,7 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 3. **✅ Todo List** - Task management with progress tracking
 4. **📊 Spreadsheet** - Excel-like spreadsheet (Fortune Sheet)
 5. **🖼️ Image Viewer** - Upload, zoom, rotate, and download images
-6. **📄 PDF Viewer** - View PDFs with page navigation and zoom
+6. **📄 PDF Viewer** - View PDFs with page navigation, zoom, super-sampling for clarity, auto-fit, and drag-drop upload
 7. **🎬 Presentation** - PowerPoint-like slide creator with presentation mode
 8. **✏️ 2D CAD** - Vector drawing with C++ engine (lines, circles, arcs, polylines, rectangles)
 9. **🎲 3D CAD** - 3D object viewer with orbit controls (Three.js)
@@ -184,7 +184,11 @@ tsupermachinev2/
 │   │   ├── engineering-calculator/ # Engineering calculator
 │   │   ├── image-viewer/           # Image display widget
 │   │   ├── note-editor/            # Rich text editor (TipTap)
-│   │   ├── pdf-viewer/             # PDF viewer
+│   │   ├── pdf-viewer/             # PDF viewer (modular architecture)
+│   │   │   ├── PDFViewerWidget.tsx  # Main widget
+│   │   │   ├── hooks/               # 7 custom hooks
+│   │   │   ├── components/          # 8 UI components
+│   │   │   └── types/               # Shared types
 │   │   ├── presentation/           # Slide viewer
 │   │   ├── project/                # Project manager
 │   │   ├── project-menu/           # Project menu UI

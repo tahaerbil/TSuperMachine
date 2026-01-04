@@ -13,7 +13,7 @@ interface WidgetContainerProps {
 }
 
 export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, children }) => {
-    const { updateWidget, removeWidget, bringToFront, activeWidgetId, canvas, selectedWidgetIds, selectWidget, widgets, removeConnectionsForWidget } = useStore();
+    const { updateWidget, updateWidgets, removeWidget, bringToFront, activeWidgetId, canvas, selectedWidgetIds, selectWidget, widgets, removeConnectionsForWidget } = useStore();
     const isActive = activeWidgetId === widget.id;
     const isSelected = selectedWidgetIds.includes(widget.id);
 
@@ -26,6 +26,31 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
     // Local state for smooth dragging
     const [localPos, setLocalPos] = React.useState(widget.position);
     const isDragging = useRef(false);
+
+    // Drag State for Ghost Position Tracking
+    const dragStartPos = useRef<{ x: number, y: number } | null>(null);
+    const dragStartMouse = useRef<{ x: number, y: number } | null>(null);
+
+    // Group Dragging State
+    const draggingGroup = useRef<string[]>([]);
+    const potentialParentId = useRef<string | null>(null);
+
+    // Helper to find all descendants (recursive children)
+    const findDescendants = (rootId: string, allWidgets: Widget[]): string[] => {
+        const descendants: string[] = [];
+        const queue = [rootId];
+
+        while (queue.length > 0) {
+            const currentId = queue.shift()!;
+            // Find all widgets attached TO currentId
+            const children = allWidgets.filter(w => w.attachedToId === currentId);
+            children.forEach(child => {
+                descendants.push(child.id);
+                queue.push(child.id);
+            });
+        }
+        return descendants;
+    };
 
     // Sync local state with store when not dragging
     React.useEffect(() => {
@@ -139,6 +164,9 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
         return children;
     };
 
+    const AUTOMATION_TYPES = ['PDF_EXPORT', 'CHART_GENERATOR', 'DATA_LOGGER', 'SCHEDULER'];
+    const isAutomationWidget = widget.isAutomation || AUTOMATION_TYPES.includes(widget.type);
+
     return (
         <React.Fragment>
             {/* The Portal Target (renders nothing in DOM tree, but keeps React tree alive) */}
@@ -149,41 +177,134 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                 size={isMaximized ? { width: '100%', height: '100%' } : { width: widget.size.width, height: widget.size.height }}
                 position={isMaximized ? { x: 0, y: 0 } : localPos}
                 disableDragging={isMaximized || !!externalWindow}
-                enableResizing={!isMaximized && !externalWindow}
+                enableResizing={!isMaximized && !externalWindow && !isAutomationWidget}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
-                onDragStart={() => {
+                onDragStart={(e) => {
                     isDragging.current = true;
+                    const me = e as MouseEvent;
+
+                    // Capture start state for "Ghost Position" tracking
+                    dragStartPos.current = { x: localPos.x, y: localPos.y };
+                    dragStartMouse.current = { x: me.clientX, y: me.clientY };
+
+                    // 1. Detach Self
+                    if (widget.attachedToId) {
+                        updateWidget(widget.id, { attachedToId: null });
+                    }
+
+                    // 2. Find Descendants
+                    draggingGroup.current = findDescendants(widget.id, widgets);
                 }}
-                onDrag={(_e, d) => {
+                onDrag={(e) => {
                     if (isMaximized || externalWindow) return;
 
-                    // react-rnd's scale prop handles coordinate transformation
-                    // d.x and d.y are already in world coordinates when scale is set
-                    const newPos = { x: d.x, y: d.y };
+                    const me = e as MouseEvent;
+
+                    // Calculate TRUE position based on mouse delta (Pure, no snapping influence)
+                    // This prevents "drift" where snapping alters the anchor point
+                    if (!dragStartPos.current || !dragStartMouse.current) return;
+
+                    const deltaX = (me.clientX - dragStartMouse.current.x) / canvas.scale; // Adjust for zoom!
+                    const deltaY = (me.clientY - dragStartMouse.current.y) / canvas.scale;
+
+                    let newX = dragStartPos.current.x + deltaX;
+                    let newY = dragStartPos.current.y + deltaY;
+
+                    const SNAP_DIST = 15;
+                    let snappedToId: string | null = null;
+
+                    // Candidates for snapping
+                    const descendantsSet = new Set(draggingGroup.current);
+                    const candidates = widgets.filter(w => w.id !== widget.id && !descendantsSet.has(w.id));
+
+                    for (const other of candidates) {
+                        // Check for overlaps (Cross-Axis)
+                        const vertOverlap = (newY < other.position.y + other.size.height + SNAP_DIST) && (newY + widget.size.height > other.position.y - SNAP_DIST);
+                        const horzOverlap = (newX < other.position.x + other.size.width + SNAP_DIST) && (newX + widget.size.width > other.position.x - SNAP_DIST);
+
+                        let snapped = false;
+
+                        // Snap Left/Right
+                        if (vertOverlap) {
+                            if (Math.abs(newX - (other.position.x + other.size.width)) < SNAP_DIST) {
+                                newX = other.position.x + other.size.width;
+                                snapped = true;
+                            } else if (Math.abs((newX + widget.size.width) - other.position.x) < SNAP_DIST) {
+                                newX = other.position.x - widget.size.width;
+                                snapped = true;
+                            }
+                        }
+
+                        // Snap Top/Bottom
+                        if (horzOverlap) {
+                            if (Math.abs(newY - (other.position.y + other.size.height)) < SNAP_DIST) {
+                                newY = other.position.y + other.size.height;
+                                snapped = true;
+                            } else if (Math.abs((newY + widget.size.height) - other.position.y) < SNAP_DIST) {
+                                newY = other.position.y - widget.size.height;
+                                snapped = true;
+                            }
+                        }
+
+                        if (snapped) {
+                            snappedToId = other.id;
+                            break;
+                        }
+                    }
+
+                    potentialParentId.current = snappedToId;
+
+                    // Update Visual Position
+                    const newPos = { x: newX, y: newY };
                     setLocalPos(newPos);
 
-                    // Update store immediately so wires follow the widget
-                    updateWidget(widget.id, { position: newPos });
+                    // Move Group (Batch Update) based on newPos vs STORED widget.position (not local start)
+                    // We need to calculate delta from *Last Frame's visual pos* ? 
+                    // Or re-calculate everything from base? 
+                    // Better: Update store with newPos for lead, and use delta (newPos - oldPos) for children.
 
-                    if (isSelected && selectedWidgetIds.length > 1) {
-                        const deltaX = d.x - localPos.x;
-                        const deltaY = d.y - localPos.y;
-                        if (deltaX !== 0 || deltaY !== 0) {
-                            selectedWidgetIds.forEach(id => {
-                                if (id !== widget.id) {
-                                    const w = widgets.find(w => w.id === id);
-                                    if (w) {
-                                        updateWidget(id, { position: { x: w.position.x + deltaX, y: w.position.y + deltaY } });
+                    // Note: widget.position (prop) might lag behind high-freq drag events if we rely on it for delta.
+                    // But for `updateWidgets`, we are setting absolute positions.
+
+                    const moveDeltaX = newPos.x - widget.position.x;
+                    const moveDeltaY = newPos.y - widget.position.y;
+
+                    const updates = [];
+                    updates.push({ id: widget.id, updates: { position: newPos } });
+
+                    draggingGroup.current.forEach(descendantId => {
+                        const child = widgets.find(w => w.id === descendantId);
+                        if (child) {
+                            updates.push({
+                                id: descendantId,
+                                updates: {
+                                    position: {
+                                        x: child.position.x + moveDeltaX,
+                                        y: child.position.y + moveDeltaY
                                     }
                                 }
                             });
                         }
-                    }
+                    });
+
+                    if (updates.length > 0) updateWidgets(updates);
                 }}
                 onDragStop={() => {
                     isDragging.current = false;
-                    // Position already updated in onDrag, just reset dragging flag
+                    dragStartPos.current = null;
+                    dragStartMouse.current = null;
+
+                    // Apply Attachment if Snapped
+                    if (potentialParentId.current) {
+                        const isSafe = !draggingGroup.current.includes(potentialParentId.current);
+                        if (isSafe) {
+                            updateWidget(widget.id, { attachedToId: potentialParentId.current });
+                        }
+                    }
+
+                    potentialParentId.current = null;
+                    draggingGroup.current = [];
                 }}
                 onResizeStop={(_e, _direction, ref, _delta, position) => {
                     if (isMaximized || externalWindow) return;
@@ -205,9 +326,9 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                     position: isMaximized ? 'fixed' : 'absolute',
                 }}
                 className={clsx(
-                    "flex flex-col overflow-visible group/widget", // Changed to overflow-visible for toolbar
-                    "transition-[box-shadow,opacity] duration-300", // Replaced transition-all with specific props
-                    !isMaximized && "rounded-xl", // More rounded corners
+                    "flex flex-col overflow-visible group/widget",
+                    "transition-[box-shadow,opacity,width,height] duration-300 ease-in-out", // Added width/height transition
+                    !isMaximized && "rounded-xl",
                     // Glassmorphism Base
                     (widget.type === 'CAD_2D' || widget.type === 'CAD_3D')
                         ? "bg-[#1e1e1e] border-0 ring-1 ring-white/10"

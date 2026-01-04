@@ -39,7 +39,7 @@ feature-name/
 └── FeatureWidget.tsx  ← Main component
 ```
 
-**Examples:** `cad-3d`, `image-viewer`, `pdf-viewer`, `presentation`, `spreadsheet`, `todo`
+**Examples:** `cad-3d`, `image-viewer`, `presentation`, `spreadsheet`, `todo`
 
 ### Complex Features (Multiple Files)
 
@@ -66,7 +66,7 @@ feature-name/
 └── types.ts              ← Type definitions
 ```
 
-**Examples:** `cad-2d`, `engineering-calculator`, `note-editor`, `automations`
+**Examples:** `cad-2d`, `engineering-calculator`, `note-editor`, `pdf-viewer`, `automations`
 
 ---
 
@@ -80,7 +80,7 @@ feature-name/
 | `engineering-calculator` | 20 | High | C++ Native, Python |
 | `image-viewer` | 2 | Low | - |
 | `note-editor` | 11 | Medium | TipTap |
-| `pdf-viewer` | 2 | Low | react-pdf |
+| `pdf-viewer` | 20+ | Medium | react-pdf |
 | `presentation` | 2 | Low | - |
 | `project` | 2 | Low | - |
 | `project-menu` | 2 | Low | - |
@@ -119,12 +119,44 @@ cad-2d/hooks/
 
 ---
 
+## Hook Organization (PDF Viewer Example)
+
+The PDF viewer demonstrates modular hook architecture:
+
+```
+pdf-viewer/
+├── hooks/
+│   ├── index.ts              ← Barrel export
+│   ├── usePDFDocument.ts     ← Document loading & state
+│   ├── usePDFNavigation.ts   ← Page navigation
+│   ├── usePDFZoom.ts         ← Zoom, rotation, scale
+│   ├── usePDFUI.ts           ← Sidebar, search UI state
+│   ├── useDragAndDrop.ts     ← File drag & drop
+│   ├── useKeyboardShortcuts.ts ← Keyboard navigation
+│   └── useAutomationEvents.ts  ← Cross-widget events
+├── components/
+│   ├── index.ts              ← Barrel export
+│   ├── EmptyState.tsx        ← Empty/drag placeholder
+│   ├── LoadingErrorState.tsx ← Loading/error display
+│   ├── PageNavigator.tsx     ← Page controls
+│   ├── PDFToolbar.tsx        ← Main toolbar
+│   ├── SearchBar.tsx         ← Search UI
+│   ├── StatusBar.tsx         ← Bottom status
+│   ├── ThumbnailSidebar.tsx  ← Page thumbnails
+│   └── ZoomControls.tsx      ← Zoom UI
+└── types/
+    └── index.ts              ← Shared types
+```
+
+---
+
 ## Migration History
 
 - **2025-12-28**: Consolidated all widgets from `components/widgets/` to `features/`
 - **2025-12-28**: Refactored `useCADCommand.ts` into modular hooks
 - **2026-01-03**: Added `automations` feature for cross-widget workflows
+- **2026-01-04**: Refactored PDF viewer into modular hooks and components
 
 ---
 
-*Last updated: 2026-01-03*
+*Last updated: 2026-01-04*

@@ -78,12 +78,16 @@ const Wire: React.FC<WireProps> = ({
 }) => {
     const path = getBezierPath(start, end, sourcePlacement, targetPlacement);
 
-    // Wire colors - Theme updated to Indigo/Blue
-    const strokeColor = isPreview
-        ? 'rgba(99, 102, 241, 0.6)'  // Indigo preview
+    // Wire colors - Theme compatible
+    const strokeColor = isPreview || isActive
+        ? 'var(--color-primary)'
+        : 'var(--color-border)';
+
+    const strokeOpacity = isPreview
+        ? 0.6
         : isActive
-            ? 'rgba(79, 70, 229, 0.8)'  // Indigo active (was Green)
-            : 'rgba(75, 85, 99, 0.5)';   // Gray inactive
+            ? 0.8
+            : 0.5;
 
     const strokeWidth = isPreview ? 2 : 3;
 
@@ -104,16 +108,17 @@ const Wire: React.FC<WireProps> = ({
                 d={path}
                 fill="none"
                 stroke={strokeColor}
+                strokeOpacity={strokeOpacity}
                 strokeWidth={strokeWidth}
                 strokeLinecap="round"
                 style={{
-                    transition: 'stroke 0.2s ease',
+                    transition: 'stroke 0.2s ease, stroke-opacity 0.2s ease',
                     pointerEvents: 'none'
                 }}
             />
             {/* Animated flow indicator (only for active wires) */}
             {isActive && !isPreview && (
-                <circle r="4" fill="rgba(99, 102, 241, 0.9)">
+                <circle r="4" fill="var(--color-primary)" fillOpacity={0.9}>
                     <animateMotion
                         dur="1.5s"
                         repeatCount="indefinite"
@@ -125,8 +130,8 @@ const Wire: React.FC<WireProps> = ({
                 </circle>
             )}
             {/* End point indicators */}
-            <circle cx={start.x} cy={start.y} r={isPreview ? 3 : 4} fill={strokeColor} />
-            <circle cx={end.x} cy={end.y} r={isPreview ? 3 : 4} fill={strokeColor} />
+            <circle cx={start.x} cy={start.y} r={isPreview ? 3 : 4} fill={strokeColor} fillOpacity={strokeOpacity} />
+            <circle cx={end.x} cy={end.y} r={isPreview ? 3 : 4} fill={strokeColor} fillOpacity={strokeOpacity} />
         </g>
     );
 };
@@ -258,7 +263,7 @@ export const WireLayer: React.FC = () => {
                 width: '100%',
                 height: '100%',
                 pointerEvents: 'none',
-                zIndex: 5, // Above canvas bg, below widgets
+                zIndex: 0, // Behind widgets (which usually start at 1+)
                 overflow: 'visible'
             }}
         >

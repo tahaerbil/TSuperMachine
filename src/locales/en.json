@@ -69,7 +69,26 @@
             },
             "pdf": {
                 "upload": "Upload PDF",
-                "empty": "Click Upload to add a PDF"
+                "empty": "Click Upload to add a PDF",
+                "dragDrop": "or drag and drop a file",
+                "dropHere": "Drop PDF here",
+                "loading": "Loading PDF...",
+                "loadError": "Failed to load PDF",
+                "tryAgain": "Try again",
+                "search": "Search in document...",
+                "pages": "pages",
+                "zoom": "zoom",
+                "rotated": "rotated",
+                "fitWidth": "Fit Width",
+                "fitPage": "Fit Page",
+                "showThumbnails": "Show thumbnails",
+                "hideThumbnails": "Hide thumbnails",
+                "previousPage": "Previous page",
+                "nextPage": "Next page",
+                "rotate": "Rotate",
+                "download": "Download",
+                "zoomIn": "Zoom in",
+                "zoomOut": "Zoom out"
             },
             "presentation": {
                 "addSlide": "Add Slide",

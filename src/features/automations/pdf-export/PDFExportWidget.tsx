@@ -42,8 +42,8 @@ const DEFAULT_SETTINGS: ExportSettings = {
 };
 
 // Widget sizes for compact and expanded modes
-const COMPACT_SIZE = { width: 180, height: 56 };
-const EXPANDED_SIZE = { width: 320, height: 400 };
+const COMPACT_SIZE = { width: 360, height: 56 };
+const EXPANDED_SIZE = { width: 360, height: 400 };
 
 export const PDFExportWidget: React.FC<PDFExportWidgetProps> = ({ id }) => {
     const { updateWidget } = useStore();
@@ -214,8 +214,8 @@ export const PDFExportWidget: React.FC<PDFExportWidgetProps> = ({ id }) => {
                 onDoubleClick={toggleExpanded}
             >
                 {/* Icon */}
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center flex-shrink-0">
-                    <FileOutput size={16} className="text-indigo-400" />
+                <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)]/20 flex items-center justify-center flex-shrink-0">
+                    <FileOutput size={16} className="text-[var(--color-primary)]" />
                 </div>
 
                 {/* Title */}
@@ -224,7 +224,7 @@ export const PDFExportWidget: React.FC<PDFExportWidgetProps> = ({ id }) => {
                 </div>
 
                 {/* Connection badge */}
-                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${connectionCount > 0 ? 'bg-indigo-500/20 text-indigo-400' : 'bg-white/10 text-white/50'}`}>
+                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${connectionCount > 0 ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]' : 'bg-white/10 text-white/50'}`}>
                     <Zap size={10} />
                     <span>{connectionCount}</span>
                 </div>
@@ -248,8 +248,8 @@ export const PDFExportWidget: React.FC<PDFExportWidgetProps> = ({ id }) => {
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-white/10">
                 <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center">
-                        <FileOutput size={16} className="text-indigo-400" />
+                    <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)]/20 flex items-center justify-center">
+                        <FileOutput size={16} className="text-[var(--color-primary)]" />
                     </div>
                     <div>
                         <h3 className="text-sm font-semibold">PDF Export</h3>
@@ -259,7 +259,7 @@ export const PDFExportWidget: React.FC<PDFExportWidgetProps> = ({ id }) => {
                 <div className="flex items-center gap-1">
                     <button
                         onClick={() => setShowSettings(!showSettings)}
-                        className={`p-1.5 rounded-lg transition-colors ${showSettings ? 'bg-indigo-500/30' : 'hover:bg-white/10'}`}
+                        className={`p-1.5 rounded-lg transition-colors ${showSettings ? 'bg-[var(--color-primary)]/30' : 'hover:bg-white/10'}`}
                     >
                         <Settings size={14} />
                     </button>
@@ -276,7 +276,7 @@ export const PDFExportWidget: React.FC<PDFExportWidgetProps> = ({ id }) => {
             <div className="flex-1 p-3 space-y-3 overflow-auto">
                 {/* Connection Status */}
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5 border border-white/10">
-                    <Zap size={14} className={connectionCount > 0 ? 'text-indigo-400' : 'text-gray-500'} />
+                    <Zap size={14} className={connectionCount > 0 ? 'text-[var(--color-primary)]' : 'text-gray-500'} />
                     <span className="text-xs">
                         {connectionCount > 0
                             ? `${connectionCount} connection${connectionCount > 1 ? 's' : ''} active`
@@ -322,7 +322,7 @@ export const PDFExportWidget: React.FC<PDFExportWidgetProps> = ({ id }) => {
                                 <select
                                     value={settings.paperSize}
                                     onChange={(e) => setSettings(s => ({ ...s, paperSize: e.target.value as ExportSettings['paperSize'] }))}
-                                    className="w-full px-2 py-1 text-xs rounded bg-white/10 border border-white/10 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    className="w-full px-2 py-1 text-xs rounded bg-white/10 border border-white/10 focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
                                 >
                                     <option value="a4">A4</option>
                                     <option value="a3">A3</option>
@@ -335,7 +335,7 @@ export const PDFExportWidget: React.FC<PDFExportWidgetProps> = ({ id }) => {
                                 <select
                                     value={settings.orientation}
                                     onChange={(e) => setSettings(s => ({ ...s, orientation: e.target.value as ExportSettings['orientation'] }))}
-                                    className="w-full px-2 py-1 text-xs rounded bg-white/10 border border-white/10 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    className="w-full px-2 py-1 text-xs rounded bg-white/10 border border-white/10 focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
                                 >
                                     <option value="portrait">Portrait</option>
                                     <option value="landscape">Landscape</option>
@@ -348,7 +348,7 @@ export const PDFExportWidget: React.FC<PDFExportWidgetProps> = ({ id }) => {
                                 type="checkbox"
                                 checked={settings.autoExport}
                                 onChange={(e) => setSettings(s => ({ ...s, autoExport: e.target.checked }))}
-                                className="w-3 h-3 rounded border-white/20 bg-white/10 text-indigo-500 focus:ring-indigo-500"
+                                className="w-3 h-3 rounded border-white/20 bg-white/10 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
                             />
                             <span className="text-xs text-white/80">Auto-export on trigger</span>
                         </label>
@@ -359,7 +359,7 @@ export const PDFExportWidget: React.FC<PDFExportWidgetProps> = ({ id }) => {
                 <button
                     onClick={handleManualExport}
                     disabled={status.state === 'processing'}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 disabled:bg-indigo-500/50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-[var(--color-primary)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium"
                 >
                     <Download size={14} />
                     Export PDF Now
