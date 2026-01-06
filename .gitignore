@@ -81,3 +81,7 @@ junit.xml
 # Temporary
 tmp/
 temp/
+
+# AI Models (Large binary files - download separately)
+models/
+*.gguf

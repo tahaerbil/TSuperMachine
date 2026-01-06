@@ -309,31 +309,326 @@ ipcMain.handle('open-project-file', async (event, { asFolder } = { asFolder: fal
 // =============================================================================
 const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
 
+// Default Workspace Structure
+const DEFAULT_WORKSPACE_PATH = path.join(app.getPath('documents'), 'T-Workspace');
+const DEFAULT_PROJECTS_DIR = 'Projects';
+const DEFAULT_LIBRARY_DIR = 'Library';
+
+// Helper to ensure standard directory structure exists
+function ensureStandardDirectories(rootPath) {
+    const dirs = [
+        rootPath,
+        path.join(rootPath, DEFAULT_PROJECTS_DIR),
+        path.join(rootPath, DEFAULT_LIBRARY_DIR),
+        path.join(rootPath, DEFAULT_LIBRARY_DIR, 'Standards'),
+        path.join(rootPath, DEFAULT_LIBRARY_DIR, 'Datasheets'),
+        path.join(rootPath, DEFAULT_LIBRARY_DIR, 'Symbols'),
+        path.join(rootPath, DEFAULT_LIBRARY_DIR, 'Scripts'),
+        path.join(rootPath, DEFAULT_LIBRARY_DIR, 'Templates'),
+    ];
+
+    dirs.forEach(dir => {
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+    });
+}
+
 ipcMain.handle('load-config', async () => {
     try {
+        let config = {};
         if (fs.existsSync(CONFIG_PATH)) {
             const data = fs.readFileSync(CONFIG_PATH, 'utf-8');
-            return JSON.parse(data);
+            config = JSON.parse(data);
         }
-        return null; // Return null if no config exists yet
+
+        // Initialize default workspace path if not set
+        if (!config.workspacePath) {
+            config.workspacePath = DEFAULT_WORKSPACE_PATH;
+        }
+
+        // Ensure directories exist based on current config
+        ensureStandardDirectories(config.workspacePath);
+
+        return config;
     } catch (error) {
         console.error('Failed to load config:', error);
-        return null;
+        return { workspacePath: DEFAULT_WORKSPACE_PATH };
     }
 });
 
 ipcMain.handle('save-config', async (event, config) => {
     try {
-        // Ensure the directory exists before writing (Critical for first run)
         const dir = path.dirname(CONFIG_PATH);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
 
         fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
+
+        // Ensure standard directories if workspace path changed
+        if (config.workspacePath) {
+            ensureStandardDirectories(config.workspacePath);
+        }
+
         return { success: true };
     } catch (error) {
         console.error('Failed to save config:', error);
         return { success: false, error: error.message };
     }
 });
+
+// =============================================================================
+// File System Operations (Explorer Support)
+// =============================================================================
+
+ipcMain.handle('list-directory', async (event, dirPath) => {
+    try {
+        if (!fs.existsSync(dirPath)) {
+            return { success: false, error: 'Directory does not exist' };
+        }
+
+        const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+        const items = entries.map(entry => ({
+            name: entry.name,
+            isDirectory: entry.isDirectory(),
+            path: path.join(dirPath, entry.name),
+            size: entry.isFile() ? fs.statSync(path.join(dirPath, entry.name)).size : 0
+        }));
+
+        // Sort directories first, then files
+        items.sort((a, b) => {
+            if (a.isDirectory === b.isDirectory) {
+                return a.name.localeCompare(b.name);
+            }
+            return a.isDirectory ? -1 : 1;
+        });
+
+        return { success: true, items };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('create-directory', async (event, dirPath) => {
+    try {
+        if (!fs.existsSync(dirPath)) {
+            fs.mkdirSync(dirPath, { recursive: true });
+        }
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('copy-file', async (event, { sourcePath, targetPath }) => {
+    try {
+        fs.copyFileSync(sourcePath, targetPath);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+// =============================================================================
+// Document Reading Operations (AI Support)
+// =============================================================================
+
+// Read text-based files
+ipcMain.handle('read-file', async (event, filePath) => {
+    try {
+        if (!fs.existsSync(filePath)) {
+            return { success: false, error: 'File does not exist' };
+        }
+
+        const content = fs.readFileSync(filePath, 'utf-8');
+        return { success: true, content };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+// Read PDF files with text extraction
+ipcMain.handle('read-pdf', async (event, filePath) => {
+    try {
+        if (!fs.existsSync(filePath)) {
+            return { success: false, error: 'File does not exist' };
+        }
+
+        const pdfParse = require('pdf-parse');
+        const dataBuffer = fs.readFileSync(filePath);
+        const data = await pdfParse(dataBuffer);
+
+        return {
+            success: true,
+            content: data.text,
+            numPages: data.numpages,
+            info: data.info
+        };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+// Write text file (for RAG index persistence)
+ipcMain.handle('write-file', async (event, { filePath, content }) => {
+    try {
+        // Ensure directory exists
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
+        fs.writeFileSync(filePath, content, 'utf-8');
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+// =============================================================================
+// LLM (node-llama-cpp) Handler - Runs in Main Process
+// =============================================================================
+
+let llamaModule = null;
+let llamaInstance = null;
+let llamaModel = null;
+let llamaContext = null;
+let isLlamaLoading = false;
+
+const MODEL_FILENAME = 'qwen2.5-3b-instruct-q4_k_m.gguf';
+
+function getModelPath() {
+    if (isDev) {
+        return path.join(__dirname, '..', 'models', MODEL_FILENAME);
+    } else {
+        return path.join(process.resourcesPath, 'models', MODEL_FILENAME);
+    }
+}
+
+// Check if model exists
+ipcMain.handle('llm-check-model', async () => {
+    const modelPath = getModelPath();
+    const exists = fs.existsSync(modelPath);
+    return {
+        exists,
+        path: modelPath,
+        filename: MODEL_FILENAME
+    };
+});
+
+// Load LLM model
+ipcMain.handle('llm-load', async () => {
+    if (llamaModel && llamaContext) {
+        return { success: true, message: 'Model already loaded' };
+    }
+
+    if (isLlamaLoading) {
+        return { success: false, error: 'Model is already loading' };
+    }
+
+    isLlamaLoading = true;
+
+    try {
+        const modelPath = getModelPath();
+
+        if (!fs.existsSync(modelPath)) {
+            isLlamaLoading = false;
+            return {
+                success: false,
+                error: `Model not found at: ${modelPath}`,
+                needsDownload: true
+            };
+        }
+
+        console.log('[LLM] Loading node-llama-cpp...');
+
+        // Dynamic import for ESM module
+        if (!llamaModule) {
+            llamaModule = await import('node-llama-cpp');
+        }
+
+        if (!llamaInstance) {
+            llamaInstance = await llamaModule.getLlama();
+        }
+
+        console.log('[LLM] Loading model from:', modelPath);
+
+        llamaModel = await llamaInstance.loadModel({
+            modelPath
+        });
+
+        llamaContext = await llamaModel.createContext({
+            contextSize: 4096
+        });
+
+        console.log('[LLM] Model loaded successfully!');
+        isLlamaLoading = false;
+
+        return { success: true };
+
+    } catch (error) {
+        console.error('[LLM] Load error:', error);
+        isLlamaLoading = false;
+        return { success: false, error: error.message };
+    }
+});
+
+// Generate response from LLM
+ipcMain.handle('llm-generate', async (event, { prompt, maxTokens = 1024, temperature = 0.7 }) => {
+    if (!llamaModel || !llamaModule) {
+        return {
+            success: false,
+            error: 'Model not loaded. Call llm-load first.'
+        };
+    }
+
+    try {
+        // Create a fresh context for each generation to avoid "No sequences left" error
+        if (llamaContext) {
+            try {
+                await llamaContext.dispose();
+            } catch (e) {
+                // Ignore disposal errors
+            }
+        }
+
+        llamaContext = await llamaModel.createContext({
+            contextSize: 4096
+        });
+
+        const session = new llamaModule.LlamaChatSession({
+            contextSequence: llamaContext.getSequence()
+        });
+
+        const response = await session.prompt(prompt, {
+            maxTokens,
+            temperature
+        });
+
+        return { success: true, response };
+
+    } catch (error) {
+        console.error('[LLM] Generate error:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Unload model to free memory
+ipcMain.handle('llm-unload', async () => {
+    try {
+        if (llamaContext) {
+            await llamaContext.dispose?.();
+            llamaContext = null;
+        }
+        if (llamaModel) {
+            await llamaModel.dispose?.();
+            llamaModel = null;
+        }
+        console.log('[LLM] Model unloaded');
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+

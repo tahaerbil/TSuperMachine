@@ -17,6 +17,26 @@ interface ElectronAPI {
     saveProject: (data: unknown | Uint8Array, filePath: string | null, saveAs: boolean, asFolder: boolean) => Promise<{ success: boolean; filePath?: string; error?: string; canceled?: boolean }>;
     openProjectDialog: (asFolder: boolean) => Promise<{ success: boolean; data?: Uint8Array | Record<string, string>; filePath?: string; error?: string; canceled?: boolean; isFolder?: boolean }>;
     removeListeners: () => void;
+
+    // Config Operations
+    saveConfig: (config: unknown) => Promise<{ success: boolean; error?: string }>;
+    loadConfig: () => Promise<{ workspacePath?: string;[key: string]: unknown } | null>;
+
+    // Directory Operations (Data Vault)
+    listDirectory: (dirPath: string) => Promise<{ success: boolean; items?: { name: string; isDirectory: boolean; path: string; size: number }[]; error?: string }>;
+    createDirectory: (dirPath: string) => Promise<{ success: boolean; error?: string }>;
+    copyFile: (params: { sourcePath: string; targetPath: string }) => Promise<{ success: boolean; error?: string }>;
+
+    // Document Reading (AI Support)
+    readFile: (filePath: string) => Promise<{ success: boolean; content?: string; error?: string }>;
+    readPdf: (filePath: string) => Promise<{ success: boolean; content?: string; numPages?: number; info?: unknown; error?: string }>;
+    writeFile: (params: { filePath: string; content: string }) => Promise<{ success: boolean; error?: string }>;
+
+    // LLM (Embedded Qwen2.5-3B)
+    llmCheckModel: () => Promise<{ exists: boolean; path: string; filename: string }>;
+    llmLoad: () => Promise<{ success: boolean; message?: string; error?: string; needsDownload?: boolean }>;
+    llmGenerate: (params: { prompt: string; maxTokens?: number; temperature?: number }) => Promise<{ success: boolean; response?: string; error?: string }>;
+    llmUnload: () => Promise<{ success: boolean; error?: string }>;
 }
 
 // ============================================================================

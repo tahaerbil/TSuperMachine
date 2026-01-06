@@ -5,7 +5,7 @@ import { useStore } from '../../store/store';
 
 interface SpreadsheetWidgetProps {
     id: string;
-    initialData?: any;
+    initialData?: unknown;
     isMaximized?: boolean;
 }
 
@@ -16,12 +16,14 @@ export const SpreadsheetWidget: React.FC<SpreadsheetWidgetProps> = ({ id, initia
 
     // Use ref to ensure data is strictly static after mount
     // This prevents the "Maximum update depth exceeded" error
-    const dataRef = useRef(initialData || [{
+    // Use useMemo to ensure data is initialized only once and prevent re-renders
+    // This replaces the ref pattern which caused "Cannot access ref during render" error
+    const initialSheetData = React.useMemo(() => initialData || [{
         name: "Sheet1",
         status: 1, // Active
         row: 20,
         column: 10
-    }]);
+    }], [initialData]);
 
     // Force resize on mount and when maximized state changes
     React.useEffect(() => {
@@ -43,7 +45,7 @@ export const SpreadsheetWidget: React.FC<SpreadsheetWidgetProps> = ({ id, initia
     }, [isMaximized]);
 
     // Memoize handler to prevent infinite loops
-    const handleChange = useCallback((data: any) => {
+    const handleChange = useCallback((data: unknown) => {
         // Debounce save to store
         setTimeout(() => {
             updateWidget(id, { data: { spreadsheet: data } });
@@ -64,7 +66,7 @@ export const SpreadsheetWidget: React.FC<SpreadsheetWidgetProps> = ({ id, initia
             <div className="flex-1 w-full h-full relative">
                 <Workbook
                     key={id}
-                    data={dataRef.current}
+                    data={initialSheetData as { name: string; cell?: unknown;[key: string]: unknown }[]}
                     onChange={handleChange}
                     showToolbar={isMaximized}
                     showSheetTabs={isMaximized}

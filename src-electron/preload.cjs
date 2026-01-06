@@ -34,6 +34,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveConfig: (config) => ipcRenderer.invoke('save-config', config),
     loadConfig: () => ipcRenderer.invoke('load-config'),
 
+    // Directory Operations (Data Vault)
+    listDirectory: (dirPath) => ipcRenderer.invoke('list-directory', dirPath),
+    createDirectory: (dirPath) => ipcRenderer.invoke('create-directory', dirPath),
+    copyFile: ({ sourcePath, targetPath }) => ipcRenderer.invoke('copy-file', { sourcePath, targetPath }),
+
+    // Document Reading (AI Support)
+    readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+    readPdf: (filePath) => ipcRenderer.invoke('read-pdf', filePath),
+    writeFile: ({ filePath, content }) => ipcRenderer.invoke('write-file', { filePath, content }),
+
+    // LLM (Embedded Qwen2.5-3B)
+    llmCheckModel: () => ipcRenderer.invoke('llm-check-model'),
+    llmLoad: () => ipcRenderer.invoke('llm-load'),
+    llmGenerate: ({ prompt, maxTokens, temperature }) => ipcRenderer.invoke('llm-generate', { prompt, maxTokens, temperature }),
+    llmUnload: () => ipcRenderer.invoke('llm-unload'),
+
     removeListeners: () => {
         ipcRenderer.removeAllListeners('menu-action');
         ipcRenderer.removeAllListeners('load-project-data');

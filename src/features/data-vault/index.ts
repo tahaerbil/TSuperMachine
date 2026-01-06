@@ -1,0 +1,1 @@
+export { DataVaultWidget } from './DataVaultWidget';

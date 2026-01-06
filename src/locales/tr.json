@@ -12,7 +12,9 @@
             "image": "Resim",
             "pdf": "PDF",
             "presentation": "Sunum",
-            "project": "Proje"
+            "project": "Proje",
+            "vault": "Veri Kasası",
+            "ai": "T-Brain AI"
         },
         "settings": {
             "title": "Ayarlar",

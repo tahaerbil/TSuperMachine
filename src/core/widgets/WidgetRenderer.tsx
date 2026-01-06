@@ -48,6 +48,14 @@ const ProjectWidget = React.lazy(() =>
     import('../../features/project').then(m => ({ default: m.ProjectWidget }))
 );
 
+const AIWidget = React.lazy(() =>
+    import('../../features/ai-assistant').then(m => ({ default: m.AIWidget }))
+);
+
+const DataVaultWidget = React.lazy(() =>
+    import('../../features/data-vault').then(m => ({ default: m.DataVaultWidget }))
+);
+
 // Automation widgets
 const PDFExportWidget = React.lazy(() =>
     import('../../features/automations').then(m => ({ default: m.PDFExportWidget }))
@@ -92,9 +100,13 @@ const WidgetContentInner: React.FC<{ widget: Widget }> = ({ widget }) => {
             return <PresentationWidget id={widget.id} initialSlides={widget.data?.slides} />;
         case 'PROJECT':
             return <ProjectWidget />;
+        case 'DATA_VAULT':
+            return <DataVaultWidget id={widget.id} />;
         // Automation widgets
         case 'PDF_EXPORT':
             return <PDFExportWidget id={widget.id} isMaximized={widget.isMaximized} />;
+        case 'AI_ASSISTANT':
+            return <AIWidget id={widget.id} />;
         default:
             return null;
     }

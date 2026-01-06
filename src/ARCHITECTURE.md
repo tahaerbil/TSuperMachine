@@ -10,19 +10,21 @@ All widgets in TSuperMachine are organized under `src/features/`. Each widget is
 
 ```
 src/features/
-├── automations/        ← Automation & Workflow system (complex)
-├── cad-2d/                 ← 2D CAD Editor (complex)
-├── cad-3d/                 ← 3D CAD Viewer
+├── ai-assistant/          ← AI Chat Widget (NEW)
+├── automations/           ← Automation & Workflow system (complex)
+├── cad-2d/                ← 2D CAD Editor (complex)
+├── cad-3d/                ← 3D CAD Viewer
+├── data-vault/            ← Project File Explorer (NEW)
 ├── engineering-calculator/ ← Calculator (complex)
-├── image-viewer/           ← Image display
-├── note-editor/            ← Rich text editor (complex)
-├── pdf-viewer/             ← PDF display
-├── presentation/           ← Slide viewer
-├── project/                ← Project manager (headless)
-├── project-menu/           ← Project menu UI
-├── settings/               ← App settings
-├── spreadsheet/            ← Excel-like grid
-└── todo/                   ← Task management
+├── image-viewer/          ← Image display
+├── note-editor/           ← Rich text editor (complex)
+├── pdf-viewer/            ← PDF display
+├── presentation/          ← Slide viewer
+├── project/               ← Project manager (headless)
+├── project-menu/          ← Project menu UI
+├── settings/              ← App settings + AI config
+├── spreadsheet/           ← Excel-like grid
+└── todo/                  ← Task management
 ```
 
 ---
@@ -74,9 +76,11 @@ feature-name/
 
 | Feature | Files | Complexity | Key Dependencies |
 |---------|-------|------------|------------------|
+| `ai-assistant` | 4+ | Medium | node-llama-cpp, Zustand |
 | `automations` | 3+ | High | - |
 | `cad-2d` | 12 | High | C++ Native, WASM |
 | `cad-3d` | 2 | Low | Three.js |
+| `data-vault` | 2 | Low | Electron IPC |
 | `engineering-calculator` | 20 | High | C++ Native, Python |
 | `image-viewer` | 2 | Low | - |
 | `note-editor` | 11 | Medium | TipTap |
@@ -84,7 +88,7 @@ feature-name/
 | `presentation` | 2 | Low | - |
 | `project` | 2 | Low | - |
 | `project-menu` | 2 | Low | - |
-| `settings` | 2 | Low | - |
+| `settings` | 2 | Medium | Zustand, AI Settings |
 | `spreadsheet` | 2 | Low | Fortune Sheet |
 | `todo` | 2 | Low | - |
 
@@ -192,6 +196,38 @@ core/widgets/
 
 ---
 
+### AI Core System (`src/core/ai/`)
+
+The AI system provides embedded LLM capabilities with tool calling:
+
+```
+core/ai/
+├── index.ts              ← Module exports + tool registration
+├── types.ts              ← AI types (ChatMessage, AIProvider, Tool)
+├── AIService.ts          ← Main AI orchestrator with tool loop
+├── ToolRegistry.ts       ← Tool registration and execution
+├── providers/
+│   ├── SimpleProvider.ts    ← Rule-based (no external deps)
+│   ├── EmbeddedProvider.ts  ← Qwen2.5-3B via IPC
+│   └── OllamaProvider.ts    ← External Ollama connection
+├── tools/
+│   ├── std/                 ← Standard tools
+│   │   ├── CalculatorTool.ts
+│   │   ├── FileSystemTool.ts
+│   │   └── DocumentReaderTool.ts
+│   └── rag/                 ← RAG tools
+│       └── KnowledgeTools.ts
+└── rag/
+    └── RAGService.ts        ← Document indexing & search
+```
+
+**AI Providers:**
+- **SimpleProvider**: Rule-based pattern matching (always available)
+- **EmbeddedProvider**: Local Qwen2.5-3B via node-llama-cpp in main process
+- **OllamaProvider**: External Ollama API connection
+
+---
+
 ## Migration History
 
 - **2025-12-28**: Consolidated all widgets from `components/widgets/` to `features/`
@@ -206,6 +242,10 @@ core/widgets/
 - **2026-01-04**: Refined Parent-Child widget grouping and recursive dragging
 - **2026-01-04**: Enhanced PDF Viewer with compact mode scaling fixes
 - **2026-01-04**: Improved Widget Loading state and error boundaries
+- **2026-01-06**: Added AI Assistant widget with embedded Qwen2.5-3B support
+- **2026-01-06**: Added Data Vault widget for project file management
+- **2026-01-06**: Added RAG system with knowledge indexing and search
+- **2026-01-06**: Added AI Settings tab with provider management
 
 ---
 
@@ -228,4 +268,4 @@ The widget system uses a **Dormant vs. Edit** state machine to manage user inter
 This model removes the need for specific "drag handles" and provides a more intuitive, tablet-friendly experience where windows are easy to move unless specifically focused.
 
 
-*Last updated: 2026-01-04*
+*Last updated: 2026-01-06*

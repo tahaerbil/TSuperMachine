@@ -5,7 +5,7 @@ import en from './locales/en.json';
 import tr from './locales/tr.json';
 
 // Custom languages will be stored in localStorage
-const customLanguages: Record<string, any> = {};
+const customLanguages: Record<string, unknown> = {};
 
 // Load custom languages from localStorage
 const loadCustomLanguages = () => {
@@ -44,7 +44,7 @@ i18n
         }
     });
 
-export const addCustomLanguage = (code: string, translations: any) => {
+export const addCustomLanguage = (code: string, translations: unknown) => {
     customLanguages[code] = translations;
     i18n.addResourceBundle(code, 'translation', translations);
 
@@ -59,10 +59,13 @@ export const getAvailableLanguages = () => {
     return [
         { code: 'en', name: 'English' },
         { code: 'tr', name: 'Türkçe' },
-        ...Object.keys(customLanguages).map(code => ({
-            code,
-            name: customLanguages[code]?.app?.title || code
-        }))
+        ...Object.keys(customLanguages).map(code => {
+            const lang = customLanguages[code] as { app?: { title?: string } } | undefined;
+            return {
+                code,
+                name: lang?.app?.title || code
+            };
+        })
     ];
 };
 

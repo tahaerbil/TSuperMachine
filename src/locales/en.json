@@ -12,7 +12,9 @@
             "image": "Image",
             "pdf": "PDF",
             "presentation": "Presentation",
-            "project": "Project"
+            "project": "Project",
+            "vault": "Data Vault",
+            "ai": "T-Brain AI"
         },
         "settings": {
             "title": "Settings",

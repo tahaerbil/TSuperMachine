@@ -34,8 +34,7 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 - **Drag & Drop Workflow**: Drag files from the project explorer directly onto the canvas to open them (DXF, PDF, JSON).
 - **Auto-Serialization**: CAD data is automatically serialized to `cadData.json`.
 
-### 📦 11 Specialized Widgets
-
+### 📦 13 Specialized Widgets
 
 1. **📝 Note** - Simple notepad with auto-save
 2. **🧮 Calculator** - MathJS-powered engineering calculator (supports `sin`, `cos`, `sqrt`, etc.)
@@ -46,8 +45,10 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 7. **🎬 Presentation** - PowerPoint-like slide creator with presentation mode
 8. **✏️ 2D CAD** - Vector drawing with C++ engine (lines, circles, arcs, polylines, rectangles)
 9. **🎲 3D CAD** - 3D object viewer with orbit controls (Three.js)
-10. **⚙️ Settings** - Theme and language configuration
+10. **⚙️ Settings** - Theme, language, and AI provider configuration
 11. **🤖 Automations** - Workflow automation and batch processing (e.g., PDF Export)
+12. **🗄️ Data Vault** - Project file explorer with drag-and-drop to canvas
+13. **💬 AI Assistant** - Embedded AI chat with tool calling and RAG support
 
 ## 🚀 Quick Start
 
@@ -89,6 +90,23 @@ npm run native:rebuild
 # Build desktop app for production
 npm run electron:build
 ```
+
+### 🤖 AI Model Setup (Optional)
+
+TSuperMachine includes an embedded AI assistant (Qwen2.5-3B). To use it:
+
+```bash
+# Create models directory
+mkdir -p models
+
+# Download the model (~2GB)
+curl -L -o models/qwen2.5-3b-instruct-q4_k_m.gguf \
+  "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf?download=true"
+```
+
+After download, select "Qwen2.5-3B (Gömülü)" from the AI widget dropdown.
+
+**Note:** Without the model, the T-Brain Mini (rule-based) will be used as fallback.
 
 ### Desktop App (Tauri)
 

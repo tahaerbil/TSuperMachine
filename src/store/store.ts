@@ -8,7 +8,11 @@ export type WidgetType =
     | 'NOTE' | 'CALCULATOR' | 'CAD_3D' | 'CAD_2D' | 'SPREADSHEET'
     | 'TODO' | 'SETTINGS' | 'IMAGE' | 'PDF' | 'PRESENTATION' | 'PROJECT'
     // Automation widgets
-    | 'PDF_EXPORT' | 'CHART_GENERATOR' | 'DATA_LOGGER' | 'SCHEDULER';
+    | 'PDF_EXPORT' | 'CHART_GENERATOR' | 'DATA_LOGGER' | 'SCHEDULER'
+    // AI Assistant
+    | 'AI_ASSISTANT'
+    // Data Vault (File Manager)
+    | 'DATA_VAULT';
 
 export type GridStyle = 'none' | 'lines' | 'dots';
 
@@ -26,6 +30,8 @@ export const getWidgetSize = (type: WidgetType) => {
         case 'PDF':
         case 'SETTINGS':
         case 'PROJECT':
+        case 'AI_ASSISTANT':
+        case 'DATA_VAULT':
             return DEFAULT_WIDGET_SIZES.PORTRAIT;
 
         // Automation widgets - compact size

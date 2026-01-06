@@ -1,6 +1,6 @@
 declare module 'dxf-parser' {
     export default class DxfParser {
-        parseSync(source: string): any;
+        parseSync(source: string): unknown;
     }
 }
 
@@ -21,26 +21,26 @@ declare module 'dxf-writer' {
         insertBlock(name: string, x: number, y: number, scaleX?: number, scaleY?: number, rotation?: number): Drawing;
         addLType(name: string, description: string, pattern: number[]): Drawing;
         addStyle(name: string, fontFile: string, flags?: number): Drawing;
-        addDimStyle(name: string, properties?: any): Drawing;
-        addVPort(name: string, properties?: any): Drawing;
+        addDimStyle(name: string, properties?: unknown): Drawing;
+        addVPort(name: string, properties?: unknown): Drawing;
         addAppId(name: string): Drawing;
         addUcs(name: string, origin: number[], xAxis: number[], yAxis: number[]): Drawing;
-        addView(name: string, properties?: any): Drawing;
-        addViewport(name: string, properties?: any): Drawing;
-        addMlineStyle(name: string, properties?: any): Drawing;
+        addView(name: string, properties?: unknown): Drawing;
+        addViewport(name: string, properties?: unknown): Drawing;
+        addMlineStyle(name: string, properties?: unknown): Drawing;
         addDictionary(name: string): Drawing;
-        addGroup(name: string, description: string, entities: any[]): Drawing;
-        addLayout(name: string, properties?: any): Drawing;
-        addPlotSettings(name: string, properties?: any): Drawing;
-        addMaterial(name: string, properties?: any): Drawing;
-        addMLeaderStyle(name: string, properties?: any): Drawing;
-        addTableStyle(name: string, properties?: any): Drawing;
-        addVisualStyle(name: string, properties?: any): Drawing;
+        addGroup(name: string, description: string, entities: unknown[]): Drawing;
+        addLayout(name: string, properties?: unknown): Drawing;
+        addPlotSettings(name: string, properties?: unknown): Drawing;
+        addMaterial(name: string, properties?: unknown): Drawing;
+        addMLeaderStyle(name: string, properties?: unknown): Drawing;
+        addTableStyle(name: string, properties?: unknown): Drawing;
+        addVisualStyle(name: string, properties?: unknown): Drawing;
         addRegApp(name: string): Drawing;
-        addScaleList(name: string, properties?: any): Drawing;
-        addSectionStyle(name: string, properties?: any): Drawing;
-        addLeaderStyle(name: string, properties?: any): Drawing;
-        addToleranceStyle(name: string, properties?: any): Drawing;
+        addScaleList(name: string, properties?: unknown): Drawing;
+        addSectionStyle(name: string, properties?: unknown): Drawing;
+        addLeaderStyle(name: string, properties?: unknown): Drawing;
+        addToleranceStyle(name: string, properties?: unknown): Drawing;
         addMLine(points: number[][], styleName?: string): Drawing;
         addMText(x: number, y: number, height: number, rotation: number, value: string, attachmentPoint?: number, width?: number): Drawing;
         addHatch(points: number[][], patternName?: string, patternAngle?: number, patternScale?: number): Drawing;
@@ -53,10 +53,10 @@ declare module 'dxf-writer' {
         addRasterImage(filePath: string, x: number, y: number, width: number, height: number, rotation?: number): Drawing;
         addOleFrame(x: number, y: number, width: number, height: number, oleData: string): Drawing;
         addOle2Frame(x: number, y: number, width: number, height: number, oleData: string): Drawing;
-        addLight(name: string, properties?: any): Drawing;
-        addSun(name: string, properties?: any): Drawing;
-        addCamera(name: string, properties?: any): Drawing;
-        addSection(name: string, properties?: any): Drawing;
+        addLight(name: string, properties?: unknown): Drawing;
+        addSun(name: string, properties?: unknown): Drawing;
+        addCamera(name: string, properties?: unknown): Drawing;
+        addSection(name: string, properties?: unknown): Drawing;
         addBlockRecord(name: string): Drawing;
         setLayer(layerName: string): Drawing;
         toDxfString(): string;

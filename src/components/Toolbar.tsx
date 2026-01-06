@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { useStore, getWidgetSize } from '../store/store';
 import type { WidgetType } from '../store/store';
-import { Calculator, StickyNote, FileSpreadsheet, Box, PenTool, CheckSquare, Settings, Image, FileText, Presentation, FolderKanban, type LucideIcon } from 'lucide-react';
+import { Calculator, StickyNote, FileSpreadsheet, Box, PenTool, CheckSquare, Settings, Image, FileText, Presentation, FolderKanban, Bot, Archive, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 // =========================================================================
@@ -39,6 +39,8 @@ const TOOL_CONFIG: ToolConfig[] = [
     { type: 'PDF', Icon: FileText, labelKey: 'app.toolbar.pdf' },
     { type: 'PRESENTATION', Icon: Presentation, labelKey: 'app.toolbar.presentation' },
     { type: 'PROJECT', Icon: FolderKanban, labelKey: 'app.toolbar.project' },
+    { type: 'DATA_VAULT', Icon: Archive, labelKey: 'app.toolbar.vault' },
+    { type: 'AI_ASSISTANT', Icon: Bot, labelKey: 'app.toolbar.ai' },
     { type: 'SETTINGS', Icon: Settings, labelKey: 'app.toolbar.settings' },
 ];
 
