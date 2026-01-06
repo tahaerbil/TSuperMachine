@@ -6,11 +6,13 @@ import {
     List,
     ListOrdered,
     CheckSquare,
+    ListTodo,
     Quote,
     Code,
     Table,
     Minus,
-    Image
+    Image,
+    BarChart
 } from 'lucide-react';
 
 // Command props type - matches slashCommands.ts
@@ -37,11 +39,13 @@ const iconMap: Record<string, React.ReactNode> = {
     list: <List size={18} />,
     listOrdered: <ListOrdered size={18} />,
     checkSquare: <CheckSquare size={18} />,
+    listTodo: <ListTodo size={18} />,
     quote: <Quote size={18} />,
     code: <Code size={18} />,
     table: <Table size={18} />,
     minus: <Minus size={18} />,
     image: <Image size={18} />,
+    barChart: <BarChart size={18} />,
 };
 
 export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandListProps>(

@@ -117,6 +117,22 @@ export const slashCommands: SlashCommandItem[] = [
             }
         },
     },
+    {
+        title: 'Progress Bar',
+        description: 'Track task completion progress',
+        icon: 'barChart',
+        command: ({ editor, range }: CommandProps) => {
+            editor.chain().focus().deleteRange(range).insertProgressBar().run();
+        },
+    },
+    {
+        title: 'Todo Block',
+        description: 'Self-contained todo list with progress',
+        icon: 'listTodo',
+        command: ({ editor, range }: CommandProps) => {
+            editor.chain().focus().deleteRange(range).insertTodoBlock().run();
+        },
+    },
 ];
 
 // Slash Commands Extension

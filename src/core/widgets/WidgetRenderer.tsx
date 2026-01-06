@@ -29,9 +29,7 @@ const CAD3DWidget = React.lazy(() =>
 const SpreadsheetWidget = React.lazy(() =>
     import('../../features/spreadsheet').then(m => ({ default: m.SpreadsheetWidget }))
 );
-const TodoWidget = React.lazy(() =>
-    import('../../features/todo').then(m => ({ default: m.TodoWidget }))
-);
+
 const SettingsWidget = React.lazy(() =>
     import('../../features/settings').then(m => ({ default: m.SettingsWidget }))
 );
@@ -88,8 +86,7 @@ const WidgetContentInner: React.FC<{ widget: Widget }> = ({ widget }) => {
             return <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />;
         case 'SPREADSHEET':
             return <SpreadsheetWidget id={widget.id} initialData={widget.data?.spreadsheet} isMaximized={widget.isMaximized} />;
-        case 'TODO':
-            return <TodoWidget id={widget.id} initialTodos={widget.data?.todos} />;
+
         case 'SETTINGS':
             return <SettingsWidget />;
         case 'IMAGE':

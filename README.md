@@ -48,7 +48,7 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 10. **⚙️ Settings** - Theme, language, and AI provider configuration
 11. **🤖 Automations** - Workflow automation and batch processing (e.g., PDF Export)
 12. **🗄️ Data Vault** - Project file explorer with drag-and-drop to canvas
-13. **💬 AI Assistant** - Embedded AI chat with tool calling and RAG support
+13. **💬 AI Assistant** - Embedded AI chat (Qwen2.5-3B) with RAG (Chat with your documents) and tool calling
 
 ## 🚀 Quick Start
 
@@ -91,22 +91,31 @@ npm run native:rebuild
 npm run electron:build
 ```
 
-### 🤖 AI Model Setup (Optional)
+### 🤖 AI Model Setup (Optional but Recommended)
 
-TSuperMachine includes an embedded AI assistant (Qwen2.5-3B). To use it:
+TSuperMachine includes an embedded AI assistant powered by **Qwen2.5-3B**. To use the local offline model:
 
-```bash
-# Create models directory
-mkdir -p models
+1. **Create models directory**:
+   ```bash
+   mkdir -p models
+   ```
 
-# Download the model (~2GB)
-curl -L -o models/qwen2.5-3b-instruct-q4_k_m.gguf \
-  "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf?download=true"
-```
+2. **Download the GGUF Model**:
+   Download `qwen2.5-3b-instruct-q4_k_m.gguf` (approx 2.0 GB) and place it in the `models/` folder.
+   
+   *Direct High-Speed Download:*
+   ```bash
+   curl -L -o models/qwen2.5-3b-instruct-q4_k_m.gguf \
+     "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf?download=true"
+   ```
 
-After download, select "Qwen2.5-3B (Gömülü)" from the AI widget dropdown.
+3. **Activation**:
+   - Restart the application.
+   - Open the **AI Assistant** widget.
+   - Select **"Qwen2.5-3B (Gömülü)"** from the provider dropdown.
+   - *Note:* First load may take a few seconds.
 
-**Note:** Without the model, the T-Brain Mini (rule-based) will be used as fallback.
+**Fallback:** If no model is found, the system defaults to "T-Brain Mini" (Rule-based simple assistant).
 
 ### Desktop App (Tauri)
 
@@ -130,17 +139,30 @@ npm run tauri:build
 - **Paste Widget**: Ctrl+V with text/image in clipboard (creates Note/Image at mouse position)
 
 ### Widget Management
-### Widget Management
-- **Move Widget**: Click and drag **anywhere** on the widget (when in Dormant mode)
-- **Edit Content**: **Double-click** to enter Edit Mode (enables buttons, inputs, scroll)
-- **Exit Edit Mode**: Press **Escape** or click outside the widget
-- **Group Widgets**: Drag a widget close to another to snap them together. Dragging the parent moves the child; dragging the child detaches it.
-- **Resize Widget**: Drag from corners/edges (works in Dormant mode)
-- **Close Widget**: Click X button (hover to reveal)
-- **Focus Widget**: Click anywhere on widget
-- **Multi-select**: Ctrl+Click or lasso selection
-- **Maximize**: Click maximize button (full screen mode)
-- **Pop-out**: Click pop-out button (opens in new window)
+### Widget Management (Dormant vs Edit Mode)
+
+The interface uses a **Two-State Interaction Model** optimized for both mouse and touch:
+
+#### 1. Dormant Mode (Default)
+In this state, widgets are treated as objects to be arranged.
+- **Move**: Click and drag **anywhere** on the widget.
+- **Resize**: Drag from any edge or corner.
+- **Group**: Drag a widget close to another to snap/attach.
+- **Select**: Single click to focus.
+
+#### 2. Edit Mode (Interactive)
+In this state, the widget's internal content becomes active.
+- **Enter Edit Mode**: **Double-click** anywhere on the widget.
+- **Interact**: Type text, scroll lists, click internal buttons.
+- **Exit Edit Mode**: Press **Escape** or click outside the widget.
+- **Visual Cue**: A distinct border/shadow indicates the widget is active.
+- *Note: Widgets cannot be dragged while in Edit Mode.*
+
+#### Other Actions
+- **Multi-select**: Ctrl+Click or Lasso Select (drag on empty canvas).
+- **Maximize**: Toggle full screen (Top-right button).
+- **Pop-out**: Detach to separate window (Top-right button).
+- **Close**: Remove widget (Top-right X).
 
 
 ### 2D CAD Commands
@@ -186,6 +208,7 @@ npm run tauri:build
 | **PDF Viewer** | react-pdf |
 | **2D Graphics** | C++ Native Addon / WASM + react-konva |
 | **3D Graphics** | @react-three/fiber + drei |
+| **AI Engine** | Qwen2.5-3B + node-llama-cpp (Local/Offline) |
 | **PDF Generation** | jsPDF + html2canvas |
 
 ## 📁 Project Structure

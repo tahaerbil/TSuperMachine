@@ -12,6 +12,7 @@ import {
     List,
     ListOrdered,
     CheckSquare,
+    ListTodo,
     Quote,
     Heading1,
     Heading2,
@@ -226,6 +227,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
                 title="Code Block"
             >
                 <Code size={16} />
+            </ToolbarButton>
+            <ToolbarButton
+                onClick={() => editor.chain().focus().insertTodoBlock().run()}
+                isActive={editor.isActive('todoBlock')}
+                title="Todo Block"
+            >
+                <ListTodo size={16} />
             </ToolbarButton>
             <ToolbarButton
                 onClick={() => editor.chain().focus().setHorizontalRule().run()}

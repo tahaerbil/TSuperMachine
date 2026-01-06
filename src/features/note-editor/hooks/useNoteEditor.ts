@@ -16,6 +16,8 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { common, createLowlight } from 'lowlight';
 import { SlashCommands } from '../extensions/slashCommands';
+import { ProgressBar } from '../extensions/progressBar.tsx';
+import { TodoBlock } from '../extensions/todoBlock.tsx';
 
 // Create lowlight instance for syntax highlighting
 const lowlight = createLowlight(common);
@@ -110,11 +112,66 @@ export const useNoteEditor = ({
             }),
             // Slash Commands
             SlashCommands,
+            // Progress Bar for task tracking
+            ProgressBar,
+            // Todo Block for self-contained todo lists
+            TodoBlock,
         ],
         content: getInitialContent(),
         editorProps: {
             attributes: {
                 class: 'prose prose-sm max-w-none focus:outline-none min-h-full p-4',
+            },
+            // Handle image drop
+            handleDrop(view, event, _slice, moved) {
+                if (!moved && event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0]) {
+                    const file = event.dataTransfer.files[0];
+                    if (file.type.startsWith('image/')) {
+                        event.preventDefault();
+
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            const base64 = reader.result as string;
+                            const { schema } = view.state;
+                            const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+
+                            if (coordinates) {
+                                const imageNode = schema.nodes.image.create({ src: base64 });
+                                const transaction = view.state.tr.insert(coordinates.pos, imageNode);
+                                view.dispatch(transaction);
+                            }
+                        };
+                        reader.readAsDataURL(file);
+                        return true;
+                    }
+                }
+                return false;
+            },
+            // Handle image paste
+            handlePaste(view, event) {
+                const items = event.clipboardData?.items;
+                if (!items) return false;
+
+                for (const item of items) {
+                    if (item.type.startsWith('image/')) {
+                        event.preventDefault();
+
+                        const file = item.getAsFile();
+                        if (!file) continue;
+
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            const base64 = reader.result as string;
+                            const { schema } = view.state;
+                            const imageNode = schema.nodes.image.create({ src: base64 });
+                            const transaction = view.state.tr.replaceSelectionWith(imageNode);
+                            view.dispatch(transaction);
+                        };
+                        reader.readAsDataURL(file);
+                        return true;
+                    }
+                }
+                return false;
             },
         },
         onUpdate: ({ editor }) => {

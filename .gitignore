@@ -85,3 +85,8 @@ temp/
 # AI Models (Large binary files - download separately)
 models/
 *.gguf
+*.qwen
+
+# RAG / Vector DB
+vector_db/
+

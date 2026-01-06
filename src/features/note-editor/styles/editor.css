@@ -66,13 +66,16 @@
 
 .ProseMirror ul[data-type="taskList"] li {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 0.5rem;
+    margin: 0.25rem 0;
 }
 
 .ProseMirror ul[data-type="taskList"] li>label {
     flex: 0 0 auto;
-    margin-top: 0.25rem;
+    display: flex;
+    align-items: center;
+    margin: 0;
 }
 
 .ProseMirror ul[data-type="taskList"] li>label input[type="checkbox"] {
@@ -80,10 +83,15 @@
     width: 1rem;
     height: 1rem;
     accent-color: #3b82f6;
+    margin: 0;
 }
 
 .ProseMirror ul[data-type="taskList"] li>div {
     flex: 1 1 auto;
+}
+
+.ProseMirror ul[data-type="taskList"] li>div p {
+    margin: 0;
 }
 
 .ProseMirror ul[data-type="taskList"] li[data-checked="true"]>div {
@@ -298,4 +306,231 @@
 .slash-command-item-description {
     font-size: 0.75rem;
     opacity: 0.7;
+}
+
+/* =====================================================
+   DARK MODE STYLES
+   ===================================================== */
+
+/* Paper container in maximize mode */
+.note-paper-container {
+    --color-bg-secondary: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="dark"] .note-paper-container,
+.dark .note-paper-container {
+    --color-bg-secondary: rgba(0, 0, 0, 0.3);
+}
+
+/* Dark mode paper shadow */
+[data-theme="dark"] .note-paper,
+.dark .note-paper {
+    box-shadow: 0 4px 60px rgba(0, 0, 0, 0.5);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Dark mode detection via CSS variable */
+[data-theme="dark"] .ProseMirror,
+.dark .ProseMirror,
+:root[data-theme="dark"] .ProseMirror {
+    color: #e4e4e7;
+}
+
+/* Dark mode inline code */
+[data-theme="dark"] .ProseMirror code,
+.dark .ProseMirror code {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f472b6;
+}
+
+/* Dark mode code block with syntax highlighting */
+[data-theme="dark"] .ProseMirror pre,
+.dark .ProseMirror pre {
+    background: #0d1117;
+    border: 1px solid #30363d;
+}
+
+/* Syntax highlighting colors for dark mode */
+[data-theme="dark"] .ProseMirror pre .hljs-keyword,
+.dark .ProseMirror pre .hljs-keyword {
+    color: #ff7b72;
+}
+
+[data-theme="dark"] .ProseMirror pre .hljs-string,
+.dark .ProseMirror pre .hljs-string {
+    color: #a5d6ff;
+}
+
+[data-theme="dark"] .ProseMirror pre .hljs-number,
+.dark .ProseMirror pre .hljs-number {
+    color: #79c0ff;
+}
+
+[data-theme="dark"] .ProseMirror pre .hljs-function,
+.dark .ProseMirror pre .hljs-function {
+    color: #d2a8ff;
+}
+
+[data-theme="dark"] .ProseMirror pre .hljs-comment,
+.dark .ProseMirror pre .hljs-comment {
+    color: #8b949e;
+    font-style: italic;
+}
+
+[data-theme="dark"] .ProseMirror pre .hljs-variable,
+.dark .ProseMirror pre .hljs-variable {
+    color: #ffa657;
+}
+
+[data-theme="dark"] .ProseMirror pre .hljs-class,
+.dark .ProseMirror pre .hljs-class {
+    color: #7ee787;
+}
+
+[data-theme="dark"] .ProseMirror pre .hljs-attr,
+.dark .ProseMirror pre .hljs-attr {
+    color: #79c0ff;
+}
+
+/* Dark mode blockquote */
+[data-theme="dark"] .ProseMirror blockquote,
+.dark .ProseMirror blockquote {
+    border-left-color: #60a5fa;
+    color: #a1a1aa;
+    background: rgba(96, 165, 250, 0.05);
+}
+
+/* Dark mode highlight */
+[data-theme="dark"] .ProseMirror mark,
+.dark .ProseMirror mark {
+    background-color: #854d0e;
+    color: #fef08a;
+}
+
+/* Dark mode links */
+[data-theme="dark"] .ProseMirror a,
+.dark .ProseMirror a {
+    color: #60a5fa;
+}
+
+[data-theme="dark"] .ProseMirror a:hover,
+.dark .ProseMirror a:hover {
+    color: #93c5fd;
+}
+
+/* Dark mode table */
+[data-theme="dark"] .ProseMirror th,
+.dark .ProseMirror th {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #e4e4e7;
+}
+
+[data-theme="dark"] .ProseMirror td,
+.dark .ProseMirror td,
+[data-theme="dark"] .ProseMirror th,
+.dark .ProseMirror th {
+    border-color: #3f3f46;
+}
+
+/* Dark mode selected cell */
+[data-theme="dark"] .ProseMirror .selectedCell:after,
+.dark .ProseMirror .selectedCell:after {
+    background: rgba(96, 165, 250, 0.15);
+}
+
+/* Dark mode bubble menu */
+[data-theme="dark"] .bubble-menu,
+.dark .bubble-menu {
+    background-color: #27272a;
+    border-color: #3f3f46;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .bubble-menu button,
+.dark .bubble-menu button {
+    color: #e4e4e7;
+}
+
+[data-theme="dark"] .bubble-menu button:hover,
+.dark .bubble-menu button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Dark mode slash command menu */
+[data-theme="dark"] .slash-command-menu,
+.dark .slash-command-menu {
+    background-color: #27272a;
+    border-color: #3f3f46;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .slash-command-item:hover,
+.dark .slash-command-item:hover,
+[data-theme="dark"] .slash-command-item.is-selected,
+.dark .slash-command-item.is-selected {
+    background-color: rgba(96, 165, 250, 0.15);
+}
+
+[data-theme="dark"] .slash-command-item-icon,
+.dark .slash-command-item-icon {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Dark mode image hover */
+[data-theme="dark"] .ProseMirror img:hover,
+.dark .ProseMirror img:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Dark mode task list checkbox */
+[data-theme="dark"] .ProseMirror ul[data-type="taskList"] li>label input[type="checkbox"],
+.dark .ProseMirror ul[data-type="taskList"] li>label input[type="checkbox"] {
+    accent-color: #60a5fa;
+}
+
+/* Dark mode horizontal rule */
+[data-theme="dark"] .ProseMirror hr,
+.dark .ProseMirror hr {
+    border-top-color: #3f3f46;
+}
+
+/* Search highlight animation */
+.search-highlight {
+    background-color: #fef08a !important;
+    animation: search-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes search-pulse {
+
+    0%,
+    100% {
+        background-color: #fef08a;
+    }
+
+    50% {
+        background-color: #fde047;
+    }
+}
+
+[data-theme="dark"] .search-highlight,
+.dark .search-highlight {
+    background-color: #854d0e !important;
+    color: #fef08a;
+}
+
+@keyframes search-pulse-dark {
+
+    0%,
+    100% {
+        background-color: #854d0e;
+    }
+
+    50% {
+        background-color: #a16207;
+    }
+}
+
+[data-theme="dark"] .search-highlight,
+.dark .search-highlight {
+    animation: search-pulse-dark 1.5s ease-in-out infinite;
 }

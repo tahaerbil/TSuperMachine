@@ -261,7 +261,7 @@ The widget system uses a **Dormant vs. Edit** state machine to manage user inter
 2.  **Edit State (Active)**:
     *   Triggered by **Double-clicking** the widget.
     *   Widget content becomes **interactive** (buttons click, text types, map pans).
-    *   **Dragging Disabled**: The widget cannot be moved while in edit mode.
+    *   **Dragging Disabled**: The widget cannot be moved while in edit mode. **(CRITICAL UX RULE)**
     *   **Visual Cue**: Cursor changes to standard pointers/text cursors, and a visual border/overlay may appear.
     *   **Exit**: Press `Escape` or click outside the widget to return to Dormant state.
 
