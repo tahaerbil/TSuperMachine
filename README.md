@@ -25,13 +25,18 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 - **Hybrid Architecture** - Automatically selects best engine for platform
 - **Full State Saving** - Saves all CAD entities (lines, circles, etc.) to `.tsm` project file via native serialization
 
-### 💾 Robust Save System
-- **Dual Save Modes**:
-  - **.tsm File**: Compressed single file for easy sharing (ZIP-based).
-  - **Folder Structure**: Save as an open folder for version control or external editing.
-- **Native File Dialogs**: Uses OS-native dialogs for both files and directories.
+### 💾 Folder-First Save System
+- **Default: Folder Mode**:
+  - Saves as open folder structure for easy editing and version control.
+  - Standard folders: `parts/`, `assemblies/`, `drawings/`, `resources/`, `calculations/`, `documents/`, `images/`.
+  - Fast save (no ZIP overhead).
+  - Git-compatible.
+- **Export as .tsm**:
+  - Compressed single file (ZIP-based) for sharing and distribution.
+  - Uses OS-native save dialog.
 - **Virtual File Tree**: In-app project explorer to manage project structure.
 - **Drag & Drop Workflow**: Drag files from the project explorer directly onto the canvas to open them (DXF, PDF, JSON).
+- **Auto-Recovery**: Automatic temp saves to prevent data loss.
 - **Auto-Serialization**: CAD data is automatically serialized to `cadData.json`.
 
 ### 📦 13 Specialized Widgets
@@ -49,6 +54,7 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 11. **🤖 Automations** - Workflow automation and batch processing (e.g., PDF Export)
 12. **🗄️ Data Vault** - Project file explorer with drag-and-drop to canvas
 13. **💬 AI Assistant** - Embedded AI chat (Qwen2.5-3B) with RAG (Chat with your documents) and tool calling
+14. **📁 Project** - Project manager widget with save/load/export functionality
 
 ## 🚀 Quick Start
 
@@ -247,7 +253,15 @@ tsupermachinev2/
 │   │
 │   ├── store/
 │   │   ├── store.ts                # Main app state (Zustand)
+│   │   ├── projectStore.ts         # Project save/load state (Zustand)
+│   │   ├── aiStore.ts              # AI assistant state (Zustand)
 │   │   └── themeStore.ts           # Theme state
+│   ├── core/
+│   │   └── services/
+│   │       ├── project/
+│   │       │   └── projectService.ts   # Pure project file operations
+│   │       └── filesystem/
+│   │           └── fileSystemAdapter.ts  # Platform I/O abstraction
 │   ├── locales/                    # i18n translations
 │   ├── ARCHITECTURE.md             # Code architecture guide
 │   ├── i18n.ts

@@ -1,26 +1,63 @@
-import { useEffect } from 'react';
-import { useProjectSystem } from './hooks/useProjectSystem';
-import { useAutoSave } from './hooks/useAutoSave';
-
 /**
- * Headless controller component that manages global project events and lifecycle.
- * Should be mounted once at the root of the application (in App.tsx).
+ * Project Controller
+ * 
+ * Headless component that manages:
+ * - Auto-save lifecycle
+ * - Keyboard shortcuts (Ctrl+S, Ctrl+Shift+S)
+ * - Electron menu integration
  */
+
+import { useEffect } from 'react';
+import { useProjectStore, startAutoSave, stopAutoSave } from '../../store/projectStore';
+
 export const ProjectController = () => {
-    const { save, createNew, load, refreshPath } = useProjectSystem();
+    const { save, createNew, load, refreshPath, autoSaveEnabled } = useProjectStore();
 
-    // Enable Auto-Save (every 5 mins if file path exists)
-    useAutoSave(true);
+    // =========================================================================
+    // Auto-Save Lifecycle
+    // =========================================================================
 
+    useEffect(() => {
+        if (autoSaveEnabled) {
+            startAutoSave();
+        }
+        return () => stopAutoSave();
+    }, [autoSaveEnabled]);
+
+    // =========================================================================
     // Initial Path Sync
+    // =========================================================================
+
     useEffect(() => {
         refreshPath();
     }, [refreshPath]);
 
-    // Electron Menu Event Listeners
+    // =========================================================================
+    // Keyboard Shortcuts
+    // =========================================================================
+
     useEffect(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if (!(window as any).electronAPI) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    save({ forceSaveAs: true });
+                } else {
+                    save({ forceSaveAs: false });
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [save]);
+
+    // =========================================================================
+    // Electron Menu Integration
+    // =========================================================================
+
+    useEffect(() => {
+        if (!window.electronAPI) return;
 
         const handleMenuAction = (action: string) => {
             console.log('[ProjectController] Menu Action:', action);
@@ -30,14 +67,12 @@ export const ProjectController = () => {
             if (action === 'open') load();
         };
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any).electronAPI.onMenuAction(handleMenuAction);
+        window.electronAPI.onMenuAction(handleMenuAction);
 
         return () => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (window as any).electronAPI?.removeListeners();
+            window.electronAPI?.removeListeners?.();
         };
     }, [createNew, save, load]);
 
-    return null; // Headless
+    return null; // Headless component
 };

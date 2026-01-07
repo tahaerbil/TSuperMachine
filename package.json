@@ -15,6 +15,7 @@
     "tauri:build": "tauri build",
     "electron:dev": "concurrently \"npm run dev\" \"sleep 2 && electron .\"",
     "electron:build": "npm run native:build && npm run build && electron-builder",
+    "build:electron": "NODE_OPTIONS='--max-old-space-size=8192' npm run electron:build",
     "electron:pack": "npm run build && electron-builder --dir",
     "native:build": "npm run build --workspace=cad-addon",
     "native:rebuild": "npm run rebuild --workspace=cad-addon",
@@ -108,5 +109,22 @@
     "vite": "^7.2.4",
     "vitest": "^4.0.16",
     "wait-on": "^9.0.3"
+  },
+  "build": {
+    "appId": "com.tsupermachine.app",
+    "productName": "TSuperMachine",
+    "directories": {
+      "output": "dist_electron"
+    },
+    "files": [
+      "dist/**/*",
+      "src-electron/**/*",
+      "package.json",
+      "native/**/*"
+    ],
+    "linux": {
+      "target": "AppImage",
+      "category": "Development"
+    }
   }
 }

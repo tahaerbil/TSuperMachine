@@ -178,8 +178,11 @@ app.on('window-all-closed', () => {
 
 // IPC Handlers for File System
 // IPC Handlers for File System
-ipcMain.handle('save-project-file', async (event, { data, filePath, saveAs, asFolder }) => {
+ipcMain.handle('save-project-file', async (event, { data, filePath, saveAs, asFolder, projectName }) => {
     let targetPath = filePath;
+
+    // Use provided projectName for default filename, fallback to Untitled
+    const defaultName = projectName ? `${projectName}.tsm` : 'Untitled.tsm';
 
     if (!targetPath || saveAs) {
         if (asFolder) {
@@ -192,7 +195,7 @@ ipcMain.handle('save-project-file', async (event, { data, filePath, saveAs, asFo
         } else {
             const { canceled, filePath: promptPath } = await dialog.showSaveDialog(mainWindow, {
                 title: 'Save Project',
-                defaultPath: 'Untitled.tsm',
+                defaultPath: defaultName,
                 filters: [{ name: 'TSM Project', extensions: ['tsm'] }]
             });
             if (canceled) return { success: false, canceled: true };
@@ -210,6 +213,24 @@ ipcMain.handle('save-project-file', async (event, { data, filePath, saveAs, asFo
             // Ensure directory exists
             if (!fs.existsSync(targetPath)) {
                 fs.mkdirSync(targetPath, { recursive: true });
+            }
+
+            // Create standard project folder structure
+            const standardFolders = [
+                'parts',
+                'assemblies',
+                'drawings',
+                'resources',
+                'calculations',
+                'documents',
+                'images'
+            ];
+
+            for (const folder of standardFolders) {
+                const folderPath = path.join(targetPath, folder);
+                if (!fs.existsSync(folderPath)) {
+                    fs.mkdirSync(folderPath, { recursive: true });
+                }
             }
 
             for (const [relativePath, content] of Object.entries(files)) {
@@ -236,6 +257,25 @@ ipcMain.handle('save-project-file', async (event, { data, filePath, saveAs, asFo
 
     } catch (err) {
         return { success: false, error: err.message };
+    }
+});
+
+// Save Temp Project (Auto-Recovery)
+ipcMain.handle('save-temp-project', async (event, data) => {
+    try {
+        const recoveryDir = path.join(app.getPath('userData'), 'Recovery');
+        if (!fs.existsSync(recoveryDir)) {
+            fs.mkdirSync(recoveryDir, { recursive: true });
+        }
+        const filePath = path.join(recoveryDir, 'recovery.json');
+
+        // Write as JSON string since this is internal recovery data
+        const contentToWrite = JSON.stringify(data, null, 2);
+
+        fs.writeFileSync(filePath, contentToWrite);
+        return { success: true, filePath };
+    } catch (error) {
+        return { success: false, error: error.message };
     }
 });
 
@@ -425,6 +465,60 @@ ipcMain.handle('copy-file', async (event, { sourcePath, targetPath }) => {
     try {
         fs.copyFileSync(sourcePath, targetPath);
         return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+// Copy external file to project folder with auto-categorization
+ipcMain.handle('copy-file-to-project', async (event, { filePath, projectPath }) => {
+    try {
+        if (!projectPath) {
+            return { success: false, error: 'No active project folder' };
+        }
+
+        if (!fs.existsSync(filePath)) {
+            return { success: false, error: 'Source file does not exist' };
+        }
+
+        const fileName = path.basename(filePath);
+        const ext = path.extname(filePath).toLowerCase();
+
+        // Auto-categorize by file type
+        let subFolder = 'resources';
+        if (['.pdf', '.doc', '.docx', '.txt', '.md'].includes(ext)) {
+            subFolder = 'documents';
+        } else if (['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp'].includes(ext)) {
+            subFolder = 'images';
+        } else if (['.dxf', '.dwg', '.step', '.stp', '.iges', '.igs'].includes(ext)) {
+            subFolder = 'drawings';
+        } else if (['.stl', '.obj', '.3mf', '.fbx'].includes(ext)) {
+            subFolder = 'parts';
+        }
+
+        const targetDir = path.join(projectPath, subFolder);
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
+
+        // Handle duplicate names
+        let targetPath = path.join(targetDir, fileName);
+        let counter = 1;
+        const baseName = path.basename(fileName, ext);
+        while (fs.existsSync(targetPath)) {
+            targetPath = path.join(targetDir, `${baseName}_${counter}${ext}`);
+            counter++;
+        }
+
+        fs.copyFileSync(filePath, targetPath);
+
+        return {
+            success: true,
+            targetPath,
+            relativePath: path.relative(projectPath, targetPath),
+            subFolder,
+            fileName: path.basename(targetPath)
+        };
     } catch (error) {
         return { success: false, error: error.message };
     }

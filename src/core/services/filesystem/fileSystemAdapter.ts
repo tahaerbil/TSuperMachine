@@ -39,6 +39,7 @@ interface FilePickerAcceptType {
 // File System Adapter Interface
 export interface IFileSystemAdapter {
     saveProject(data: Blob | Record<string, string>, projectName: string, isNewProject: boolean, asFolder?: boolean): Promise<void>;
+    saveTempProject(data: unknown): Promise<void>;
     loadProject(fromFolder?: boolean): Promise<{ file?: File; files?: Record<string, string>; path?: string; isFolder?: boolean }>;
     hasFileSystemAccess(): boolean;
     getCurrentFilePath(): string | null;
@@ -53,7 +54,7 @@ class ElectronAdapter implements IFileSystemAdapter {
         return true;
     }
 
-    async saveProject(data: Blob | Record<string, string>, _projectName: string, isNewProject: boolean, asFolder: boolean = false): Promise<void> {
+    async saveProject(data: Blob | Record<string, string>, projectName: string, isNewProject: boolean, asFolder: boolean = false): Promise<void> {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let payload: any = data;
 
@@ -63,7 +64,8 @@ class ElectronAdapter implements IFileSystemAdapter {
             payload = new Uint8Array(buffer);
         }
 
-        const result = await window.electronAPI!.saveProject(payload, this.currentPath, isNewProject, asFolder);
+        if (!window.electronAPI) throw new Error('Electron API not available');
+        const result = await window.electronAPI.saveProject(payload, this.currentPath, isNewProject, asFolder, projectName);
 
         if (result.success && result.filePath) {
             this.currentPath = result.filePath;
@@ -71,6 +73,18 @@ class ElectronAdapter implements IFileSystemAdapter {
             throw new Error('Save cancelled');
         } else {
             throw new Error(result.error || 'Unknown save error');
+        }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async saveTempProject(data: any): Promise<void> {
+        try {
+            if (window.electronAPI) {
+                await window.electronAPI.saveTempProject(data);
+                console.log('[Adapter] Temp project saved to recovery.');
+            }
+        } catch (e) {
+            console.error('[Adapter] Failed to save temp project:', e);
         }
     }
 
@@ -156,6 +170,16 @@ class FileSystemAccessAdapter implements IFileSystemAdapter {
         }
     }
 
+    async saveTempProject(data: unknown): Promise<void> {
+        // Fallback for Web: LocalStorage (might be too small, but better than nothing)
+        // Ideally should use IndexedDB, but keeping it simple for now as requested for "Industry Standard logic"
+        try {
+            localStorage.setItem('tsm_recovery', JSON.stringify(data));
+        } catch (e) {
+            console.warn('Failed to save recovery to localStorage (quota exceeded?)', e);
+        }
+    }
+
     async loadProject(): Promise<{ file: File; path?: string }> {
         try {
             const [fileHandle] = await window.showOpenFilePicker({
@@ -207,6 +231,14 @@ class DownloadAdapter implements IFileSystemAdapter {
         const fileName = `${projectName.replace(/[^a-z0-9]/gi, '_')}.tsm`;
         saveAs(data, fileName);
         this.currentPath = fileName;
+    }
+
+    async saveTempProject(data: unknown): Promise<void> {
+        try {
+            localStorage.setItem('tsm_recovery', JSON.stringify(data));
+        } catch {
+            // Ignore
+        }
     }
 
     async loadProject(): Promise<{ file: File; path?: string }> {

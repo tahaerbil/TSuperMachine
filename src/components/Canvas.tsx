@@ -165,13 +165,15 @@ export const Canvas: React.FC = () => {
             onDragOver={(e) => {
                 e.preventDefault(); // allow drop
             }}
-            onDrop={(e) => {
+            onDrop={async (e) => {
                 e.preventDefault();
-                const data = e.dataTransfer.getData('application/tsm-project-file');
-                if (data) {
+
+                // 1. Internal project file drag (from ProjectFileTree)
+                const internalData = e.dataTransfer.getData('application/tsm-project-file');
+                if (internalData) {
                     try {
-                        const fileNode = JSON.parse(data);
-                        console.log('Dropped file:', fileNode);
+                        const fileNode = JSON.parse(internalData);
+                        console.log('Dropped internal file:', fileNode);
 
                         // Calculate world position
                         const rect = containerRef.current?.getBoundingClientRect();
@@ -194,6 +196,82 @@ export const Canvas: React.FC = () => {
                     } catch (err) {
                         console.error('Failed to handle dropped file', err);
                     }
+                    return;
+                }
+
+                // 2. External file drop (from desktop/file manager)
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && window.electronAPI) {
+                    const { getCurrentFilePath } = await import('../core/services/filesystem/fileSystemAdapter').then(m => ({ getCurrentFilePath: m.fileSystemAdapter.getCurrentFilePath.bind(m.fileSystemAdapter) }));
+                    const projectPath = getCurrentFilePath();
+
+                    if (!projectPath) {
+                        console.warn('No active project folder. Save project first.');
+                        return;
+                    }
+
+                    const rect = containerRef.current?.getBoundingClientRect();
+                    if (!rect) return;
+
+                    const clientX = e.clientX;
+                    const clientY = e.clientY;
+
+                    const worldX = (clientX - rect.left - canvas.offset.x) / canvas.scale;
+                    const worldY = (clientY - rect.top - canvas.offset.y) / canvas.scale;
+
+                    // Process each dropped file
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        const filePath = (file as unknown as { path?: string }).path;
+
+                        if (!filePath) {
+                            console.warn('File path not available (web mode?)');
+                            continue;
+                        }
+
+                        // Copy to project folder
+                        const result = await window.electronAPI.copyFileToProject({
+                            filePath,
+                            projectPath
+                        });
+
+                        if (result.success && result.targetPath) {
+                            console.log(`✅ Copied ${file.name} to ${result.relativePath}`);
+
+                            // Create appropriate widget
+                            const ext = file.name.split('.').pop()?.toLowerCase() || '';
+                            const offsetX = i * 30; // Stagger multiple files
+                            const offsetY = i * 30;
+
+                            if (['pdf'].includes(ext)) {
+                                addWidget('PDF', { x: worldX + offsetX, y: worldY + offsetY }, {
+                                    file: result.targetPath,
+                                    title: file.name
+                                });
+                            } else if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) {
+                                addWidget('IMAGE', { x: worldX + offsetX, y: worldY + offsetY }, {
+                                    file: result.targetPath,
+                                    title: file.name
+                                });
+                            } else if (['dxf', 'dwg'].includes(ext)) {
+                                addWidget('CAD_2D', { x: worldX + offsetX, y: worldY + offsetY }, {
+                                    file: result.targetPath,
+                                    title: file.name
+                                });
+                            } else {
+                                // Default: create a note widget with file reference
+                                addWidget('NOTE', { x: worldX + offsetX, y: worldY + offsetY }, {
+                                    content: `📎 ${file.name}\n\nPath: ${result.relativePath}`,
+                                    title: file.name
+                                });
+                            }
+                        } else {
+                            console.error(`❌ Failed to copy ${file.name}:`, result.error);
+                        }
+                    }
+
+                    // Notify ProjectWidget to refresh file list
+                    window.dispatchEvent(new CustomEvent('project-file-added'));
                 }
             }}
             onMouseUp={(e) => {

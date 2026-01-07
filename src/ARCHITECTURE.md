@@ -10,18 +10,17 @@ All widgets in TSuperMachine are organized under `src/features/`. Each widget is
 
 ```
 src/features/
-├── ai-assistant/          ← AI Chat Widget (NEW)
+├── ai-assistant/          ← AI Chat Widget
 ├── automations/           ← Automation & Workflow system (complex)
 ├── cad-2d/                ← 2D CAD Editor (complex)
 ├── cad-3d/                ← 3D CAD Viewer
-├── data-vault/            ← Project File Explorer (NEW)
+├── data-vault/            ← Project File Explorer
 ├── engineering-calculator/ ← Calculator (complex)
 ├── image-viewer/          ← Image display
 ├── note-editor/           ← Rich text editor (complex)
 ├── pdf-viewer/            ← PDF display
 ├── presentation/          ← Slide viewer
-├── project/               ← Project manager (headless)
-├── project-menu/          ← Project menu UI
+├── project/               ← Project manager (UI only - uses projectStore)
 ├── settings/              ← App settings + AI config
 ├── spreadsheet/           ← Excel-like grid
 └── todo/                  ← Task management
@@ -86,8 +85,7 @@ feature-name/
 | `note-editor` | 11 | Medium | TipTap |
 | `pdf-viewer` | 20+ | Medium | react-pdf |
 | `presentation` | 2 | Low | - |
-| `project` | 2 | Low | - |
-| `project-menu` | 2 | Low | - |
+| `project` | 4 | Medium | projectStore, projectService |
 | `settings` | 2 | Medium | Zustand, AI Settings |
 | `spreadsheet` | 2 | Low | Fortune Sheet |
 | `todo` | 2 | Low | - |
@@ -228,6 +226,71 @@ core/ai/
 
 ---
 
+## Project Store Architecture
+
+The project system follows the **Store-Service-UI** pattern (same as AI Assistant):
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           FEATURES LAYER (UI)                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  src/features/project/                                                      │
+│  ├── components/                                                            │
+│  │   ├── ProjectWidget.tsx      ← UI Component (render + actions only)     │
+│  │   └── ProjectFileTree.tsx    ← File tree display                        │
+│  ├── ProjectController.tsx      ← Headless: shortcuts, menu, auto-save     │
+│  └── index.ts                                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            STORE LAYER (State)                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  src/store/                                                                 │
+│  ├── projectStore.ts    ← Zustand store (state + actions + autosave)       │
+│  ├── store.ts           ← Widgets, canvas, project name                     │
+│  ├── aiStore.ts         ← AI chat (same pattern)                            │
+│  └── themeStore.ts      ← Theme settings                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          SERVICE LAYER (Logic)                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  src/core/services/project/                                                 │
+│  └── projectService.ts  ← Pure functions: ZIP, parse, validate             │
+│                                                                             │
+│  src/core/services/filesystem/                                              │
+│  └── fileSystemAdapter.ts  ← Platform I/O (Electron/Browser)               │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Folder-First Save System
+
+Default save mode is **folder** (not ZIP):
+
+| Action | Mode | Use Case |
+|--------|------|----------|
+| **Save (Ctrl+S)** | Folder | Fast, git-compatible, working mode |
+| **Export .tsm** | ZIP | Distribution, sharing, archival |
+
+Project folder structure:
+```
+📁 ProjectName/
+├── 📄 project.json
+├── 📄 canvas.json
+├── 📄 cadData.json (if CAD data exists)
+├── 📁 parts/
+├── 📁 assemblies/
+├── 📁 drawings/
+├── 📁 resources/
+├── 📁 calculations/
+├── 📁 documents/
+└── 📁 images/
+```
+
+---
+
 ## Migration History
 
 - **2025-12-28**: Consolidated all widgets from `components/widgets/` to `features/`
@@ -246,6 +309,11 @@ core/ai/
 - **2026-01-06**: Added Data Vault widget for project file management
 - **2026-01-06**: Added RAG system with knowledge indexing and search
 - **2026-01-06**: Added AI Settings tab with provider management
+- **2026-01-07**: **Major Refactor** - Project system refactored to Store-Service-UI pattern
+- **2026-01-07**: Created `projectStore.ts` (Zustand) for centralized project state
+- **2026-01-07**: Created `projectService.ts` (pure functions) for file operations
+- **2026-01-07**: Removed old hooks (`useProjectSystem.ts`, `useAutoSave.ts`)
+- **2026-01-07**: Implemented folder-first save system (default: folder, export: .tsm)
 
 ---
 
@@ -268,4 +336,4 @@ The widget system uses a **Dormant vs. Edit** state machine to manage user inter
 This model removes the need for specific "drag handles" and provides a more intuitive, tablet-friendly experience where windows are easy to move unless specifically focused.
 
 
-*Last updated: 2026-01-06*
+*Last updated: 2026-01-07*

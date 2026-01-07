@@ -27,7 +27,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // File System Ops
     onMenuAction: (callback) => ipcRenderer.on('menu-action', (_event, action) => callback(action)),
     onLoadProjectData: (callback) => ipcRenderer.on('load-project-data', (_event, payload) => callback(payload)),
-    saveProject: (data, filePath, saveAs, asFolder) => ipcRenderer.invoke('save-project-file', { data, filePath, saveAs, asFolder }),
+    saveProject: (data, filePath, saveAs, asFolder, projectName) => ipcRenderer.invoke('save-project-file', { data, filePath, saveAs, asFolder, projectName }),
+    saveTempProject: (data) => ipcRenderer.invoke('save-temp-project', data),
     openProjectDialog: (asFolder) => ipcRenderer.invoke('open-project-file', { asFolder }),
 
     // Config Ops
@@ -38,6 +39,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     listDirectory: (dirPath) => ipcRenderer.invoke('list-directory', dirPath),
     createDirectory: (dirPath) => ipcRenderer.invoke('create-directory', dirPath),
     copyFile: ({ sourcePath, targetPath }) => ipcRenderer.invoke('copy-file', { sourcePath, targetPath }),
+    copyFileToProject: ({ filePath, projectPath }) => ipcRenderer.invoke('copy-file-to-project', { filePath, projectPath }),
 
     // Document Reading (AI Support)
     readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
