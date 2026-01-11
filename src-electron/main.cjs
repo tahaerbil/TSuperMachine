@@ -344,6 +344,28 @@ ipcMain.handle('open-project-file', async (event, { asFolder } = { asFolder: fal
     }
 });
 
+// Save DXF File Handler (CAD Drawing Export)
+ipcMain.handle('save-dxf-file', async (event, { content, suggestedName }) => {
+    const defaultName = suggestedName || 'drawing.dxf';
+
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+        title: 'Save DXF Drawing',
+        defaultPath: defaultName,
+        filters: [{ name: 'DXF Drawing', extensions: ['dxf'] }]
+    });
+
+    if (canceled) {
+        return { success: false, canceled: true };
+    }
+
+    try {
+        fs.writeFileSync(filePath, content, 'utf-8');
+        return { success: true, filePath };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
 // =============================================================================
 // Config Management (Persistent Settings)
 // =============================================================================

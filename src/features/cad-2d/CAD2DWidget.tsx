@@ -3,7 +3,7 @@ import { cadEngine, SnapType } from '../../core/services/cad-engine/CADEngine';
 import { WasmCanvas } from './components/WasmCanvas';
 import { CommandLine, type CommandLineRef } from './components/CommandLine';
 import { useCADCommand } from './hooks/useCADCommand';
-import { getOutgoingConnections } from '../../store/store';
+import { getOutgoingConnections, useStore } from '../../store/store';
 import { eventBus } from '../../core/services/automation';
 import type { AutomationEvent, TriggerEvent } from '../../core/services/automation';
 
@@ -19,6 +19,10 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => 
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const [engineVersion, setEngineVersion] = useState(0);
     const [isEngineReady, setIsEngineReady] = useState(false);
+
+    // Get canvas scale for coordinate compensation (focus mode applies scale transform)
+    const canvasScale = useStore(state => state.canvas.scale);
+    const isFocused = useStore(state => state.focusedWidgetId !== null);
 
     // Command Logic Hook
     const forceUpdate = useCallback(() => setEngineVersion(v => v + 1), []);
@@ -176,8 +180,12 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => 
                 processPointInput(activeSnap.p.x, activeSnap.p.y);
             } else {
                 const rect = containerRef.current.getBoundingClientRect();
-                const worldX = (e.clientX - rect.left - offset.x) / scale;
-                const worldY = (e.clientY - rect.top - offset.y) / scale;
+                // Compensate for canvas scale when in focus mode (not maximized)
+                const effectiveScale = (!isMaximized && isFocused) ? canvasScale : 1;
+                const localX = (e.clientX - rect.left) / effectiveScale;
+                const localY = (e.clientY - rect.top) / effectiveScale;
+                const worldX = (localX - offset.x) / scale;
+                const worldY = (localY - offset.y) / scale;
                 processPointInput(worldX, worldY);
             }
         }
@@ -199,8 +207,12 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => 
 
         if (containerRef.current) {
             const rect = containerRef.current.getBoundingClientRect();
-            const worldX = (e.clientX - rect.left - offset.x) / scale;
-            const worldY = (e.clientY - rect.top - offset.y) / scale;
+            // Compensate for canvas scale when in focus mode (not maximized)
+            const effectiveScale = (!isMaximized && isFocused) ? canvasScale : 1;
+            const localX = (e.clientX - rect.left) / effectiveScale;
+            const localY = (e.clientY - rect.top) / effectiveScale;
+            const worldX = (localX - offset.x) / scale;
+            const worldY = (localY - offset.y) / scale;
             handleCanvasMove(worldX, worldY);
         }
     };
@@ -213,9 +225,65 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => 
         setCommandHistory(prev => [...prev, "Deleted selected entities."]);
     }, [isEngineReady, forceUpdate, setCommandHistory]);
 
+    // DXF Save Handler (Ctrl+S)
+    const handleSaveDXF = useCallback(async () => {
+        if (!isEngineReady) {
+            setCommandHistory(prev => [...prev, "Engine not ready."]);
+            return;
+        }
+
+        if (cadEngine.getEngineType() !== 'native') {
+            setCommandHistory(prev => [...prev, "DXF export requires native engine."]);
+            return;
+        }
+
+        try {
+            const dxfContent = cadEngine.exportDXF();
+
+            if (!dxfContent || dxfContent.length === 0) {
+                setCommandHistory(prev => [...prev, "No entities to export."]);
+                return;
+            }
+
+            if (window.electronAPI?.saveDXF) {
+                const result = await window.electronAPI.saveDXF({
+                    content: dxfContent,
+                    suggestedName: 'drawing.dxf'
+                });
+
+                if (result.canceled) {
+                    setCommandHistory(prev => [...prev, "Save cancelled."]);
+                } else if (result.success) {
+                    setCommandHistory(prev => [...prev, `DXF saved: ${result.filePath}`]);
+                } else {
+                    setCommandHistory(prev => [...prev, `Save failed: ${result.error}`]);
+                }
+            } else {
+                // Fallback: Download in browser
+                const blob = new Blob([dxfContent], { type: 'application/dxf' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'drawing.dxf';
+                a.click();
+                URL.revokeObjectURL(url);
+                setCommandHistory(prev => [...prev, "DXF downloaded."]);
+            }
+        } catch (error) {
+            setCommandHistory(prev => [...prev, `Export error: ${(error as Error).message}`]);
+        }
+    }, [isEngineReady, setCommandHistory]);
+
     // Handle Keyboard
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            // Ctrl+S: Save DXF
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                handleSaveDXF();
+                return;
+            }
+
             if (e.key === 'Delete') {
                 const activeElement = document.activeElement;
                 if (activeElement === commandLineRef.current?.getInputElement() && (activeElement as HTMLInputElement).value.length > 0) {
@@ -234,7 +302,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => 
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [handleDeleteCommand, cancel, commandState.type, isEngineReady, forceUpdate, setCommandHistory]);
+    }, [handleDeleteCommand, handleSaveDXF, cancel, commandState.type, isEngineReady, forceUpdate, setCommandHistory]);
 
 
     return (

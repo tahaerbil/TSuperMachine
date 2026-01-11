@@ -398,7 +398,7 @@ export const CommandLine = forwardRef<CommandLineRef, CommandLineProps>(({
 
     return (
         <div
-            className="command-line-container absolute bottom-4 left-1/2 -translate-x-1/2 w-[95%] max-w-[700px] flex flex-col text-white font-mono text-sm z-20"
+            className="command-line-container absolute bottom-8 left-1/2 -translate-x-1/2 w-[95%] max-w-[700px] flex flex-col text-white font-mono text-sm z-20"
             style={{ height: `${height}px` }}
             onClick={(e) => {
                 e.stopPropagation(); // Prevent bubbling to canvas

@@ -319,21 +319,84 @@ Project folder structure:
 
 ## Widget Interaction Architecture
 
-The widget system uses a **Dormant vs. Edit** state machine to manage user interactions efficiently:
+The widget system uses a **Three-State Interaction Model** to manage user interactions:
 
-1.  **Dormant State (Default)**:
-    *   Widget content is **inert** (non-interactive).
-    *   **Single-click & Drag**: Users can click anywhere on the widget to drag it.
-    *   **Visual Cue**: Standard mouse cursor.
+### 1. Dormant State (Default)
+- Widget content is **inert** (non-interactive, `pointer-events: none`).
+- **Single-click & Drag**: Users can click anywhere on the widget to drag it.
+- **Visual Cue**: `cursor: grab` / `cursor: grabbing`.
 
-2.  **Edit State (Active)**:
-    *   Triggered by **Double-clicking** the widget.
-    *   Widget content becomes **interactive** (buttons click, text types, map pans).
-    *   **Dragging Disabled**: The widget cannot be moved while in edit mode. **(CRITICAL UX RULE)**
-    *   **Visual Cue**: Cursor changes to standard pointers/text cursors, and a visual border/overlay may appear.
-    *   **Exit**: Press `Escape` or click outside the widget to return to Dormant state.
+### 2. Focus State (New)
+- Triggered by **Double-clicking** the widget.
+- Widget becomes **interactive** but remains on the canvas.
+- **Canvas Auto-Zoom**: Canvas smoothly animates to center and zoom on the focused widget.
+- **Visual Cue**: Blue glow ring (`ring-2 ring-blue-500 shadow-glow`) + toolbar appears at bottom.
+- **Canvas Locked**: Pan/zoom disabled while widget is focused.
+- **Dragging Disabled**: Focused widget cannot be moved.
+- **Exit**: Press `Escape` or double-click outside the widget.
+- **Animation**: 400ms cubic-bezier transition for smooth enter/exit.
 
-This model removes the need for specific "drag handles" and provides a more intuitive, tablet-friendly experience where windows are easy to move unless specifically focused.
+### 3. Maximized State
+- Triggered by **Maximize button** in toolbar.
+- Widget fills the entire viewport.
+- **Exit**: Click maximize button again or press `Escape`.
+
+### Store State for Focus Mode
+
+```typescript
+// store.ts
+focusedWidgetId: string | null;          // Currently focused widget
+preFocusCanvasState: {                    // Saved for restoration
+    scale: number;
+    offset: { x: number; y: number };
+} | null;
+isAnimatingFocus: boolean;                // Animation control flag
+
+// Actions
+enterFocusMode: (widgetId: string) => void;
+exitFocusMode: () => void;
+updateFocusView: () => void;              // Called after resize/rotate
+```
+
+### Animation Implementation
+
+Focus transitions use a two-phase approach for smooth CSS transitions:
+1. **Phase 1**: Set `isAnimatingFocus = true` (enables CSS transition in Canvas)
+2. **Phase 2**: Update canvas via `requestAnimationFrame` (animates)
+3. **Phase 3**: Clear animation flag after 450ms
+
+This ensures the transition property is applied BEFORE the transform changes.
 
 
-*Last updated: 2026-01-07*
+---
+
+## Migration History
+
+- **2025-12-28**: Consolidated all widgets from `components/widgets/` to `features/`
+- **2025-12-28**: Refactored `useCADCommand.ts` into modular hooks
+- **2026-01-03**: Added `automations` feature for cross-widget workflows
+- **2026-01-04**: Refactored PDF viewer into modular hooks and components
+- **2026-01-04**: Refactored Canvas.tsx into modular hooks (722 → 282 lines)
+- **2026-01-04**: Created centralized WidgetRenderer and widget hooks
+- **2026-01-04**: Refactored AlignmentToolbar.tsx (batch updates, React.memo, useMemo)
+- **2026-01-04**: Refactored Toolbar.tsx (memoized components, useCallback, extracted config)
+- **2026-01-04**: Implemented "Dormant" vs "Edit" mode interaction model
+- **2026-01-04**: Refined Parent-Child widget grouping and recursive dragging
+- **2026-01-04**: Enhanced PDF Viewer with compact mode scaling fixes
+- **2026-01-04**: Improved Widget Loading state and error boundaries
+- **2026-01-06**: Added AI Assistant widget with embedded Qwen2.5-3B support
+- **2026-01-06**: Added Data Vault widget for project file management
+- **2026-01-06**: Added RAG system with knowledge indexing and search
+- **2026-01-06**: Added AI Settings tab with provider management
+- **2026-01-07**: **Major Refactor** - Project system refactored to Store-Service-UI pattern
+- **2026-01-07**: Created `projectStore.ts` (Zustand) for centralized project state
+- **2026-01-07**: Created `projectService.ts` (pure functions) for file operations
+- **2026-01-07**: Removed old hooks (`useProjectSystem.ts`, `useAutoSave.ts`)
+- **2026-01-07**: Implemented folder-first save system (default: folder, export: .tsm)
+- **2026-01-11**: **Focus Mode** - Implemented widget focus mode with smooth animations
+- **2026-01-11**: Added `focusedWidgetId`, `preFocusCanvasState`, `isAnimatingFocus` to store
+- **2026-01-11**: Implemented canvas auto-zoom/pan on focus with 400ms cubic-bezier animation
+- **2026-01-11**: Disabled canvas pan/zoom and widget dragging when in focus mode
+- **2026-01-11**: Added `updateFocusView` for dynamic adaptation after resize/rotate
+
+*Last updated: 2026-01-11*

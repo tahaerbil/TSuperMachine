@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useAIStore } from '../../store/aiStore';
 import { useAISettingsStore } from '../../store/aiSettingsStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 import { ChatMessageBubble } from './components/ChatMessageBubble';
 import { Send, Bot, Cpu, Cloud, Trash2, StopCircle, ChevronDown, Check, Sparkles } from 'lucide-react';
 
@@ -9,12 +10,18 @@ interface AIWidgetProps {
 }
 
 export const AIWidget: React.FC<AIWidgetProps> = () => {
+    const { activeTabId } = useWorkspaceStore();
     const {
-        messages,
+        histories,
         sendMessage,
         status,
         clearHistory
     } = useAIStore();
+
+    // specific messages for this project
+    const messages = React.useMemo(() =>
+        activeTabId ? (histories[activeTabId] || []) : [],
+        [activeTabId, histories]);
 
     const { providers, activeProviderId, setActiveProvider } = useAISettingsStore();
     const activeProvider = providers.find(p => p.id === activeProviderId);
@@ -45,8 +52,8 @@ export const AIWidget: React.FC<AIWidgetProps> = () => {
     }, []);
 
     const handleSend = () => {
-        if (!input.trim() || status === 'thinking' || status === 'streaming') return;
-        sendMessage(input);
+        if (!input.trim() || status === 'thinking' || status === 'streaming' || !activeTabId) return;
+        sendMessage(input, activeTabId);
         setInput('');
 
         // Reset height
@@ -146,8 +153,12 @@ export const AIWidget: React.FC<AIWidgetProps> = () => {
                     </div>
 
                     <button
-                        onClick={clearHistory}
-                        className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                        onClick={() => activeTabId && clearHistory(activeTabId)}
+                        disabled={!activeTabId || messages.length === 0}
+                        className={`p-1.5 rounded transition-colors ${!activeTabId || messages.length === 0
+                            ? 'text-gray-300 dark:text-gray-700 cursor-not-allowed'
+                            : 'text-gray-500 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800'
+                            }`}
                         title="Clear History"
                     >
                         <Trash2 size={16} />
@@ -166,7 +177,8 @@ export const AIWidget: React.FC<AIWidgetProps> = () => {
                             {['Calculate sin(45)', 'Standard M10 bolt pitch?', 'Summarize my notes'].map(hint => (
                                 <button
                                     key={hint}
-                                    onClick={() => sendMessage(hint)}
+                                    onClick={() => activeTabId && sendMessage(hint, activeTabId)}
+                                    disabled={!activeTabId}
                                     className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs hover:border-blue-500 dark:hover:border-blue-500 transition-colors"
                                 >
                                     {hint}

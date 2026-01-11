@@ -27,12 +27,17 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
         selectedWidgetIds,
         selectWidget,
         canvas,
-        removeConnectionsForWidget
+        removeConnectionsForWidget,
+        focusedWidgetId,
+        enterFocusMode,
+        exitFocusMode,
+        updateFocusView
     } = useStore();
 
     const isActive = activeWidgetId === widget.id;
     const isSelected = selectedWidgetIds.includes(widget.id);
     const isMaximized = widget.isMaximized || false;
+    const isFocused = focusedWidgetId === widget.id;
 
     // Hover state for connector handle visibility
     const [isHovered, setIsHovered] = useState(false);
@@ -64,6 +69,10 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                 height: widget.size.width
             }
         });
+        // Update focus view after rotation
+        if (isFocused) {
+            setTimeout(() => updateFocusView(), 0);
+        }
     };
 
     // Rnd Adapters
@@ -83,6 +92,28 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
         handleWireDrop(e);
     };
 
+    // Double-click handler for focus mode
+    const handleDoubleClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!isFocused && !isMaximized) {
+            enterFocusMode(widget.id);
+        }
+    };
+
+    // ESC key handler for exiting focus mode
+    React.useEffect(() => {
+        if (!isFocused) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                exitFocusMode();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isFocused, exitFocusMode]);
+
     return (
         <React.Fragment>
             {/* The Portal Target (renders nothing in DOM tree unless external window is active) */}
@@ -92,7 +123,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                 scale={isMaximized ? 1 : canvas.scale}
                 size={isMaximized ? { width: '100%', height: '100%' } : { width: widget.size.width, height: widget.size.height }}
                 position={isMaximized ? { x: 0, y: 0 } : localPos}
-                disableDragging={isMaximized || !!externalWindow}
+                disableDragging={isMaximized || !!externalWindow || isFocused}
                 enableResizing={!isMaximized && !externalWindow && !isAutomationWidget}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
@@ -105,6 +136,10 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                         size: { width: parseInt(ref.style.width), height: parseInt(ref.style.height) },
                         position: position,
                     });
+                    // Update focus view after resize
+                    if (isFocused) {
+                        setTimeout(() => updateFocusView(), 0);
+                    }
                 }}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 onMouseDown={(e: any) => {
@@ -114,6 +149,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                     bringToFront(widget.id);
                 }}
                 onMouseUp={handleRndMouseUp}
+                onDoubleClick={handleDoubleClick}
                 style={{
                     zIndex: isMaximized ? 9999 : widget.zIndex,
                     pointerEvents: 'auto',
@@ -124,23 +160,30 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                     "flex flex-col overflow-visible group/widget",
                     "transition-[box-shadow,opacity,width,height] duration-300 ease-in-out",
                     !isMaximized && "rounded-xl",
+                    // Cursor: grab when draggable, default when focused
+                    !isFocused && !isMaximized && "cursor-grab active:cursor-grabbing",
                     // Glassmorphism Base
                     (widget.type === 'CAD_2D' || widget.type === 'CAD_3D')
                         ? "bg-[#1e1e1e] border-0 ring-1 ring-white/10"
                         : "bg-white/95 backdrop-blur-sm border border-white/20",
 
-                    // Shadow & Glow Logic
-                    !isMaximized && (isSelected || isActive)
+                    // Focus Mode - strong visual feedback
+                    isFocused && "ring-2 ring-blue-500 shadow-[0_0_30px_rgba(59,130,246,0.4)]",
+
+                    // Shadow & Glow Logic (only when not focused)
+                    !isFocused && !isMaximized && (isSelected || isActive)
                         ? "shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] ring-2 ring-blue-500/50"
-                        : !isMaximized && "shadow-xl hover:shadow-2xl hover:ring-1 hover:ring-white/20"
+                        : !isFocused && !isMaximized && "shadow-xl hover:shadow-2xl hover:ring-1 hover:ring-white/20"
                 )}
-                dragHandleClassName={(!isMaximized && !externalWindow) ? "widget-drag-handle" : ""}
+            // No dragHandleClassName = entire widget is draggable
             >
-                {/* Floating Toolbar - Positioned ABOVE the widget */}
+                {/* Floating Toolbar - Only visible in focus mode */}
                 {!isMaximized && (
                     <div
-                        className="widget-drag-handle absolute left-0 right-0 z-20 flex items-center justify-center opacity-0 group-hover/widget:opacity-100 transition-all duration-200 cursor-move"
-                        style={{ top: '-42px' }}
+                        className={`absolute left-0 right-0 z-20 flex items-center justify-center transition-all duration-200 ${isFocused ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                        style={{
+                            bottom: '-42px'
+                        }}
                     >
                         <div className="flex items-center justify-between w-full mx-1 gap-3 bg-[#0f1115]/90 backdrop-blur-xl px-3 py-1.5 rounded-2xl border border-white/10 shadow-[0_8px_16px_rgba(0,0,0,0.3)] ring-1 ring-white/5">
 
@@ -213,10 +256,13 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                 )}
 
                 {/* Content Area - Full Height & Width */}
+                {/* pointer-events controlled by focus state */}
                 <div
                     className="w-full h-full overflow-hidden relative"
                     style={{
                         borderRadius: !isMaximized ? '0.75rem' : '0',
+                        pointerEvents: (isFocused || isMaximized) ? 'auto' : 'none',
+                        userSelect: (isFocused || isMaximized) ? 'auto' : 'none'
                     }}
                 >
                     {externalWindow ? (
@@ -279,6 +325,6 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({ widget, childr
                     </>
                 )}
             </Rnd>
-        </React.Fragment>
+        </React.Fragment >
     );
 };

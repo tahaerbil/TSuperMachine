@@ -6,6 +6,11 @@ class Engine {
 private:
     Database db;
     std::vector<float> renderBuffer;
+    
+    // Undo/Redo Stacks (snapshots of JSON database)
+    std::vector<std::string> undoStack;
+    std::vector<std::string> redoStack;
+    void saveState(); // Save current state to undo stack
 
 public:
     Engine();
@@ -17,10 +22,19 @@ public:
     unsigned int addRectangle(double x1, double y1, double x2, double y2);
     unsigned int addArc(double cx, double cy, double radius, double startAngle, double endAngle);
     unsigned int addRegularPolygon(double cx, double cy, int sides, double radius);
+    unsigned int addRegularPolygon(double cx, double cy, int sides, double radius);
+    unsigned int addEllipse(double cx, double cy, double majorRadius, double minorRadius, double rotation);
+    unsigned int addPoint(double x, double y);
+    unsigned int addSpline(const std::vector<Point>& points);
     
     // Serialization
     std::string exportDatabase();
     void importDatabase(const std::string& json);
+    std::string exportDXF(); // DXF format export for CAD interchange
+    
+    // History
+    void undo();
+    void redo();
     
     // Modification
     void clear();
@@ -43,6 +57,12 @@ public:
     void selectByWindow(double x1, double y1, double x2, double y2);
     void selectByCrossing(double x1, double y1, double x2, double y2);
     void rotateSelected(double cx, double cy, double angle);
+    void scaleSelected(double cx, double cy, double factor);
+    void scaleSelected(double cx, double cy, double factor);
+    void mirrorSelected(double x1, double y1, double x2, double y2);
+    void explodeSelected();
+    void trimEntity(double x, double y); // Trim the entity at this location
+    void extendEntity(double x, double y); // Extend the entity at this location
     unsigned int offsetEntity(unsigned int id, double distance, double clickX, double clickY);
     
     // Spatial Queries

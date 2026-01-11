@@ -3,6 +3,25 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <optional>
+#include <algorithm>
+
+// Math Constants
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+namespace MathUtils {
+    inline double distSq(const Point& p1, const Point& p2) {
+        double dx = p1.x - p2.x;
+        double dy = p1.y - p2.y;
+        return dx*dx + dy*dy;
+    }
+
+    inline double dist(const Point& p1, const Point& p2) {
+        return std::sqrt(distSq(p1, p2));
+    }
+}
 
 // Basic Types
 struct Point {
@@ -24,7 +43,10 @@ enum class EntityType {
     ARC = 2,
     POLYLINE = 3,
     TEXT = 4,
-    RECTANGLE = 5
+    RECTANGLE = 5,
+    ELLIPSE = 6,
+    POINT = 7,
+    SPLINE = 8
 };
 
 // Snap Types
@@ -34,7 +56,8 @@ enum class SnapType {
     MIDPOINT = 2,
     CENTER = 3,
     QUADRANT = 4,
-    INTERSECTION = 5
+    INTERSECTION = 5,
+    NODE = 6
 };
 
 struct SnapPoint {
@@ -53,7 +76,10 @@ public:
     virtual bool isFullyInside(double x1, double y1, double x2, double y2) const = 0;
     virtual bool intersectsRectangle(double x1, double y1, double x2, double y2) const = 0;
     virtual void rotate(double cx, double cy, double angle) = 0;
+    virtual void scale(double cx, double cy, double factor) = 0;
+    virtual void mirror(double x1, double y1, double x2, double y2) = 0;
     virtual std::unique_ptr<Entity> offset(double distance, bool outward) const = 0;
+    virtual std::vector<Point> getIntersections(const Entity* other) const = 0;
     
     unsigned int id = 0;
     unsigned int layerId = 0;
@@ -61,6 +87,23 @@ public:
     bool selected = false;
     bool visible = true;
 };
+
+// Forward declaration of helper
+inline void mirrorPoint(Point& p, double x1, double y1, double x2, double y2) {
+    double dx = x2 - x1;
+    double dy = y2 - y1;
+    double a = (dx * dx - dy * dy);
+    double b = 2 * dx * dy;
+    double c = (dx * dx + dy * dy);
+    
+    if (c == 0) return; // Points overlap
+
+    double p_x = p.x - x1;
+    double p_y = p.y - y1;
+    
+    p.x = x1 + (a * p_x + b * p_y) / c;
+    p.y = y1 + (b * p_x - a * p_y) / c;
+}
 
 // Line Entity
 class LineEntity : public Entity {
@@ -172,6 +215,18 @@ public:
         end.y = cy + dx2 * std::sin(angle) + dy2 * std::cos(angle);
     }
 
+    void scale(double cx, double cy, double factor) override {
+        start.x = cx + (start.x - cx) * factor;
+        start.y = cy + (start.y - cy) * factor;
+        end.x = cx + (end.x - cx) * factor;
+        end.y = cy + (end.y - cy) * factor;
+    }
+
+    void mirror(double x1, double y1, double x2, double y2) override {
+        mirrorPoint(start, x1, y1, x2, y2);
+        mirrorPoint(end, x1, y1, x2, y2);
+    }
+
     std::unique_ptr<Entity> offset(double distance, bool outward) const override {
         // Calculate perpendicular direction
         double dx = end.x - start.x;
@@ -196,6 +251,9 @@ public:
         
         return std::make_unique<LineEntity>(newStart, newEnd);
     }
+
+    std::vector<Point> getIntersections(const Entity* other) const override; // Defined below to avoid circular checks
+
 
 private:
     bool lineSegmentIntersect(double x1, double y1, double x2, double y2,
@@ -280,6 +338,17 @@ public:
         // Radius stays the same
     }
 
+    void scale(double cx, double cy, double factor) override {
+        center.x = cx + (center.x - cx) * factor;
+        center.y = cy + (center.y - cy) * factor;
+        radius *= factor;
+    }
+
+    void mirror(double x1, double y1, double x2, double y2) override {
+        mirrorPoint(center, x1, y1, x2, y2);
+        // Radius doesn't change
+    }
+
     std::unique_ptr<Entity> offset(double distance, bool outward) const override {
         // For circle, offset means changing radius
         double newRadius = outward ? radius + distance : radius - distance;
@@ -288,7 +357,10 @@ public:
         
         return std::make_unique<CircleEntity>(center, newRadius);
     }
+
+    std::vector<Point> getIntersections(const Entity* other) const override;
 };
+
 
 // Polyline Entity (multi-segment line)
 class PolylineEntity : public Entity {
@@ -422,6 +494,9 @@ public:
         // TODO: Implement polyline offset (complex - requires corner handling)
         return nullptr;
     }
+
+    std::vector<Point> getIntersections(const Entity* other) const override;
+
 
 private:
     bool segmentIntersectsRect(double x1, double y1, double x2, double y2,
@@ -574,6 +649,18 @@ public:
         p2.y = cy + dx2 * std::sin(angle) + dy2 * std::cos(angle);
     }
 
+    void scale(double cx, double cy, double factor) override {
+        p1.x = cx + (p1.x - cx) * factor;
+        p1.y = cy + (p1.y - cy) * factor;
+        p2.x = cx + (p2.x - cx) * factor;
+        p2.y = cy + (p2.y - cy) * factor;
+    }
+
+    void mirror(double x1, double y1, double x2, double y2) override {
+        mirrorPoint(p1, x1, y1, x2, y2);
+        mirrorPoint(p2, x1, y1, x2, y2);
+    }
+
     std::unique_ptr<Entity> offset(double distance, bool outward) const override {
         // For rectangle, offset all edges inward or outward
         double minX = std::min(p1.x, p2.x);
@@ -595,6 +682,9 @@ public:
         
         return std::make_unique<RectangleEntity>(newP1, newP2);
     }
+
+    std::vector<Point> getIntersections(const Entity* other) const override;
+
 
 private:
     double pointToSegmentDistance(double px, double py, const Point& p1, const Point& p2) const {
@@ -740,6 +830,44 @@ public:
         endAngle += angle;
     }
 
+    void scale(double cx, double cy, double factor) override {
+        center.x = cx + (center.x - cx) * factor;
+        center.y = cy + (center.y - cy) * factor;
+        radius *= factor;
+    }
+
+    void mirror(double x1, double y1, double x2, double y2) override {
+        mirrorPoint(center, x1, y1, x2, y2);
+        
+        // Mirroring arc angles is tricky.
+        // It effectively flips the direction and angles.
+        // New Start = reflects Old Start or Old End depending on axis
+        // Simplification: Mirror start/end points then recalculate angles?
+        // Or simpler: flip circle center, keep radius, swap start/end angles and mirror them.
+        
+        // Let's reflect start and end points
+        double sx = center.x + radius * std::cos(startAngle);
+        double sy = center.y + radius * std::sin(startAngle);
+        
+        double ex = center.x + radius * std::cos(endAngle);
+        double ey = center.y + radius * std::sin(endAngle);
+        
+        Point ps = {sx, sy};
+        Point pe = {ex, ey};
+        
+        mirrorPoint(ps, x1, y1, x2, y2);
+        mirrorPoint(pe, x1, y1, x2, y2); // Oops, center is already mirrored by this call? No, wrapper calls center mirror
+        
+        // Recalculate angles from new center to new points
+        startAngle = std::atan2(ps.y - center.y, ps.x - center.x);
+        endAngle = std::atan2(pe.y - center.y, pe.x - center.x);
+        
+        // Ensure CCW direction? Arc is always CCW from start to end.
+        // Mirroring flips chirality, so we might need to swap start/end?
+        // Yes, swapping them usually maintains the arc segment.
+        std::swap(startAngle, endAngle);
+    }
+
     std::unique_ptr<Entity> offset(double distance, bool outward) const override {
         // For arc, offset means changing radius (like circle)
         double newRadius = outward ? radius + distance : radius - distance;
@@ -749,3 +877,207 @@ public:
         return std::make_unique<ArcEntity>(center, newRadius, startAngle, endAngle);
     }
 };
+
+// Ellipse Entity
+class EllipseEntity : public Entity {
+public:
+    Point center;
+    double majorRadius;
+    double minorRadius;
+    double rotation; // Radians, angle of major axis
+
+    EllipseEntity(Point c, double major, double minor, double rot) 
+        : center(c), majorRadius(major), minorRadius(minor), rotation(rot) {}
+
+    EntityType getType() const override { return EntityType::ELLIPSE; }
+
+    std::vector<SnapPoint> getSnapPoints() const override {
+        std::vector<SnapPoint> snaps;
+        snaps.push_back({center, SnapType::CENTER});
+        
+        // Major axis endpoints
+        snaps.push_back({
+            {center.x + majorRadius * std::cos(rotation), center.y + majorRadius * std::sin(rotation)},
+            SnapType::QUADRANT
+        });
+        snaps.push_back({
+            {center.x - majorRadius * std::cos(rotation), center.y - majorRadius * std::sin(rotation)},
+            SnapType::QUADRANT
+        });
+        
+        // Minor axis endpoints
+        double minorRot = rotation + M_PI / 2.0;
+        snaps.push_back({
+            {center.x + minorRadius * std::cos(minorRot), center.y + minorRadius * std::sin(minorRot)},
+            SnapType::QUADRANT
+        });
+        snaps.push_back({
+            {center.x - minorRadius * std::cos(minorRot), center.y - minorRadius * std::sin(minorRot)},
+            SnapType::QUADRANT
+        });
+        
+        return snaps;
+    }
+
+    bool hitTest(double x, double y, double tolerance) const override {
+        // Transform point to local ellipse space
+        double dx = x - center.x;
+        double dy = y - center.y;
+        
+        // Rotate backwards by -rotation
+        double locX = dx * std::cos(-rotation) - dy * std::sin(-rotation);
+        double locY = dx * std::sin(-rotation) + dy * std::cos(-rotation);
+        
+        // Check equation (x/a)^2 + (y/b)^2 = 1
+        double lhs = (locX * locX) / (majorRadius * majorRadius) + (locY * locY) / (minorRadius * minorRadius);
+        
+        return std::abs(lhs - 1.0) < (tolerance / std::min(majorRadius, minorRadius)); 
+    }
+
+    void translate(double dx, double dy) override {
+        center.x += dx;
+        center.y += dy;
+    }
+
+    bool isFullyInside(double x1, double y1, double x2, double y2) const override {
+        // Bounding box approximation
+        double minX = std::min(x1, x2);
+        double maxX = std::max(x1, x2);
+        double minY = std::min(y1, y2);
+        double maxY = std::max(y1, y2);
+        
+        double maxR = std::max(majorRadius, minorRadius);
+        return (center.x - maxR >= minX && center.x + maxR <= maxX &&
+                center.y - maxR >= minY && center.y + maxR <= maxY);
+    }
+
+    bool intersectsRectangle(double x1, double y1, double x2, double y2) const override {
+        double maxR = std::max(majorRadius, minorRadius);
+        double minX = std::min(x1, x2);
+        double maxX = std::max(x1, x2);
+        double minY = std::min(y1, y2);
+        double maxY = std::max(y1, y2);
+        double closestX = std::max(minX, std::min(center.x, maxX));
+        double closestY = std::max(minY, std::min(center.y, maxY));
+        double dx = center.x - closestX;
+        double dy = center.y - closestY;
+        return (dx * dx + dy * dy) <= maxR * maxR;
+    }
+
+    void rotate(double cx, double cy, double angle) override {
+        double dx = center.x - cx;
+        double dy = center.y - cy;
+        center.x = cx + dx * std::cos(angle) - dy * std::sin(angle);
+        center.y = cy + dx * std::sin(angle) + dy * std::cos(angle);
+        rotation += angle;
+    }
+
+    void scale(double cx, double cy, double factor) override {
+        center.x = cx + (center.x - cx) * factor;
+        center.y = cy + (center.y - cy) * factor;
+        majorRadius *= factor;
+        minorRadius *= factor;
+    }
+
+    void mirror(double x1, double y1, double x2, double y2) override {
+         mirrorPoint(center, x1, y1, x2, y2);
+         double lineAngle = std::atan2(y2 - y1, x2 - x1);
+         rotation = 2 * lineAngle - rotation;
+    }
+
+    std::unique_ptr<Entity> offset(double distance, bool outward) const override {
+        double newMj = outward ? majorRadius + distance : majorRadius - distance;
+        double newMn = outward ? minorRadius + distance : minorRadius - distance;
+        if (newMj <= 0 || newMn <= 0) return nullptr;
+        return std::make_unique<EllipseEntity>(center, newMj, newMn, rotation);
+    }
+
+    std::vector<Point> getIntersections(const Entity* other) const override { return {}; } // TODO: Implement Ellipse intersection
+
+};
+
+// ============================================================================
+// Intersection Logic Implementation
+// ============================================================================
+
+namespace Intersect {
+    // Line-Line Intersection (Infinite lines)
+    inline std::vector<Point> lineLine(Point p1, Point p2, Point p3, Point p4) {
+        double det = (p2.x - p1.x) * (p4.y - p3.y) - (p4.x - p3.x) * (p2.y - p1.y);
+        if (std::abs(det) < 1e-10) return {}; // Parallel
+
+        double t = ((p3.x - p1.x) * (p4.y - p3.y) - (p3.y - p1.y) * (p4.x - p3.x)) / det;
+        return {{ p1.x + t * (p2.x - p1.x), p1.y + t * (p2.y - p1.y) }};
+    }
+
+    // Line segment intersection
+    inline std::vector<Point> segmentSegment(Point p1, Point p2, Point p3, Point p4) {
+         double det = (p2.x - p1.x) * (p4.y - p3.y) - (p4.x - p3.x) * (p2.y - p1.y);
+        if (std::abs(det) < 1e-10) return {};
+
+        double t = ((p3.x - p1.x) * (p4.y - p3.y) - (p3.y - p1.y) * (p4.x - p3.x)) / det;
+        double u = ((p3.x - p1.x) * (p2.y - p1.y) - (p3.y - p1.y) * (p2.x - p1.x)) / det;
+
+        if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+             return {{ p1.x + t * (p2.x - p1.x), p1.y + t * (p2.y - p1.y) }};
+        }
+        return {};
+    }
+
+    // Line-Circle Intersection
+    inline std::vector<Point> lineCircle(Point p1, Point p2, Point center, double radius) {
+        double dx = p2.x - p1.x;
+        double dy = p2.y - p1.y;
+        double fx = p1.x - center.x;
+        double fy = p1.y - center.y;
+
+        double a = dx*dx + dy*dy;
+        double b = 2*(fx*dx + fy*dy);
+        double c = (fx*fx + fy*fy) - radius*radius;
+
+        double delta = b*b - 4*a*c;
+        
+        if (delta < 0) return {};
+        
+        std::vector<Point> points;
+        delta = std::sqrt(delta);
+        double t1 = (-b - delta) / (2*a);
+        double t2 = (-b + delta) / (2*a);
+
+        if (t1 >= 0 && t1 <= 1) points.push_back({p1.x + t1*dx, p1.y + t1*dy});
+        if (t2 >= 0 && t2 <= 1 && std::abs(t2-t1) > 1e-5) points.push_back({p1.x + t2*dx, p1.y + t2*dy});
+        
+        return points;
+    }
+}
+
+// Implementation of getIntersections for LineEntity
+inline std::vector<Point> LineEntity::getIntersections(const Entity* other) const {
+    if (other->getType() == EntityType::LINE) {
+        auto* l2 = static_cast<const LineEntity*>(other);
+        return Intersect::segmentSegment(start, end, l2->start, l2->end);
+    }
+    else if (other->getType() == EntityType::CIRCLE) {
+        auto* c = static_cast<const CircleEntity*>(other);
+        return Intersect::lineCircle(start, end, c->center, c->radius);
+    }
+    // TODO: Add other types (Arc, Rectangle -> broken into lines)
+    return {};
+}
+
+// Implementation of getIntersections for CircleEntity
+inline std::vector<Point> CircleEntity::getIntersections(const Entity* other) const {
+    if (other->getType() == EntityType::LINE) {
+        auto* l = static_cast<const LineEntity*>(other);
+        return Intersect::lineCircle(l->start, l->end, center, radius);
+    }
+    // TODO: Circle-Circle
+    return {};
+}
+
+// Default/Empty implementations for others to fix vtable
+inline std::vector<Point> PolylineEntity::getIntersections(const Entity* other) const { return {}; }
+inline std::vector<Point> RectangleEntity::getIntersections(const Entity* other) const { return {}; }
+inline std::vector<Point> ArcEntity::getIntersections(const Entity* other) const { return {}; }
+inline std::vector<Point> PointEntity::getIntersections(const Entity* other) const { return {}; }
+inline std::vector<Point> SplineEntity::getIntersections(const Entity* other) const { return {}; }

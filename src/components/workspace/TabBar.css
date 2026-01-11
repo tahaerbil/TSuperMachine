@@ -1,0 +1,281 @@
+/* =============================================================================
+   Tab Bar Styles
+   ============================================================================= */
+
+.tab-bar {
+    display: flex;
+    align-items: center;
+    height: 36px;
+    background: linear-gradient(180deg, 
+        rgba(31, 41, 55, 0.95) 0%, 
+        rgba(17, 24, 39, 0.98) 100%
+    );
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0 4px;
+    gap: 2px;
+    user-select: none;
+    -webkit-app-region: drag; /* Allow window dragging on empty space */
+    position: relative;
+    z-index: 100;
+}
+
+/* =============================================================================
+   Tabs Container (Scrollable)
+   ============================================================================= */
+
+.tabs-container {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 2px;
+    padding: 4px 0;
+    -webkit-app-region: no-drag;
+    
+    /* Hide scrollbar but allow scroll */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.tabs-container::-webkit-scrollbar {
+    display: none;
+}
+
+/* =============================================================================
+   Tab Item
+   ============================================================================= */
+
+.tab-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    min-width: 100px;
+    max-width: 180px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+    border-bottom: none;
+    flex-shrink: 0;
+}
+
+.tab-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.tab-item.active {
+    background: rgba(96, 165, 250, 0.12);
+    border-color: rgba(96, 165, 250, 0.25);
+}
+
+.tab-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, 
+        rgba(96, 165, 250, 0.8), 
+        rgba(167, 139, 250, 0.8)
+    );
+    border-radius: 2px 2px 0 0;
+}
+
+.tab-item.drag-target {
+    background: rgba(96, 165, 250, 0.2);
+    border-left: 2px solid rgba(96, 165, 250, 0.8);
+}
+
+/* =============================================================================
+   Tab Content
+   ============================================================================= */
+
+.dirty-indicator {
+    color: rgba(250, 204, 21, 0.9);
+    font-size: 10px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.tab-name {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.75);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 0.15s ease;
+}
+
+.tab-item.active .tab-name {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.tab-item:hover .tab-name {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Tab name input (editing mode) */
+.tab-name-input {
+    flex: 1;
+    min-width: 60px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(96, 165, 250, 0.5);
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.95);
+    outline: none;
+}
+
+.tab-name-input:focus {
+    border-color: rgba(96, 165, 250, 0.8);
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.15);
+}
+
+/* =============================================================================
+   Close Button
+   ============================================================================= */
+
+.tab-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.tab-item:hover .tab-close-btn,
+.tab-item.active .tab-close-btn {
+    opacity: 1;
+}
+
+.tab-close-btn:hover {
+    background: rgba(239, 68, 68, 0.25);
+    color: rgba(239, 68, 68, 0.9);
+}
+
+/* =============================================================================
+   Scroll Buttons
+   ============================================================================= */
+
+.tab-scroll-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+    -webkit-app-region: no-drag;
+}
+
+.tab-scroll-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.tab-scroll-btn.left {
+    margin-right: 4px;
+}
+
+.tab-scroll-btn.right {
+    margin-left: 4px;
+}
+
+/* =============================================================================
+   New Tab Button
+   ============================================================================= */
+
+.new-tab-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    margin-left: 4px;
+    flex-shrink: 0;
+    -webkit-app-region: no-drag;
+}
+
+.new-tab-btn:hover {
+    background: rgba(96, 165, 250, 0.15);
+    border-color: rgba(96, 165, 250, 0.3);
+    color: rgba(96, 165, 250, 0.9);
+}
+
+.new-tab-btn:active {
+    transform: scale(0.95);
+}
+
+/* =============================================================================
+   Animations
+   ============================================================================= */
+
+@keyframes tabSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.tab-item {
+    animation: tabSlideIn 0.2s ease-out;
+}
+
+/* Drag ghost styling */
+.tab-item[draggable="true"] {
+    cursor: grab;
+}
+
+.tab-item[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+/* =============================================================================
+   Responsive Adjustments
+   ============================================================================= */
+
+@media (max-width: 768px) {
+    .tab-item {
+        min-width: 80px;
+        max-width: 140px;
+        padding: 6px 8px;
+    }
+    
+    .tab-name {
+        font-size: 11px;
+    }
+}

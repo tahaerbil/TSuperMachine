@@ -339,6 +339,15 @@ export class CADEngine {
         console.warn('Import not supported in WASM mode yet');
     }
 
+    exportDXF(): string {
+        if (!this.isReady) throw new Error('Engine not initialized');
+        if (this.engineType === 'native') {
+            return window.nativeCAD!.exportDXF();
+        }
+        console.warn('DXF export not supported in WASM mode yet');
+        return '';
+    }
+
     // =========================================================================
     // Lifecycle
     // =========================================================================

@@ -87,6 +87,14 @@ interface AppState {
     // Widget Edit Mode - only one widget can be in edit mode at a time
     editingWidgetId: string | null;
 
+    // Widget Focus Mode - for double-click to focus interaction
+    focusedWidgetId: string | null;
+    preFocusCanvasState: {
+        scale: number;
+        offset: { x: number; y: number };
+    } | null;
+    isAnimatingFocus: boolean; // Manual animation control flag
+
     // Automation System
     connections: Connection[];
     wireDragState: WireDragState;
@@ -117,6 +125,11 @@ interface AppState {
     enterEditMode: (widgetId: string) => void;
     exitEditMode: () => void;
 
+    // Widget Focus Mode Actions
+    enterFocusMode: (widgetId: string) => void;
+    exitFocusMode: () => void;
+    updateFocusView: () => void;
+
     // Automation Actions
     addConnection: (sourceWidgetId: string, targetWidgetId: string, triggerEvent: TriggerEvent, sourceHandle?: 'top' | 'right' | 'bottom' | 'left', targetHandle?: 'top' | 'right' | 'bottom' | 'left') => void;
     removeConnection: (connectionId: string) => void;
@@ -128,7 +141,7 @@ interface AppState {
 
 export const useStore = create<AppState>()(
     persist(
-        (set) => ({
+        (set, get) => ({
             widgets: [],
             canvas: {
                 scale: 1,
@@ -142,6 +155,9 @@ export const useStore = create<AppState>()(
             zoomSensitivity: 1.0,
             gridStyle: 'lines',
             editingWidgetId: null,
+            focusedWidgetId: null,
+            preFocusCanvasState: null,
+            isAnimatingFocus: false,
 
             addWidget: (type, position = { x: 100, y: 100 }, data = {}) => set((state) => {
                 const id = crypto.randomUUID();
@@ -225,6 +241,120 @@ export const useStore = create<AppState>()(
             // Widget Edit Mode Actions
             enterEditMode: (widgetId) => set({ editingWidgetId: widgetId, activeWidgetId: widgetId }),
             exitEditMode: () => set({ editingWidgetId: null }),
+
+            // Widget Focus Mode Actions
+            enterFocusMode: (widgetId) => {
+                // Find the widget to focus on
+                const state = get();
+                const widget = state.widgets.find(w => w.id === widgetId);
+                if (!widget) return;
+
+                // Save current canvas state for restoration
+                const preFocusCanvasState = {
+                    scale: state.canvas.scale,
+                    offset: { ...state.canvas.offset }
+                };
+
+                // Calculate new canvas state to center and zoom on the widget
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+
+                const targetScale = Math.min(
+                    (viewportWidth * 0.7) / widget.size.width,
+                    (viewportHeight * 0.7) / widget.size.height,
+                    2
+                );
+
+                const widgetCenterX = widget.position.x + widget.size.width / 2;
+                const widgetCenterY = widget.position.y + widget.size.height / 2;
+                const newOffset = {
+                    x: viewportWidth / 2 - widgetCenterX * targetScale,
+                    y: viewportHeight / 2 - widgetCenterY * targetScale
+                };
+
+                // Phase 1: Set focus state and enable animation
+                set({
+                    focusedWidgetId: widgetId,
+                    preFocusCanvasState,
+                    activeWidgetId: widgetId,
+                    isAnimatingFocus: true,
+                });
+
+                // Phase 2: Update canvas after a frame (so transition is applied first)
+                requestAnimationFrame(() => {
+                    set({
+                        canvas: {
+                            scale: targetScale,
+                            offset: newOffset
+                        }
+                    });
+
+                    // Disable animation after it completes
+                    setTimeout(() => {
+                        set({ isAnimatingFocus: false });
+                    }, 450);
+                });
+            },
+
+            exitFocusMode: () => {
+                const state = get();
+                if (!state.preFocusCanvasState) {
+                    set({ focusedWidgetId: null, preFocusCanvasState: null, isAnimatingFocus: false });
+                    return;
+                }
+
+                const savedCanvas = state.preFocusCanvasState;
+
+                // Phase 1: Enable animation FIRST
+                set({ isAnimatingFocus: true });
+
+                // Phase 2: Restore canvas after a frame (transition is now active)
+                requestAnimationFrame(() => {
+                    set({
+                        canvas: {
+                            scale: savedCanvas.scale,
+                            offset: savedCanvas.offset
+                        }
+                    });
+
+                    // Phase 3: Clear focus state and animation flag after animation completes
+                    setTimeout(() => {
+                        set({ focusedWidgetId: null, preFocusCanvasState: null, isAnimatingFocus: false });
+                    }, 450);
+                });
+            },
+
+            // Update focus view when widget size changes
+            updateFocusView: () => set((state) => {
+                if (!state.focusedWidgetId) return state;
+
+                const widget = state.widgets.find(w => w.id === state.focusedWidgetId);
+                if (!widget) return state;
+
+                // Recalculate canvas view to fit the updated widget
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+
+                const targetScale = Math.min(
+                    (viewportWidth * 0.7) / widget.size.width,
+                    (viewportHeight * 0.7) / widget.size.height,
+                    2
+                );
+
+                const widgetCenterX = widget.position.x + widget.size.width / 2;
+                const widgetCenterY = widget.position.y + widget.size.height / 2;
+                const newOffset = {
+                    x: viewportWidth / 2 - widgetCenterX * targetScale,
+                    y: viewportHeight / 2 - widgetCenterY * targetScale
+                };
+
+                return {
+                    canvas: {
+                        scale: targetScale,
+                        offset: newOffset
+                    }
+                };
+            }),
 
             // Automation State
             connections: [],

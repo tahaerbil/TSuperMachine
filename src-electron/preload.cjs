@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveProject: (data, filePath, saveAs, asFolder, projectName) => ipcRenderer.invoke('save-project-file', { data, filePath, saveAs, asFolder, projectName }),
     saveTempProject: (data) => ipcRenderer.invoke('save-temp-project', data),
     openProjectDialog: (asFolder) => ipcRenderer.invoke('open-project-file', { asFolder }),
+    saveDXF: ({ content, suggestedName }) => ipcRenderer.invoke('save-dxf-file', { content, suggestedName }),
 
     // Config Ops
     saveConfig: (config) => ipcRenderer.invoke('save-config', config),
@@ -76,6 +77,7 @@ if (hasNativeCAD && cadAddon) {
         // Serialization
         exportDatabase: () => cadAddon.exportDatabase(),
         importDatabase: (json) => cadAddon.importDatabase(json),
+        exportDXF: () => cadAddon.exportDXF(),
 
         // Modification commands
         clear: () => cadAddon.clear(),

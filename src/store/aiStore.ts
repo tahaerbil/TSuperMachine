@@ -77,14 +77,14 @@ const createElectronStorage = (): StateStorage => {
 };
 
 interface AIState {
-    messages: ChatMessage[];
+    histories: Record<string, ChatMessage[]>;
     status: 'idle' | 'thinking' | 'streaming' | 'error';
     activeProviderId: string; // 'local' or 'cloud'
     isChatOpen: boolean;
 
     // Actions
-    sendMessage: (content: string) => Promise<void>;
-    clearHistory: () => void;
+    sendMessage: (content: string, projectId: string) => Promise<void>;
+    clearHistory: (projectId: string) => void;
     toggleChat: () => void;
     setProviderId: (id: string) => void;
 }
@@ -97,13 +97,14 @@ const storage = window.electronAPI
 export const useAIStore = create<AIState>()(
     persist(
         (set, get) => ({
-            messages: [],
+            histories: {},
             status: 'idle',
             activeProviderId: 'local',
             isChatOpen: false,
 
-            sendMessage: async (content: string) => {
-                const { messages } = get();
+            sendMessage: async (content: string, projectId: string) => {
+                const state = get();
+                const currentMessages = state.histories[projectId] || [];
 
                 // 1. Add User Message
                 const userMsg: ChatMessage = {
@@ -113,25 +114,30 @@ export const useAIStore = create<AIState>()(
                     timestamp: Date.now()
                 };
 
-                set({ messages: [...messages, userMsg], status: 'thinking' });
+                const updatedMessages = [...currentMessages, userMsg];
+                set((state) => ({
+                    histories: {
+                        ...state.histories,
+                        [projectId]: updatedMessages
+                    },
+                    status: 'thinking'
+                }));
 
                 try {
                     // 2. Call Service
-                    // We'll update the last message in streaming mode
                     const assistantMsgId = crypto.randomUUID();
                     let currentContent = '';
                     let didStream = false;
 
                     const finalResponse = await aiService.sendMessage(
-                        messages,
+                        updatedMessages,
                         content,
                         (chunk: string) => {
                             // Streaming callback
                             didStream = true;
                             currentContent += chunk;
                             set((state) => {
-                                // Check if we already have the assistant message in state
-                                const msgs = [...state.messages];
+                                const msgs = [...(state.histories[projectId] || [])];
                                 const existingIdx = msgs.findIndex(m => m.id === assistantMsgId);
 
                                 if (existingIdx >= 0) {
@@ -147,24 +153,28 @@ export const useAIStore = create<AIState>()(
                                         timestamp: Date.now()
                                     });
                                 }
-                                return { messages: msgs, status: 'streaming' };
+                                return {
+                                    histories: {
+                                        ...state.histories,
+                                        [projectId]: msgs
+                                    },
+                                    status: 'streaming'
+                                };
                             });
                         }
                     );
 
-                    // Finalize: Only add if we didn't stream, otherwise just update status
+                    // Finalize
                     set((state) => {
-                        const msgs = [...state.messages];
+                        const msgs = [...(state.histories[projectId] || [])];
                         const existingIdx = msgs.findIndex(m => m.id === assistantMsgId);
 
                         if (didStream && existingIdx >= 0) {
-                            // Already streamed, just finalize content and status
                             msgs[existingIdx] = {
                                 ...msgs[existingIdx],
                                 content: finalResponse.content
                             };
                         } else if (!didStream) {
-                            // Didn't stream, add the final message
                             msgs.push({
                                 id: assistantMsgId,
                                 role: 'assistant',
@@ -172,17 +182,27 @@ export const useAIStore = create<AIState>()(
                                 timestamp: Date.now()
                             });
                         }
-                        return { messages: msgs, status: 'idle' };
+                        return {
+                            histories: {
+                                ...state.histories,
+                                [projectId]: msgs
+                            },
+                            status: 'idle'
+                        };
                     });
 
                 } catch (error) {
                     console.error('AI Error:', error);
                     set({ status: 'error' });
-                    // Optionally add error message to chat
                 }
             },
 
-            clearHistory: () => set({ messages: [] }),
+            clearHistory: (projectId: string) => set((state) => ({
+                histories: {
+                    ...state.histories,
+                    [projectId]: []
+                }
+            })),
             toggleChat: () => set((state) => ({ isChatOpen: !state.isChatOpen })),
             setProviderId: (id) => set({ activeProviderId: id }),
         }),
@@ -190,7 +210,7 @@ export const useAIStore = create<AIState>()(
             name: 'tsuper-ai-store',
             storage: createJSONStorage(() => storage),
             partialize: (state) => ({
-                messages: state.messages,
+                histories: state.histories,
                 activeProviderId: state.activeProviderId
             }),
         }

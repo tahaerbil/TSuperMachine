@@ -430,6 +430,17 @@ Napi::Value ImportDatabase(const Napi::CallbackInfo& info) {
     return env.Undefined();
 }
 
+Napi::Value ExportDXF(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    
+    if (!g_engine) {
+        return Napi::String::New(env, "");
+    }
+    
+    std::string dxf = g_engine->exportDXF();
+    return Napi::String::New(env, dxf);
+}
+
 // ============================================================================
 // Module Initialization
 // ============================================================================
@@ -450,6 +461,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     // Serialization
     exports.Set("exportDatabase", Napi::Function::New(env, ExportDatabase));
     exports.Set("importDatabase", Napi::Function::New(env, ImportDatabase));
+    exports.Set("exportDXF", Napi::Function::New(env, ExportDXF));
     
     // Modification commands
     exports.Set("clear", Napi::Function::New(env, Clear));

@@ -15,16 +15,16 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 ### LINE (L)
 **Açıklama:** Sürekli çizgi çizer.
 
-| Parametre | Durum | Açıklama |
-|-----------|-------|----------|
-| İlk nokta | ✅ | Tıklama veya koordinat (x,y) |
-| Sonraki noktalar | ✅ | Sürekli çizgi, her tıklama yeni segment ekler |
-| Space/Enter ile bitir | ✅ | Komutu sonlandırır |
-| Escape ile iptal | ✅ | Komutu iptal eder |
-| Close (C) | ✅ | İlk noktaya bağlayarak kapat |
-| Undo (U) | ✅ | Son segmenti geri al |
-| @dx,dy (relative) | ✅ | Göreli koordinat girişi |
-| @length<angle (polar) | ✅ | Polar koordinat girişi |
+| Parametre             | Durum | Açıklama                                      |
+|-----------------------|-------|-----------------------------------------------|
+| İlk nokta             |  ✅   | Tıklama veya koordinat (x,y)                  |
+| Sonraki noktalar      |  ✅   | Sürekli çizgi, her tıklama yeni segment ekler |
+| Space/Enter ile bitir |  ✅   | Komutu sonlandırır                            |
+| Escape ile iptal      |  ✅   | Komutu iptal eder                             |
+| Close (C)             |  ✅   | İlk noktaya bağlayarak kapat                  |
+| Undo (U)              |  ✅   | Son segmenti geri al                          |
+| @dx,dy (relative)     |  ✅   | Göreli koordinat girişi                       |
+| @length<angle (polar) |  ✅   | Polar koordinat girişi                        |
 
 ---
 
@@ -43,7 +43,7 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 
 ---
 
-### POLYLINE (PL)
+### POLYLINE (PL)0
 **Açıklama:** Çoklu çizgi çizer.
 
 | Parametre | Durum | Açıklama |
@@ -103,36 +103,41 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 
 ---
 
-### ELLIPSE (EL) ❌
-**Açıklama:** Elips çizer. **HENİZ İMPLEMENTE EDİLMEDİ**
+### ELLIPSE (EL)
+**Açıklama:** Elips çizer.
 
 | Parametre | Durum | Açıklama |
 |-----------|-------|----------|
-| Merkez | ❌ | - |
-| Ana eksen uç noktası | ❌ | - |
-| Yarı eksen mesafesi | ❌ | - |
+| Merkez | ✅ | Tıklama veya koordinat |
+| Major Radius | ✅ | Ana eksen yarıçapı (aks uç noktası) |
+| Minor Radius | ✅ | Yan eksen yarıçapı |
+| Rotation | ✅ | Döndürme açısı |
 | Arc | ❌ | Eliptik yay |
 
 ---
 
-### SPLINE (SPL) ❌
-**Açıklama:** Spline eğrisi çizer. **HENİZ İMPLEMENTE EDİLMEDİ**
+### SPLINE (SPL)
+**Açıklama:** Spline eğrisi çizer.
 
 | Parametre | Durum | Açıklama |
 |-----------|-------|----------|
-| Kontrol noktaları | ❌ | - |
-| Fit noktaları | ❌ | - |
-| Tolerance | ❌ | - |
+| Kontrol noktaları | ✅ | Tıklama ile eklenen noktalar |
+| Fit noktaları | ❌ | Fit algoritması |
+| Tolerance | 🔶 | Basit tolerans |
 
 ---
 
-### POINT (PO) ❌
-**Açıklama:** Nokta çizer. **HENİZ İMPLEMENTE EDİLMEDİ**
+### POINT (PO)
+**Açıklama:** Nokta çizer.
+
+| Parametre | Durum | Açıklama |
+|-----------|-------|----------|
+| Konum | ✅ | Tıklama veya koordinat |
 
 ---
 
 ### HATCH (H) ❌
-**Açıklama:** Alan tarama. **HENİZ İMPLEMENTE EDİLMEDİ**
+**Açıklama:** Alan tarama. **HENÜZ İMPLEMENTE EDİLMEDİ**
 
 ---
 
@@ -175,7 +180,7 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 
 ---
 
-### OFFSET (O)
+### UI_OFFSET (O)
 **Açıklama:** Paralel kopya oluşturur.
 
 | Parametre | Durum | Açıklama |
@@ -198,37 +203,65 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 |-----------|-------|----------|
 | Nesne seçimi | ✅ | Tıklama ile seçim |
 | Space/Enter ile onayla | ✅ | Silme işlemini tamamla |
-| Window seçimi | ❌ | Kutu ile çoklu seçim |
+| Window seçimi | ✅ | Kutu ile çoklu seçim |
 | All | ❌ | Tümünü sil |
 | Last | ❌ | Son nesneyi sil |
 | Previous | ❌ | Önceki seçimi sil |
 
 ---
 
-### SCALE (SC) ❌
-**Açıklama:** Ölçeklendirme. **HENİZ İMPLEMENTE EDİLMEDİ**
+### SCALE (SC)
+**Açıklama:** Seçili nesneleri ölçeklendirir.
 
 | Parametre | Durum | Açıklama |
 |-----------|-------|----------|
-| Baz nokta | ❌ | - |
-| Ölçek faktörü | ❌ | - |
-| Copy | ❌ | - |
-| Reference | ❌ | - |
+| Baz nokta | ✅ | Ölçeklendirme merkezi |
+| Ölçek faktörü | ✅ | Büyütme/küçültme oranı |
+| Copy | ❌ | Orijinali koru |
+| Reference | ❌ | Referans uzunluk ile |
 
 ---
 
-### MIRROR (MI) ❌
-**Açıklama:** Yansıtma. **HENİZ İMPLEMENTE EDİLMEDİ**
+### MIRROR (MI)
+**Açıklama:** Seçili nesneleri yansıtır.
 
 | Parametre | Durum | Açıklama |
 |-----------|-------|----------|
-| Ayna çizgisi noktaları | ❌ | - |
-| Orijinali sil? | ❌ | - |
+| Ayna çizgisi 1. nokta | ✅ | Ayna ekseni başlangıcı |
+| Ayna çizgisi 2. nokta | ✅ | Ayna ekseni bitişi |
+| Orijinali sil? | ✅ | Varsayılan olarak siler (dönüştürür) |
+
+---
+
+### EXPLODE (X)
+**Açıklama:** Nesneyi parçalara ayırma.
+
+| Parametre | Durum | Açıklama |
+|-----------|-------|----------|
+| Dikdörtgen | ✅ | 4 çizgiye ayırır |
+| Polyline | ✅ | Segmentlere ayırır |
+| Block | ❌ | Block patlatma henüz yok |
+
+---
+
+### TRIM (TR)
+**Açıklama:** Kırpma.
+
+| Parametre | Durum | Açıklama |
+|-----------|-------|----------|
+| Nesne seçimi | ✅ | Kırpılacak nesneyi seç |
+| Kesici sınırlar | ✅ | Otomatik (tüm nesneler sınır) |
+| Kısmi silme | ✅ | Seçilen segment silinir (Line için) |
+
+---
+
+### EXTEND (EX) ❌
+**Açıklama:** Uzatma. **HENÜZ İMPLEMENTE EDİLMEDİ**
 
 ---
 
 ### ARRAY (AR) ❌
-**Açıklama:** Dizi oluşturma. **HENİZ İMPLEMENTE EDİLMEDİ**
+**Açıklama:** Dizi oluşturma. **HENÜZ İMPLEMENTE EDİLMEDİ**
 
 | Parametre | Durum | Açıklama |
 |-----------|-------|----------|
@@ -238,38 +271,23 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 
 ---
 
-### TRIM (TR) ❌
-**Açıklama:** Kırpma. **HENİZ İMPLEMENTE EDİLMEDİ**
-
----
-
-### EXTEND (EX) ❌
-**Açıklama:** Uzatma. **HENİZ İMPLEMENTE EDİLMEDİ**
-
----
-
 ### FILLET (F) ❌
-**Açıklama:** Köşe yuvarlatma. **HENİZ İMPLEMENTE EDİLMEDİ**
+**Açıklama:** Köşe yuvarlatma. **HENÜZ İMPLEMENTE EDİLMEDİ**
 
 ---
 
 ### CHAMFER (CHA) ❌
-**Açıklama:** Köşe pahı. **HENİZ İMPLEMENTE EDİLMEDİ**
+**Açıklama:** Köşe pahı. **HENÜZ İMPLEMENTE EDİLMEDİ**
 
 ---
 
 ### BREAK (BR) ❌
-**Açıklama:** Nesneyi kırma. **HENİZ İMPLEMENTE EDİLMEDİ**
+**Açıklama:** Nesneyi kırma. **HENÜZ İMPLEMENTE EDİLMEDİ**
 
 ---
 
 ### JOIN (J) ❌
-**Açıklama:** Nesneleri birleştirme. **HENİZ İMPLEMENTE EDİLMEDİ**
-
----
-
-### EXPLODE (X) ❌
-**Açıklama:** Nesneyi parçalara ayırma. **HENİZ İMPLEMENTE EDİLMEDİ**
+**Açıklama:** Nesneleri birleştirme. **HENÜZ İMPLEMENTE EDİLMEDİ**
 
 ---
 
@@ -285,14 +303,14 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 ### Window Selection
 | Özellik | Durum | Açıklama |
 |---------|-------|----------|
-| Soldan sağa kutu | 🔶 | Tamamen içerenler (preview yok) |
-| Mavi renk | ❌ | AutoCAD tarzı renklendirme |
+| Soldan sağa kutu | ✅ | Tamamen içerenler (Engine destekli) |
+| Mavi renk | ❌ | Visual feedback (UI tarafı) |
 
 ### Crossing Selection
 | Özellik | Durum | Açıklama |
 |---------|-------|----------|
-| Sağdan sola kutu | 🔶 | Kesişenler dahil (preview yok) |
-| Yeşil renk | ❌ | AutoCAD tarzı renklendirme |
+| Sağdan sola kutu | ✅ | Kesişenler dahil (Engine destekli) |
+| Yeşil renk | ❌ | Visual feedback (UI tarafı) |
 
 ### Selection Filters ❌
 | Özellik | Durum | Açıklama |
@@ -309,13 +327,13 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 |-----------|---------|-------|----------|
 | Endpoint | END | ✅ | Uç nokta |
 | Midpoint | MID | ✅ | Orta nokta |
-| Center | CEN | ✅ | Daire/yay merkezi |
-| Intersection | INT | ✅ | Kesişim noktası |
+| Center | CEN | ✅ | Daire/yay/dikdörtgen merkezi |
+| Intersection | INT | ✅ | Kesişim noktası (Çizgi-Çizgi, Çizgi-Daire) |
+| Quadrant | QUA | ✅ | Çeyrek noktaları (Daire/Yay) |
+| Node | NOD | ✅ | Nokta nesnesi merkezi |
 | Perpendicular | PER | ❌ | Dik nokta |
 | Tangent | TAN | ❌ | Teğet nokta |
 | Nearest | NEA | ❌ | En yakın nokta |
-| Node | NOD | ❌ | Nokta nesnesi |
-| Quadrant | QUA | ❌ | Çeyrek noktaları |
 | Extension | EXT | ❌ | Uzantı noktası |
 | Parallel | PAR | ❌ | Paralel referans |
 
@@ -388,12 +406,12 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 | Escape | ✅ | İptal |
 | Delete | ✅ | Seçili nesneleri sil |
 | ↑/↓ | ✅ | Komut geçmişi |
-| Ctrl+Z | ❌ | Geri al (Undo) |
-| Ctrl+Y | ❌ | İleri al (Redo) |
+| Ctrl+Z | ✅ | Geri al (Undo) |
+| Ctrl+Y | ✅ | İleri al (Redo) |
 | Ctrl+A | ❌ | Tümünü seç |
-| Ctrl+C | ❌ | Kopyala |
-| Ctrl+V | ❌ | Yapıştır |
-| Ctrl+S | ❌ | Kaydet |
+| Ctrl+C | ✅ | Kopyala (Seçiliyi kopyalar) |
+| Ctrl+V | 🔶 | Yapıştır (Henüz tam değil) |
+| Ctrl+S | ✅ | Kaydet (DXF Export) |
 | F1-F12 | ❌ | Fonksiyon tuşları |
 
 ---
@@ -402,8 +420,8 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 
 | Özellik | Durum | Açıklama |
 |---------|-------|----------|
-| Export DXF | ❌ | DXF formatına aktar |
-| Import DXF | ❌ | DXF dosyası aç |
+| Export DXF | ✅ | DXF formatına aktar (Ctrl+S) |
+| Import DXF | 🔶 | Basit JSON import var, full DXF parser yok |
 | Export SVG | ❌ | SVG formatına aktar |
 | Export PNG | ❌ | Görüntü olarak kaydet |
 | Export PDF | ❌ | PDF olarak yazdır |
@@ -414,41 +432,38 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 
 | Kategori | Toplam | Tamamlandı | Kısmi | Eksik |
 |----------|--------|------------|-------|-------|
-| Çizim Komutları | 10 | 6 | 0 | 4 |
-| Düzenleme Komutları | 14 | 5 | 1 | 8 |
-| Seçim Özellikleri | 8 | 2 | 2 | 4 |
-| Snap Türleri | 11 | 4 | 0 | 7 |
+| Çizim Komutları | 10 | 9 | 0 | 1 |
+| Düzenleme Komutları | 14 | 9 | 1 | 4 |
+| Seçim Özellikleri | 8 | 4 | 0 | 4 |
+| Snap Türleri | 11 | 7 | 0 | 4 |
 | Ölçü Komutları | 8 | 0 | 0 | 8 |
 | Yazı Komutları | 3 | 0 | 0 | 3 |
 | Katman Özellikleri | 7 | 0 | 0 | 7 |
 | Görünüm Komutları | 6 | 2 | 0 | 4 |
-| Klavye Kısayolları | 14 | 5 | 0 | 9 |
-| Dosya İşlemleri | 5 | 0 | 0 | 5 |
+| Klavye Kısayolları | 14 | 9 | 1 | 4 |
+| Dosya İşlemleri | 5 | 1 | 1 | 3 |
 
-**Genel İlerleme:** ~25% tamamlandı
+**Genel İlerleme:** ~50% tamamlandı
 
 ---
 
 ## 🎯 Öncelikli Geliştirme Önerileri
 
 ### Yüksek Öncelik
-1. **Undo/Redo** - Temel kullanılabilirlik için kritik
-2. **DXF Export/Import** - Dosya paylaşımı için gerekli
-3. **Close ve Undo (PL)** - Polyline için önemli
-4. **SCALE, MIRROR** - Temel düzenleme komutları
+1. **EXTEND** - Trim'in tamamlayıcısı
+2. **ARRAY** - Kopyalama işlemleri için
+3. **TEXT** - Not alma özelliği
+4. **HATCH** - Görsel sunum için
 
 ### Orta Öncelik
-1. **ELLIPSE, SPLINE** - Daha karmaşık geometriler
-2. **TRIM, EXTEND** - Düzenleme verimliliği
-3. **Katman sistemi** - Organizasyon
-4. **Daha fazla snap türü** - Çizim hassasiyeti
+1. **Katman sistemi** - Organizasyon
+2. **Dimension komutları** - Teknik resim için şart
 
 ### Düşük Öncelik
-1. **Dimension komutları** - Ölçülendirme
-2. **Text komutları** - Yazı ekleme
-3. **HATCH** - Alan tarama
-4. **ARRAY** - Dizi oluşturma
+1. **Export PDF/PNG** - Çıktı almak
+2. **Blok sistemi** (Henüz listelenmedi)
+3. **Layout/Paper Space**
 
 ---
 
-*Son güncelleme: 2025-12-31*
+*Son güncelleme: 2026-01-10*

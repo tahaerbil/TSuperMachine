@@ -145,9 +145,9 @@ npm run tauri:build
 - **Paste Widget**: Ctrl+V with text/image in clipboard (creates Note/Image at mouse position)
 
 ### Widget Management
-### Widget Management (Dormant vs Edit Mode)
+### Widget Management (Three-State Interaction Model)
 
-The interface uses a **Two-State Interaction Model** optimized for both mouse and touch:
+The interface uses a **Three-State Interaction Model** optimized for both mouse and touch:
 
 #### 1. Dormant Mode (Default)
 In this state, widgets are treated as objects to be arranged.
@@ -155,18 +155,25 @@ In this state, widgets are treated as objects to be arranged.
 - **Resize**: Drag from any edge or corner.
 - **Group**: Drag a widget close to another to snap/attach.
 - **Select**: Single click to focus.
+- **Visual Cue**: `cursor: grab` when hovering.
 
-#### 2. Edit Mode (Interactive)
-In this state, the widget's internal content becomes active.
-- **Enter Edit Mode**: **Double-click** anywhere on the widget.
+#### 2. Focus Mode (Interactive)
+In this state, the widget's internal content becomes active while staying on canvas.
+- **Enter Focus Mode**: **Double-click** anywhere on the widget.
+- **Auto-Zoom**: Canvas smoothly animates to center and zoom on the widget (400ms).
 - **Interact**: Type text, scroll lists, click internal buttons.
-- **Exit Edit Mode**: Press **Escape** or click outside the widget.
-- **Visual Cue**: A distinct border/shadow indicates the widget is active.
-- *Note: Widgets cannot be dragged while in Edit Mode.*
+- **Canvas Locked**: Pan/zoom disabled while widget is focused.
+- **Exit Focus Mode**: Press **Escape** or double-click outside the widget.
+- **Visual Cue**: Blue glow ring + toolbar appears at bottom.
+- *Note: Widgets cannot be dragged while in Focus Mode.*
+
+#### 3. Maximized Mode
+Widget fills the entire viewport.
+- **Enter**: Click maximize button in toolbar.
+- **Exit**: Click maximize button again or press **Escape**.
 
 #### Other Actions
 - **Multi-select**: Ctrl+Click or Lasso Select (drag on empty canvas).
-- **Maximize**: Toggle full screen (Top-right button).
 - **Pop-out**: Detach to separate window (Top-right button).
 - **Close**: Remove widget (Top-right X).
 

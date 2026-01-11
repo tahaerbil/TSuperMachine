@@ -22,7 +22,7 @@ import {
 import { WidgetContent } from '../core/widgets';
 
 export const Canvas: React.FC = () => {
-    const { widgets, canvas, selectedWidgetIds, clearSelection, gridStyle, removeWidget } = useStore();
+    const { widgets, canvas, selectedWidgetIds, clearSelection, gridStyle, removeWidget, focusedWidgetId, exitFocusMode, isAnimatingFocus } = useStore();
     const containerRef = useRef<HTMLDivElement>(null);
     const gridCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -145,6 +145,25 @@ export const Canvas: React.FC = () => {
         setContextMenu(null);
     }, []);
 
+    /**
+     * Handle canvas double-click - exit focus mode when clicking empty area
+     */
+    const handleCanvasDoubleClick = useCallback((e: React.MouseEvent) => {
+        // Only handle if we have a focused widget
+        if (!focusedWidgetId) return;
+
+        // Check if click was on a widget (react-rnd creates div with class containing 'react-draggable')
+        const target = e.target as HTMLElement;
+        // Look for widget indicators: react-rnd wrapper, group/widget class, or any widget content
+        const isWidgetClick = target.closest('.react-draggable') ||
+            target.closest('[class*="group/widget"]') ||
+            target.closest('[class*="overflow-visible"]');
+
+        if (!isWidgetClick) {
+            exitFocusMode();
+        }
+    }, [focusedWidgetId, exitFocusMode]);
+
     // =========================================================================
     // RENDER
     // =========================================================================
@@ -162,6 +181,7 @@ export const Canvas: React.FC = () => {
                 handleNavigationMouseMove(e);
                 handleLassoMove(e);
             }}
+            onDoubleClick={handleCanvasDoubleClick}
             onDragOver={(e) => {
                 e.preventDefault(); // allow drop
             }}
@@ -312,6 +332,8 @@ export const Canvas: React.FC = () => {
                 style={{
                     transform: `translate(${canvas.offset.x}px, ${canvas.offset.y}px) scale(${canvas.scale})`,
                     transformOrigin: '0 0',
+                    // Only animate transform during focus transitions, not normal zoom/pan
+                    transition: isAnimatingFocus ? 'transform 400ms cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
                     width: '100%',
                     height: '100%',
                     position: 'absolute',

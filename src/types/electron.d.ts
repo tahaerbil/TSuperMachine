@@ -17,6 +17,7 @@ interface ElectronAPI {
     saveProject: (data: unknown | Uint8Array, filePath: string | null, saveAs: boolean, asFolder: boolean, projectName?: string) => Promise<{ success: boolean; filePath?: string; error?: string; canceled?: boolean }>;
     saveTempProject: (data: unknown) => Promise<{ success: boolean; filePath?: string; error?: string }>;
     openProjectDialog: (asFolder: boolean) => Promise<{ success: boolean; data?: Uint8Array | Record<string, string>; filePath?: string; error?: string; canceled?: boolean; isFolder?: boolean }>;
+    saveDXF: (params: { content: string; suggestedName?: string }) => Promise<{ success: boolean; filePath?: string; error?: string; canceled?: boolean }>;
     removeListeners: () => void;
 
     // Config Operations

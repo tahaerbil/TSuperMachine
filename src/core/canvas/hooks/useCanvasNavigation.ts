@@ -101,9 +101,9 @@ export function useCanvasNavigation({
      * Handle mouse wheel zoom with "zoom at cursor" behavior
      */
     const handleWheel = useCallback((e: WheelEvent) => {
-        // If any widget is maximized, do not zoom the canvas.
-        const currentWidgets = useStore.getState().widgets;
-        if (currentWidgets.some(w => w.isMaximized)) {
+        // If any widget is maximized or focused, do not zoom the canvas.
+        const { widgets: currentWidgets, focusedWidgetId } = useStore.getState();
+        if (currentWidgets.some(w => w.isMaximized) || focusedWidgetId) {
             return;
         }
 
@@ -153,6 +153,12 @@ export function useCanvasNavigation({
         let lastClickTime = 0;
 
         const handleNativeMiddleDown = (e: MouseEvent) => {
+            // Check for maximized widgets or focused widget FIRST
+            const { widgets: currentWidgets, focusedWidgetId } = useStore.getState();
+            if (currentWidgets.some(w => w.isMaximized) || focusedWidgetId) {
+                return; // Let the event pass through
+            }
+
             if (e.button === 1) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -165,16 +171,15 @@ export function useCanvasNavigation({
                 }
                 lastClickTime = now;
 
-                // Check for maximized widgets
-                const currentWidgets = useStore.getState().widgets;
-                if (!currentWidgets.some(w => w.isMaximized)) {
-                    isDragging.current = true;
-                    lastMousePos.current = { x: e.clientX, y: e.clientY };
-                }
+                isDragging.current = true;
+                lastMousePos.current = { x: e.clientX, y: e.clientY };
             }
         };
 
         const blockMiddleClickEvents = (e: MouseEvent) => {
+            const { widgets: currentWidgets, focusedWidgetId } = useStore.getState();
+            if (currentWidgets.some(w => w.isMaximized) || focusedWidgetId) return;
+
             if (e.button === 1) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -182,6 +187,9 @@ export function useCanvasNavigation({
         };
 
         const handleNativeMiddleUp = (e: MouseEvent) => {
+            const { widgets: currentWidgets, focusedWidgetId } = useStore.getState();
+            if (currentWidgets.some(w => w.isMaximized) || focusedWidgetId) return;
+
             if (e.button === 1) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -215,9 +223,9 @@ export function useCanvasNavigation({
      * Handle mouse down for pan initiation (middle-click or Alt+Left-click)
      */
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
-        // If any widget is maximized, do not allow canvas panning.
-        const currentWidgets = useStore.getState().widgets;
-        if (currentWidgets.some(w => w.isMaximized)) {
+        // If any widget is maximized or focused, do not allow canvas panning.
+        const { widgets: currentWidgets, focusedWidgetId } = useStore.getState();
+        if (currentWidgets.some(w => w.isMaximized) || focusedWidgetId) {
             return;
         }
 
