@@ -52,7 +52,8 @@ export const INITIAL_PREVIEW_STATE: PreviewState = {
     move: null,
     copy: null,
     rotate: null,
-    selectionBox: null
+    selectionBox: null,
+    mirrorAxis: null
 };
 
 export const INITIAL_COMMAND_HISTORY = [

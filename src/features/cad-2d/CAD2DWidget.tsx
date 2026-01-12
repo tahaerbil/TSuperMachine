@@ -3,7 +3,7 @@ import { cadEngine, SnapType } from '../../core/services/cad-engine/CADEngine';
 import { WasmCanvas } from './components/WasmCanvas';
 import { CommandLine, type CommandLineRef } from './components/CommandLine';
 import { useCADCommand } from './hooks/useCADCommand';
-import { getOutgoingConnections, useStore } from '../../store/store';
+import { getOutgoingConnections } from '../../store/store';
 import { eventBus } from '../../core/services/automation';
 import type { AutomationEvent, TriggerEvent } from '../../core/services/automation';
 
@@ -15,14 +15,12 @@ interface CAD2DWidgetProps {
 export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-    const [scale, setScale] = useState(1);
-    const [offset, setOffset] = useState({ x: 0, y: 0 });
+
+    const [viewTransform, setViewTransform] = useState({ scale: 1, offset: { x: 0, y: 0 } });
     const [engineVersion, setEngineVersion] = useState(0);
     const [isEngineReady, setIsEngineReady] = useState(false);
 
-    // Get canvas scale for coordinate compensation (focus mode applies scale transform)
-    const canvasScale = useStore(state => state.canvas.scale);
-    const isFocused = useStore(state => state.focusedWidgetId !== null);
+
 
     // Command Logic Hook
     const forceUpdate = useCallback(() => setEngineVersion(v => v + 1), []);
@@ -75,12 +73,11 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => 
         handleCanvasMove,
         cancel,
         setCommandHistory
-    } = useCADCommand({ onEngineUpdate: forceUpdate, scale, onCommandCompleted: handleCommandCompleted });
+    } = useCADCommand({ onEngineUpdate: forceUpdate, scale: viewTransform.scale, onCommandCompleted: handleCommandCompleted });
 
-    // Interaction State
+    // Pan state
     const isPanning = useRef(false);
     const lastMousePos = useRef({ x: 0, y: 0 });
-
     // Initialize Engine
     useEffect(() => {
         const init = async () => {
@@ -111,7 +108,7 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => 
         return () => resizeObserver.disconnect();
     }, []);
 
-    // Pan/Zoom Handlers
+    // Zoom Handler
     const handleWheel = useCallback((e: WheelEvent) => {
         const target = e.target as HTMLElement;
         if (target.closest('.command-line-container')) return;
@@ -119,24 +116,37 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => 
         e.preventDefault();
         e.stopPropagation();
 
-        if (!containerRef.current) return;
-        const rect = containerRef.current.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect || dimensions.width === 0) return;
 
-        const worldX = (mouseX - offset.x) / scale;
-        const worldY = (mouseY - offset.y) / scale;
+        // CSS Transform Compensation
+        const scaleCompensation = rect.width / dimensions.width;
+        const mouseX = (e.clientX - rect.left) / scaleCompensation;
+        const mouseY = (e.clientY - rect.top) / scaleCompensation;
 
-        const zoomSensitivity = 0.1;
-        const delta = -Math.sign(e.deltaY) * zoomSensitivity;
-        const newScale = Math.max(0.1, Math.min(50, scale * (1 + delta)));
+        setViewTransform(prev => {
+            // Calculate mouse position in World Space BEFORE zoom
+            const worldX = (mouseX - prev.offset.x) / prev.scale;
+            const worldY = (mouseY - prev.offset.y) / prev.scale;
 
-        const newOffsetX = mouseX - worldX * newScale;
-        const newOffsetY = mouseY - worldY * newScale;
+            // Deadzone
+            if (Math.abs(e.deltaY) < 5) return prev;
 
-        setScale(newScale);
-        setOffset({ x: newOffsetX, y: newOffsetY });
-    }, [offset, scale]);
+            // Standard CAD convention: Scroll Up (deltaY < 0) = Zoom In
+            const zoomStep = 1.1; // Reduced from 1.15 for smoother zooming
+            const direction = Math.sign(e.deltaY);
+            const zoomFactor = direction < 0 ? zoomStep : (1 / zoomStep);
+
+            // Calculate new scale with clamps
+            const newScale = Math.max(0.01, Math.min(100, prev.scale * zoomFactor));
+
+            // Calculate new offset to keep mouse position fixed in world
+            const newOffsetX = mouseX - worldX * newScale;
+            const newOffsetY = mouseY - worldY * newScale;
+
+            return { scale: newScale, offset: { x: newOffsetX, y: newOffsetY } };
+        });
+    }, [dimensions]);
 
     // Attach Wheel Listener
     useEffect(() => {
@@ -163,7 +173,6 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => 
 
         // Pan Logic (Middle Mouse or Alt+Left)
         if (e.button === 1 || (e.button === 0 && e.altKey)) {
-            // Skip preventDefault if clicking on console (allow paste there)
             const isConsoleClick = (e.target as HTMLElement).closest('.command-line-container');
             if (!isConsoleClick) {
                 e.preventDefault();
@@ -176,17 +185,19 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => 
         // Left Click -> Command Logic
         if (e.button === 0) {
             if (activeSnap && activeSnap.type !== SnapType.NONE && activeSnap.p) {
-                // Ensure snap point is valid
                 processPointInput(activeSnap.p.x, activeSnap.p.y);
             } else {
                 const rect = containerRef.current.getBoundingClientRect();
-                // Compensate for canvas scale when in focus mode (not maximized)
-                const effectiveScale = (!isMaximized && isFocused) ? canvasScale : 1;
-                const localX = (e.clientX - rect.left) / effectiveScale;
-                const localY = (e.clientY - rect.top) / effectiveScale;
-                const worldX = (localX - offset.x) / scale;
-                const worldY = (localY - offset.y) / scale;
-                processPointInput(worldX, worldY);
+                if (dimensions.width > 0 && dimensions.height > 0) {
+                    // CSS Transform Compensation + World Coordinate Conversion
+                    const scaleCompensation = rect.width / dimensions.width;
+                    const localX = (e.clientX - rect.left) / scaleCompensation;
+                    const localY = (e.clientY - rect.top) / scaleCompensation;
+                    // Convert to world coordinates
+                    const worldX = (localX - viewTransform.offset.x) / viewTransform.scale;
+                    const worldY = (localY - viewTransform.offset.y) / viewTransform.scale;
+                    processPointInput(worldX, worldY);
+                }
             }
         }
 
@@ -197,22 +208,30 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => 
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        if (isPanning.current) {
-            const dx = e.clientX - lastMousePos.current.x;
-            const dy = e.clientY - lastMousePos.current.y;
-            setOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+        // Handle panning
+        if (isPanning.current && containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            const scaleCompensation = rect.width / dimensions.width;
+            const dx = (e.clientX - lastMousePos.current.x) / scaleCompensation;
+            const dy = (e.clientY - lastMousePos.current.y) / scaleCompensation;
+            setViewTransform(prev => ({
+                ...prev,
+                offset: { x: prev.offset.x + dx, y: prev.offset.y + dy }
+            }));
             lastMousePos.current = { x: e.clientX, y: e.clientY };
             return;
         }
 
-        if (containerRef.current) {
+        // Handle canvas move (for snap points, selection, etc.)
+        if (containerRef.current && dimensions.width > 0) {
             const rect = containerRef.current.getBoundingClientRect();
-            // Compensate for canvas scale when in focus mode (not maximized)
-            const effectiveScale = (!isMaximized && isFocused) ? canvasScale : 1;
-            const localX = (e.clientX - rect.left) / effectiveScale;
-            const localY = (e.clientY - rect.top) / effectiveScale;
-            const worldX = (localX - offset.x) / scale;
-            const worldY = (localY - offset.y) / scale;
+            // CSS Transform Compensation + World Coordinate Conversion
+            const scaleCompensation = rect.width / dimensions.width;
+            const localX = (e.clientX - rect.left) / scaleCompensation;
+            const localY = (e.clientY - rect.top) / scaleCompensation;
+            // Convert to world coordinates
+            const worldX = (localX - viewTransform.offset.x) / viewTransform.scale;
+            const worldY = (localY - viewTransform.offset.y) / viewTransform.scale;
             handleCanvasMove(worldX, worldY);
         }
     };
@@ -333,8 +352,8 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => 
                     <WasmCanvas
                         width={dimensions.width}
                         height={dimensions.height}
-                        scale={scale}
-                        offset={offset}
+                        scale={viewTransform.scale}
+                        offset={viewTransform.offset}
                         version={engineVersion}
                         previewLine={previewState.line}
                         previewCircle={previewState.circle}

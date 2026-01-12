@@ -315,9 +315,9 @@ void Engine::explodeSelected() {
     }
 }
 
-void Engine::trimEntity(double x, double y) {
+void Engine::trimEntity(double x, double y, double threshold) {
     // 1. Identify valid entity under cursor
-    int targetId = hitTest(x, y, 10.0); // Use a slightly larger tolerance for selection
+    int targetId = hitTest(x, y, threshold); // Use tolerance for selection
     if (targetId == -1) return;
 
     auto target = db.getEntity(targetId);
@@ -328,7 +328,7 @@ void Engine::trimEntity(double x, double y) {
     
     saveState();
     
-    auto* line = static_cast<LineEntity*>(target.get());
+    auto* line = static_cast<LineEntity*>(target);
     
     // 2. Find all intersections with this line
     std::vector<Point> intersections;
@@ -409,8 +409,90 @@ void Engine::trimEntity(double x, double y) {
     }
 }
 
-void Engine::extendEntity(double x, double y) {
-    // TODO: Implement Extend
+void Engine::extendEntity(double x, double y, double threshold) {
+    // 1. Identify valid entity under cursor
+    int targetId = hitTest(x, y, threshold);
+    if (targetId == -1) return;
+
+    auto target = db.getEntity(targetId);
+    if (!target) return;
+    
+    // Only support LINE extension for MVP (similar to Trim)
+    if (target->getType() != EntityType::LINE) return;
+    
+    saveState();
+    
+    auto* line = static_cast<LineEntity*>(target);
+    
+    // Determine which end to extend based on click proximity
+    double dStart = std::pow(x - line->start.x, 2) + std::pow(y - line->start.y, 2);
+    double dEnd = std::pow(x - line->end.x, 2) + std::pow(y - line->end.y, 2);
+    
+    bool extendEnd = dEnd < dStart;
+    
+    // Define the ray for extension
+    // Ray starts at the end we want to extend, goes in direction of line
+    Point rayOrigin = extendEnd ? line->end : line->start;
+    double dx = line->end.x - line->start.x;
+    double dy = line->end.y - line->start.y;
+    
+    // Normalize direction
+    double len = std::sqrt(dx*dx + dy*dy);
+    if (len < 1e-10) return; // Degenerate line
+    
+    // Direction vector must point OUTWARDS from the line
+    double dirX = extendEnd ? dx/len : -dx/len;
+    double dirY = extendEnd ? dy/len : -dy/len;
+    
+    // We need to define a "virtual" infinite line for intersection tests
+    // Or simpler: Test against specific geometry types analytically
+    
+    double minDistSq = std::numeric_limits<double>::max();
+    Point bestIntersection = {0, 0};
+    bool found = false;
+    
+    const auto& entities = db.getEntities();
+    for (const auto& other : entities) {
+        if (other->id == targetId) continue;
+        if (!other->visible) continue;
+        
+        // This is tricky: "getIntersections" usually computes considering finite segments.
+        // For Extend, we need intersection of the Infinite Line (Ray) with finite segments.
+        
+        // Let's implement ray-vs-entity helpers or assume a very long line for 'probe'
+        // Create a temporary "probe" line that is very long in the extend direction
+        double bigLen = 100000.0; // Architecture usage scale
+        Point probeEnd = {
+            rayOrigin.x + dirX * bigLen,
+            rayOrigin.y + dirY * bigLen
+        };
+        
+        LineEntity probe(rayOrigin, probeEnd);
+        auto pts = probe.getIntersections(other.get());
+        
+        for (const auto& p : pts) {
+            // Distance from ray origin
+            double dSq = std::pow(p.x - rayOrigin.x, 2) + std::pow(p.y - rayOrigin.y, 2);
+            
+            // Ignore intersection at exact origin (connected lines)
+            if (dSq < 0.001) continue;
+            
+            if (dSq < minDistSq) {
+                minDistSq = dSq;
+                bestIntersection = p;
+                found = true;
+            }
+        }
+    }
+    
+    if (found) {
+        // Update the line endpoint
+        if (extendEnd) {
+            line->end = bestIntersection;
+        } else {
+            line->start = bestIntersection;
+        }
+    }
 }
 
 // ============================================================================
@@ -482,7 +564,7 @@ std::string Engine::exportDatabase() {
             }
             case EntityType::POINT: {
                 auto* pt = static_cast<PointEntity*>(entity.get());
-                ss << "\"point\":{\"x\":" << pt->point.x << ",\"y\":" << pt->point.y << "}";
+                ss << "\"point\":{\"x\":" << pt->position.x << ",\"y\":" << pt->position.y << "}";
                 break;
             }
             case EntityType::SPLINE: {
@@ -831,8 +913,8 @@ std::string Engine::exportDXF() {
             case EntityType::POINT: {
                 auto* pt = static_cast<PointEntity*>(entity.get());
                 ss << "0\nPOINT\n8\n0\n";
-                ss << "10\n" << pt->point.x << "\n";
-                ss << "20\n" << pt->point.y << "\n";
+                ss << "10\n" << pt->position.x << "\n";
+                ss << "20\n" << pt->position.y << "\n";
                 ss << "30\n0.0\n";
                 break;
             }
@@ -926,8 +1008,8 @@ const std::vector<float>& Engine::getRenderBuffer() {
         }
         else if (entity->getType() == EntityType::POINT) {
             auto pt = static_cast<PointEntity*>(entity.get());
-            renderBuffer.push_back(static_cast<float>(pt->point.x));
-            renderBuffer.push_back(static_cast<float>(pt->point.y));
+            renderBuffer.push_back(static_cast<float>(pt->position.x));
+            renderBuffer.push_back(static_cast<float>(pt->position.y));
             // Just basic coords
         }
         else if (entity->getType() == EntityType::SPLINE) {
@@ -970,9 +1052,6 @@ SnapPoint Engine::findClosestSnapPoint(double x, double y, double threshold) {
                 minDistance = dist;
                 bestSnap = snap;
             }
-                minDistance = dist;
-                bestSnap = snap;
-            }
         }
         
         // Dynamic Intersection Snap (Lines only for now)
@@ -989,7 +1068,8 @@ SnapPoint Engine::findClosestSnapPoint(double x, double y, double threshold) {
                       double dist = std::sqrt(dx*dx + dy*dy);
                       if (dist < minDistance) {
                           minDistance = dist;
-                          bestSnap = {p, SnapType::INTERSECTION};
+                          bestSnap.p = p;
+                          bestSnap.type = SnapType::INTERSECTION;
                       }
                  }
              }

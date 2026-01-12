@@ -222,6 +222,18 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 
 ---
 
+### SCALE (SC)
+**Açıklama:** Seçili nesneleri ölçeklendirir.
+
+| Parametre | Durum | Açıklama |
+|-----------|-------|----------|
+| Baz nokta | ✅ | Ölçeklendirme merkezi |
+| Ölçek faktörü | ✅ | Büyütme/küçültme oranı |
+| Copy | ❌ | Orijinali koru |
+| Reference | ❌ | Referans uzunluk ile |
+
+---
+
 ### MIRROR (MI)
 **Açıklama:** Seçili nesneleri yansıtır.
 
@@ -255,8 +267,13 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 
 ---
 
-### EXTEND (EX) ❌
-**Açıklama:** Uzatma. **HENÜZ İMPLEMENTE EDİLMEDİ**
+### EXTEND (EX)
+**Açıklama:** Uzatma.
+ 
+| Parametre | Durum | Açıklama |
+|-----------|-------|----------|
+| Nesne seçimi | ✅ | Uzatılacak nesneyi seç |
+| Sınır seçimi | ✅ | Otomatik (Quick mode) |
 
 ---
 

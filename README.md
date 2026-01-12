@@ -24,6 +24,9 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 - **WASM Fallback** (Web/Tauri) - Cross-platform support via WebAssembly
 - **Hybrid Architecture** - Automatically selects best engine for platform
 - **Full State Saving** - Saves all CAD entities (lines, circles, etc.) to `.tsm` project file via native serialization
+- **High-DPI Rendering** - Sharp lines on Retina/4K displays via `devicePixelRatio` scaling
+- **Adaptive Grid** - Grid density adjusts automatically based on zoom level
+
 
 ### 💾 Folder-First Save System
 - **Default: Folder Mode**:
@@ -189,8 +192,13 @@ Widget fills the entire viewport.
 | Arc | `ARC` | Draw an arc |
 | Move | `M` | Move selected entities |
 | Copy | `CO` | Copy selected entities |
+| Rotate | `RO` | Rotate selected entities |
 | Delete | `DEL` | Delete selected entities |
 | Offset | `O` | Offset an entity |
+| Trim | `TR` | Trim entities at intersections |
+| Extend | `EX` | Extend entities to boundary |
+| Erase | `E` | Erase selected entities |
+
 
 ### Theme Customization
 1. Open Settings widget (⚙️ icon)

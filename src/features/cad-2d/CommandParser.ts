@@ -1,4 +1,4 @@
-export type CommandType = 'LINE' | 'CIRCLE' | 'POLYLINE' | 'RECTANGLE' | 'ARC' | 'POLYGON' | 'MOVE' | 'COPY' | 'ROTATE' | 'OFFSET' | 'ERASE' | 'PAN' | 'ZOOM' | 'IDLE';
+export type CommandType = 'LINE' | 'CIRCLE' | 'POLYLINE' | 'RECTANGLE' | 'ARC' | 'POLYGON' | 'MOVE' | 'COPY' | 'ROTATE' | 'OFFSET' | 'ERASE' | 'TRIM' | 'EXTEND' | 'SCALE' | 'MIRROR' | 'PAN' | 'ZOOM' | 'IDLE';
 
 export type SubCommandType = 'CLOSE' | 'UNDO' | 'DIAMETER' | '2P' | '3P' | 'DIMENSIONS' | 'FILLET' | 'CHAMFER' | 'AREA';
 
@@ -56,6 +56,18 @@ export class CommandParser {
             case 'ERASE':
             case 'DELETE':
                 return { type: 'START_COMMAND', command: 'ERASE', raw: input };
+            case 'TR':
+            case 'TRIM':
+                return { type: 'START_COMMAND', command: 'TRIM', raw: input };
+            case 'EX':
+            case 'EXTEND':
+                return { type: 'START_COMMAND', command: 'EXTEND', raw: input };
+            case 'SC':
+            case 'SCALE':
+                return { type: 'START_COMMAND', command: 'SCALE', raw: input };
+            case 'MI':
+            case 'MIRROR':
+                return { type: 'START_COMMAND', command: 'MIRROR', raw: input };
             // Subcommands (used during active commands like LINE, POLYLINE)
             case 'CL':
             case 'CLOSE':

@@ -398,5 +398,10 @@ This ensures the transition property is applied BEFORE the transform changes.
 - **2026-01-11**: Implemented canvas auto-zoom/pan on focus with 400ms cubic-bezier animation
 - **2026-01-11**: Disabled canvas pan/zoom and widget dragging when in focus mode
 - **2026-01-11**: Added `updateFocusView` for dynamic adaptation after resize/rotate
+- **2026-01-12**: **CAD 2D Rendering Improvements** - Fixed zoom/pan coordinate issues
+- **2026-01-12**: Added `devicePixelRatio` support to `WasmCanvas.tsx` for high-DPI displays
+- **2026-01-12**: Implemented CSS Transform Compensation for accurate mouse coordinates in focus mode
+- **2026-01-12**: Refactored `CanvasRenderer.ts` with viewport-based grid and adaptive step size
+- **2026-01-12**: Fixed zoom calculations with proper world coordinate conversions
 
-*Last updated: 2026-01-11*
+*Last updated: 2026-01-12*

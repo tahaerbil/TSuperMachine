@@ -22,7 +22,6 @@ public:
     unsigned int addRectangle(double x1, double y1, double x2, double y2);
     unsigned int addArc(double cx, double cy, double radius, double startAngle, double endAngle);
     unsigned int addRegularPolygon(double cx, double cy, int sides, double radius);
-    unsigned int addRegularPolygon(double cx, double cy, int sides, double radius);
     unsigned int addEllipse(double cx, double cy, double majorRadius, double minorRadius, double rotation);
     unsigned int addPoint(double x, double y);
     unsigned int addSpline(const std::vector<Point>& points);
@@ -58,11 +57,10 @@ public:
     void selectByCrossing(double x1, double y1, double x2, double y2);
     void rotateSelected(double cx, double cy, double angle);
     void scaleSelected(double cx, double cy, double factor);
-    void scaleSelected(double cx, double cy, double factor);
     void mirrorSelected(double x1, double y1, double x2, double y2);
     void explodeSelected();
-    void trimEntity(double x, double y); // Trim the entity at this location
-    void extendEntity(double x, double y); // Extend the entity at this location
+    void trimEntity(double x, double y, double threshold); // Trim the entity at this location with tolerance
+    void extendEntity(double x, double y, double threshold); // Extend the entity at this location with tolerance
     unsigned int offsetEntity(unsigned int id, double distance, double clickX, double clickY);
     
     // Spatial Queries

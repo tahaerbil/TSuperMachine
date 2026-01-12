@@ -200,6 +200,22 @@ export const useCADCommand = ({ onEngineUpdate, scale, onCommandCompleted }: Use
                     setCommandState({ type: 'ERASE' });
                     setCurrentPrompt("Select objects to erase, then press Enter");
                     break;
+                case 'TRIM':
+                    setCommandState({ type: 'TRIM' });
+                    setCurrentPrompt("Select object to trim (click on segment to remove):");
+                    break;
+                case 'EXTEND':
+                    setCommandState({ type: 'EXTEND' });
+                    setCurrentPrompt("Select object to extend (click on end to extend):");
+                    break;
+                case 'SCALE':
+                    setCommandState({ type: 'SCALE', step: 'BASE' });
+                    setCurrentPrompt("Specify base point:");
+                    break;
+                case 'MIRROR':
+                    setCommandState({ type: 'MIRROR', step: 'P1' });
+                    setCurrentPrompt("Specify first point of mirror line:");
+                    break;
             }
         } else if (action.type === 'ENTER_POINT' && action.point) {
             // Handle relative coordinates
@@ -415,6 +431,13 @@ export const useCADCommand = ({ onEngineUpdate, scale, onCommandCompleted }: Use
             setPreviewState(prev => ({
                 ...prev,
                 rotate: { cx: state.basePoint.x, cy: state.basePoint.y, angle }
+            }));
+        }
+        // MIRROR Preview (axis line)
+        else if (state.type === 'MIRROR' && state.step === 'P2') {
+            setPreviewState(prev => ({
+                ...prev,
+                mirrorAxis: { x1: state.p1.x, y1: state.p1.y, x2: effX, y2: effY }
             }));
         }
         // SELECTION BOX Preview

@@ -145,6 +145,51 @@ export const useCADEditing = ({
             }
         }
 
+        if (state.type === 'TRIM') {
+            cadEngine.trimEntity(x, y, 10 / scale);
+            onEngineUpdate();
+            setCommandHistory(prev => [...prev, "Trimmed."]);
+            // Stay in TRIM mode for continuous trimming
+            return true;
+        }
+
+        // EXTEND Command
+        if (state.type === 'EXTEND') {
+            cadEngine.extendEntity(x, y, 10 / scale);
+            onEngineUpdate();
+            setCommandHistory(prev => [...prev, "Extended."]);
+            // Stay in EXTEND mode for continuous extending
+            return true;
+        }
+
+        // SCALE Command
+        if (state.type === 'SCALE') {
+            if (state.step === 'BASE') {
+                setCommandState({ type: 'SCALE', step: 'FACTOR', basePoint: { x, y } });
+                setCurrentPrompt("Specify scale factor:");
+                return true;
+            }
+        }
+
+        // MIRROR Command
+        if (state.type === 'MIRROR') {
+            if (state.step === 'P1') {
+                setCommandState({ type: 'MIRROR', step: 'P2', p1: { x, y } });
+                setCurrentPrompt("Specify second point of mirror line:");
+                return true;
+            } else if (state.step === 'P2') {
+                cadEngine.mirrorSelected(state.p1.x, state.p1.y, x, y);
+                cadEngine.deselectAll();
+                onEngineUpdate();
+                setCommandState({ type: 'IDLE' });
+                clearPreviews();
+                setCurrentPrompt("Command:");
+                setCommandHistory(prev => [...prev, "Entities mirrored."]);
+                onCommandCompleted?.('MIRROR');
+                return true;
+            }
+        }
+
         return false;
     }, [onEngineUpdate, onCommandCompleted, setCommandState, setCurrentPrompt, setCommandHistory, clearPreviews, scale]);
 
@@ -184,6 +229,25 @@ export const useCADEditing = ({
                 return true;
             } else {
                 setCommandHistory(prev => [...prev, "Invalid distance."]);
+                return true;
+            }
+        }
+
+        // SCALE Factor
+        if (state.type === 'SCALE' && state.step === 'FACTOR') {
+            const factor = parseFloat(val);
+            if (!isNaN(factor) && factor > 0) {
+                cadEngine.scaleSelected(state.basePoint.x, state.basePoint.y, factor);
+                cadEngine.deselectAll();
+                onEngineUpdate();
+                setCommandState({ type: 'IDLE' });
+                clearPreviews();
+                setCurrentPrompt("Command:");
+                setCommandHistory(prev => [...prev, `Scaled by factor ${factor}`]);
+                onCommandCompleted?.('SCALE');
+                return true;
+            } else {
+                setCommandHistory(prev => [...prev, "Invalid scale factor."]);
                 return true;
             }
         }

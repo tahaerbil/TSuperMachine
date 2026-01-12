@@ -45,7 +45,13 @@ export type CommandState =
     | { type: 'OFFSET', step: 'DISTANCE' }
     | { type: 'OFFSET', step: 'SELECT', distance: number }
     | { type: 'OFFSET', step: 'SIDE', distance: number, entityId: number }
-    | { type: 'ERASE' };
+    | { type: 'ERASE' }
+    | { type: 'TRIM' }
+    | { type: 'EXTEND' }
+    | { type: 'SCALE', step: 'BASE' }
+    | { type: 'SCALE', step: 'FACTOR', basePoint: { x: number, y: number } }
+    | { type: 'MIRROR', step: 'P1' }
+    | { type: 'MIRROR', step: 'P2', p1: { x: number, y: number } };
 
 export interface PreviewState {
     line: { x1: number, y1: number, x2: number, y2: number } | null;
@@ -57,4 +63,5 @@ export interface PreviewState {
     copy: { dx: number, dy: number } | null;
     rotate: { cx: number, cy: number, angle: number } | null;
     selectionBox: { start: { x: number, y: number }, end: { x: number, y: number }, type: 'window' | 'crossing' } | null;
+    mirrorAxis: { x1: number, y1: number, x2: number, y2: number } | null;
 }

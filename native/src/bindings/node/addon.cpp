@@ -351,6 +351,67 @@ Napi::Value OffsetEntity(const Napi::CallbackInfo& info) {
     return Napi::Number::New(env, newId);
 }
 
+Napi::Value TrimEntity(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    
+    if (!g_engine || info.Length() < 3) {
+        return env.Undefined();
+    }
+    
+    double x = info[0].As<Napi::Number>().DoubleValue();
+    double y = info[1].As<Napi::Number>().DoubleValue();
+    double threshold = info[2].As<Napi::Number>().DoubleValue();
+    g_engine->trimEntity(x, y, threshold);
+    
+    return env.Undefined();
+}
+
+Napi::Value ExtendEntity(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    
+    if (!g_engine || info.Length() < 3) {
+        return env.Undefined();
+    }
+    
+    double x = info[0].As<Napi::Number>().DoubleValue();
+    double y = info[1].As<Napi::Number>().DoubleValue();
+    double threshold = info[2].As<Napi::Number>().DoubleValue();
+    g_engine->extendEntity(x, y, threshold);
+    
+    return env.Undefined();
+}
+
+Napi::Value ScaleSelected(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    
+    if (!g_engine || info.Length() < 3) {
+        return env.Undefined();
+    }
+    
+    double cx = info[0].As<Napi::Number>().DoubleValue();
+    double cy = info[1].As<Napi::Number>().DoubleValue();
+    double factor = info[2].As<Napi::Number>().DoubleValue();
+    g_engine->scaleSelected(cx, cy, factor);
+    
+    return env.Undefined();
+}
+
+Napi::Value MirrorSelected(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    
+    if (!g_engine || info.Length() < 4) {
+        return env.Undefined();
+    }
+    
+    double x1 = info[0].As<Napi::Number>().DoubleValue();
+    double y1 = info[1].As<Napi::Number>().DoubleValue();
+    double x2 = info[2].As<Napi::Number>().DoubleValue();
+    double y2 = info[3].As<Napi::Number>().DoubleValue();
+    g_engine->mirrorSelected(x1, y1, x2, y2);
+    
+    return env.Undefined();
+}
+
 // ============================================================================
 // Snapping
 // ============================================================================
@@ -478,6 +539,10 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("selectByCrossing", Napi::Function::New(env, SelectByCrossing));
     exports.Set("rotateSelected", Napi::Function::New(env, RotateSelected));
     exports.Set("offsetEntity", Napi::Function::New(env, OffsetEntity));
+    exports.Set("trimEntity", Napi::Function::New(env, TrimEntity));
+    exports.Set("extendEntity", Napi::Function::New(env, ExtendEntity));
+    exports.Set("scaleSelected", Napi::Function::New(env, ScaleSelected));
+    exports.Set("mirrorSelected", Napi::Function::New(env, MirrorSelected));
     
     // Snapping
     exports.Set("findClosestSnapPoint", Napi::Function::New(env, FindClosestSnapPoint));

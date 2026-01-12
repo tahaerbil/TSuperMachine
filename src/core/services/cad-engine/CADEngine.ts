@@ -321,6 +321,42 @@ export class CADEngine {
         return this.wasmEngine!.offsetEntity(id, distance, clickX, clickY);
     }
 
+    trimEntity(x: number, y: number, threshold: number): void {
+        if (!this.isReady) throw new Error('Engine not initialized');
+        if (this.engineType === 'native') {
+            window.nativeCAD!.trimEntity(x, y, threshold);
+        } else {
+            console.warn('Trim not supported in WASM mode yet');
+        }
+    }
+
+    extendEntity(x: number, y: number, threshold: number): void {
+        if (!this.isReady) throw new Error('Engine not initialized');
+        if (this.engineType === 'native') {
+            window.nativeCAD!.extendEntity(x, y, threshold);
+        } else {
+            console.warn('Extend not supported in WASM mode yet');
+        }
+    }
+
+    scaleSelected(cx: number, cy: number, factor: number): void {
+        if (!this.isReady) throw new Error('Engine not initialized');
+        if (this.engineType === 'native') {
+            window.nativeCAD!.scaleSelected(cx, cy, factor);
+        } else {
+            console.warn('Scale not supported in WASM mode yet');
+        }
+    }
+
+    mirrorSelected(x1: number, y1: number, x2: number, y2: number): void {
+        if (!this.isReady) throw new Error('Engine not initialized');
+        if (this.engineType === 'native') {
+            window.nativeCAD!.mirrorSelected(x1, y1, x2, y2);
+        } else {
+            console.warn('Mirror not supported in WASM mode yet');
+        }
+    }
+
     exportDatabase(): string {
         if (!this.isReady) throw new Error('Engine not initialized');
         if (this.engineType === 'native') {
