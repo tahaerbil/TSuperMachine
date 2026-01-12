@@ -114,7 +114,9 @@ cad-2d/hooks/
 ├── useCADDrawing.ts   ← Drawing operations
 ├── useCADEditing.ts   ← Editing operations
 ├── useCADSelection.ts ← Selection logic
-└── useCADPreview.ts   ← Preview state management
+├── useCADPreview.ts   ← Preview state management
+└── ../utils/
+    └── GeometryHelpers.ts ← Pure geometry math (Chamfer, Fillet, etc.)
 ```
 
 **Principle:** Single Responsibility - each hook handles one concern.
@@ -289,33 +291,7 @@ Project folder structure:
 └── 📁 images/
 ```
 
----
 
-## Migration History
-
-- **2025-12-28**: Consolidated all widgets from `components/widgets/` to `features/`
-- **2025-12-28**: Refactored `useCADCommand.ts` into modular hooks
-- **2026-01-03**: Added `automations` feature for cross-widget workflows
-- **2026-01-04**: Refactored PDF viewer into modular hooks and components
-- **2026-01-04**: Refactored Canvas.tsx into modular hooks (722 → 282 lines)
-- **2026-01-04**: Created centralized WidgetRenderer and widget hooks
-- **2026-01-04**: Refactored AlignmentToolbar.tsx (batch updates, React.memo, useMemo)
-- **2026-01-04**: Refactored Toolbar.tsx (memoized components, useCallback, extracted config)
-- **2026-01-04**: Implemented "Dormant" vs "Edit" mode interaction model
-- **2026-01-04**: Refined Parent-Child widget grouping and recursive dragging
-- **2026-01-04**: Enhanced PDF Viewer with compact mode scaling fixes
-- **2026-01-04**: Improved Widget Loading state and error boundaries
-- **2026-01-06**: Added AI Assistant widget with embedded Qwen2.5-3B support
-- **2026-01-06**: Added Data Vault widget for project file management
-- **2026-01-06**: Added RAG system with knowledge indexing and search
-- **2026-01-06**: Added AI Settings tab with provider management
-- **2026-01-07**: **Major Refactor** - Project system refactored to Store-Service-UI pattern
-- **2026-01-07**: Created `projectStore.ts` (Zustand) for centralized project state
-- **2026-01-07**: Created `projectService.ts` (pure functions) for file operations
-- **2026-01-07**: Removed old hooks (`useProjectSystem.ts`, `useAutoSave.ts`)
-- **2026-01-07**: Implemented folder-first save system (default: folder, export: .tsm)
-
----
 
 ## Widget Interaction Architecture
 
@@ -403,5 +379,7 @@ This ensures the transition property is applied BEFORE the transform changes.
 - **2026-01-12**: Implemented CSS Transform Compensation for accurate mouse coordinates in focus mode
 - **2026-01-12**: Refactored `CanvasRenderer.ts` with viewport-based grid and adaptive step size
 - **2026-01-12**: Fixed zoom calculations with proper world coordinate conversions
+- **2026-01-12**: Refactored Native Engine (extracted `io/JSONSerializer`, `io/DXFExporter`)
+- **2026-01-12**: Refactored Frontend CAD (extracted `utils/GeometryHelpers.ts`)
 
 *Last updated: 2026-01-12*

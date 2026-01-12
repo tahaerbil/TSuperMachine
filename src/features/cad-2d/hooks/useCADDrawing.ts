@@ -19,6 +19,8 @@ interface UseCADDrawingProps {
     clearPreviews: () => void;
 }
 
+import { calculateChamferedRectangle, calculateFilletedRectangle, calculateCircumcircle, calculateRectangleFromArea } from '../utils/GeometryHelpers';
+
 export const useCADDrawing = ({
     onEngineUpdate,
     onCommandCompleted,
@@ -35,48 +37,26 @@ export const useCADDrawing = ({
      */
     // Helper to draw rectangle with options (Fillet/Chamfer)
     const drawRectangle = useCallback((p1: { x: number, y: number }, p2: { x: number, y: number }, options?: { fillet?: number, chamfer?: number }) => {
-        const xMin = Math.min(p1.x, p2.x);
-        const xMax = Math.max(p1.x, p2.x);
-        const yMin = Math.min(p1.y, p2.y);
-        const yMax = Math.max(p1.y, p2.y);
-        const w = xMax - xMin;
-        const h = yMax - yMin;
-
         if (options?.chamfer && options.chamfer > 0) {
-            const d = Math.min(options.chamfer, w / 2, h / 2);
-            // 8 points for chamfered rectangle
-            const points = [
-                { x: xMin + d, y: yMin },
-                { x: xMax - d, y: yMin },
-                { x: xMax, y: yMin + d },
-                { x: xMax, y: yMax - d },
-                { x: xMax - d, y: yMax },
-                { x: xMin + d, y: yMax },
-                { x: xMin, y: yMax - d },
-                { x: xMin, y: yMin + d }
-            ];
+            const points = calculateChamferedRectangle(p1, p2, options.chamfer);
             cadEngine.addPolyline(points, true);
         } else if (options?.fillet && options.fillet > 0) {
-            const r = Math.min(options.fillet, w / 2, h / 2);
-            // Draw 4 lines and 4 arcs
-            // Top
-            cadEngine.addLine(xMin + r, yMin, xMax - r, yMin);
-            // Top-Right Arc (Start -PI/2, End 0)
-            cadEngine.addArc(xMax - r, yMin + r, r, -Math.PI / 2, 0);
-            // Right
-            cadEngine.addLine(xMax, yMin + r, xMax, yMax - r);
-            // Bottom-Right Arc (Start 0, End PI/2)
-            cadEngine.addArc(xMax - r, yMax - r, r, 0, Math.PI / 2);
-            // Bottom
-            cadEngine.addLine(xMax - r, yMax, xMin + r, yMax);
-            // Bottom-Left Arc (Start PI/2, End PI)
-            cadEngine.addArc(xMin + r, yMax - r, r, Math.PI / 2, Math.PI);
-            // Left
-            cadEngine.addLine(xMin, yMax - r, xMin, yMin + r);
-            // Top-Left Arc (Start PI, End 3PI/2)
-            cadEngine.addArc(xMin + r, yMin + r, r, Math.PI, 3 * Math.PI / 2);
+            const f = calculateFilletedRectangle(p1, p2, options.fillet);
+
+            // Draw 4 lines and 4 arcs based on helper output
+            cadEngine.addLine(f.topLine.x1, f.topLine.y1, f.topLine.x2, f.topLine.y2);
+            cadEngine.addArc(f.topRightArc.cx, f.topRightArc.cy, f.topRightArc.r, f.topRightArc.start, f.topRightArc.end);
+
+            cadEngine.addLine(f.rightLine.x1, f.rightLine.y1, f.rightLine.x2, f.rightLine.y2);
+            cadEngine.addArc(f.bottomRightArc.cx, f.bottomRightArc.cy, f.bottomRightArc.r, f.bottomRightArc.start, f.bottomRightArc.end);
+
+            cadEngine.addLine(f.bottomLine.x1, f.bottomLine.y1, f.bottomLine.x2, f.bottomLine.y2); // Fixed order if needed
+            cadEngine.addArc(f.bottomLeftArc.cx, f.bottomLeftArc.cy, f.bottomLeftArc.r, f.bottomLeftArc.start, f.bottomLeftArc.end);
+
+            cadEngine.addLine(f.leftLine.x1, f.leftLine.y1, f.leftLine.x2, f.leftLine.y2);
+            cadEngine.addArc(f.topLeftArc.cx, f.topLeftArc.cy, f.topLeftArc.r, f.topLeftArc.start, f.topLeftArc.end);
         } else {
-            cadEngine.addRectangle(xMin, yMin, xMax, yMax);
+            cadEngine.addRectangle(p1.x, p1.y, p2.x, p2.y); // Use raw coords, engine handles order
         }
     }, []);
 
@@ -197,14 +177,9 @@ export const useCADDrawing = ({
 
             // Mode: 3P - Third point (calculate circumcircle)
             if (state.step === '3P_THIRD') {
-                // Calculate circumcircle of three points
-                const ax = state.p1.x, ay = state.p1.y;
-                const bx = state.p2.x, by = state.p2.y;
-                const cx = x, cy = y;
+                const result = calculateCircumcircle(state.p1, state.p2, { x, y });
 
-                const d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
-
-                if (Math.abs(d) < 0.0001) {
+                if (!result) {
                     // Points are collinear, can't form a circle
                     setCommandHistory(prev => [...prev, "Error: Points are collinear, cannot form a circle."]);
                     setCommandState({ type: 'IDLE' });
@@ -213,20 +188,12 @@ export const useCADDrawing = ({
                     return true;
                 }
 
-                const ax2ay2 = ax * ax + ay * ay;
-                const bx2by2 = bx * bx + by * by;
-                const cx2cy2 = cx * cx + cy * cy;
-
-                const centerX = (ax2ay2 * (by - cy) + bx2by2 * (cy - ay) + cx2cy2 * (ay - by)) / d;
-                const centerY = (ax2ay2 * (cx - bx) + bx2by2 * (ax - cx) + cx2cy2 * (bx - ax)) / d;
-                const radius = Math.sqrt((ax - centerX) ** 2 + (ay - centerY) ** 2);
-
-                cadEngine.addCircle(centerX, centerY, radius);
+                cadEngine.addCircle(result.center.x, result.center.y, result.radius);
                 onEngineUpdate();
                 setCommandState({ type: 'IDLE' });
                 clearPreviews();
                 setCurrentPrompt("Command:");
-                setCommandHistory(prev => [...prev, `Circle created (3P, radius: ${radius.toFixed(2)})`]);
+                setCommandHistory(prev => [...prev, `Circle created (3P, radius: ${result.radius.toFixed(2)})`]);
                 onCommandCompleted?.('CIRCLE');
                 return true;
             }
@@ -465,12 +432,9 @@ export const useCADDrawing = ({
             if (state.step === 'AREA_LENGTH_INPUT') {
                 const dim = parseFloat(val);
                 if (!isNaN(dim) && dim > 0) {
-                    const otherDim = state.area / dim;
-                    const length = state.calculateFor === 'length' ? dim : otherDim;
-                    const width = state.calculateFor === 'width' ? dim : otherDim;
+                    const p2 = calculateRectangleFromArea(state.p1, state.area, dim, state.calculateFor || 'length');
 
-                    // Draw in positive quadrant relative to p1
-                    drawRectangle(state.p1, { x: state.p1.x + length, y: state.p1.y + width }, state.options);
+                    drawRectangle(state.p1, p2, state.options);
                     onEngineUpdate();
                     setCommandState({ type: 'IDLE' });
                     clearPreviews();

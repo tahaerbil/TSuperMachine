@@ -43,7 +43,7 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 
 ---
 
-### POLYLINE (PL)0
+### POLYLINE (PL)
 **Açıklama:** Çoklu çizgi çizer.
 
 | Parametre | Durum | Açıklama |
@@ -103,36 +103,36 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 
 ---
 
-### ELLIPSE (EL)
-**Açıklama:** Elips çizer.
+### ELLIPSE (EL) ❌
+**Açıklama:** Elips çizer. **HENÜZ İMPLEMENTE EDİLMEDİ**
 
 | Parametre | Durum | Açıklama |
 |-----------|-------|----------|
-| Merkez | ✅ | Tıklama veya koordinat |
-| Major Radius | ✅ | Ana eksen yarıçapı (aks uç noktası) |
-| Minor Radius | ✅ | Yan eksen yarıçapı |
-| Rotation | ✅ | Döndürme açısı |
-| Arc | ❌ | Eliptik yay |
+| Merkez | ❌ | - |
+| Major Radius | ❌ | - |
+| Minor Radius | ❌ | - |
+| Rotation | ❌ | - |
+| Arc | ❌ | - |
 
 ---
 
-### SPLINE (SPL)
-**Açıklama:** Spline eğrisi çizer.
+### SPLINE (SPL) ❌
+**Açıklama:** Spline eğrisi çizer. **HENÜZ İMPLEMENTE EDİLMEDİ**
 
 | Parametre | Durum | Açıklama |
 |-----------|-------|----------|
-| Kontrol noktaları | ✅ | Tıklama ile eklenen noktalar |
-| Fit noktaları | ❌ | Fit algoritması |
-| Tolerance | 🔶 | Basit tolerans |
+| Kontrol noktaları | ❌ | - |
+| Fit noktaları | ❌ | - |
+| Tolerance | ❌ | - |
 
 ---
 
-### POINT (PO)
-**Açıklama:** Nokta çizer.
+### POINT (PO) ❌
+**Açıklama:** Nokta çizer. **HENÜZ İMPLEMENTE EDİLMEDİ**
 
 | Parametre | Durum | Açıklama |
 |-----------|-------|----------|
-| Konum | ✅ | Tıklama veya koordinat |
+| Konum | ❌ | - |
 
 ---
 
@@ -180,7 +180,7 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 
 ---
 
-### UI_OFFSET (O)
+### OFFSET (O)
 **Açıklama:** Paralel kopya oluşturur.
 
 | Parametre | Durum | Açıklama |
@@ -222,18 +222,6 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 
 ---
 
-### SCALE (SC)
-**Açıklama:** Seçili nesneleri ölçeklendirir.
-
-| Parametre | Durum | Açıklama |
-|-----------|-------|----------|
-| Baz nokta | ✅ | Ölçeklendirme merkezi |
-| Ölçek faktörü | ✅ | Büyütme/küçültme oranı |
-| Copy | ❌ | Orijinali koru |
-| Reference | ❌ | Referans uzunluk ile |
-
----
-
 ### MIRROR (MI)
 **Açıklama:** Seçili nesneleri yansıtır.
 
@@ -245,7 +233,7 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 
 ---
 
-### EXPLODE (X)
+### EXPLODE (X) ❌
 **Açıklama:** Nesneyi parçalara ayırma.
 
 | Parametre | Durum | Açıklama |
@@ -291,20 +279,44 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 ### FILLET (F) ❌
 **Açıklama:** Köşe yuvarlatma. **HENÜZ İMPLEMENTE EDİLMEDİ**
 
+| Parametre | Durum | Açıklama |
+|-----------|-------|----------|
+| Rectangular | ❌ | Dikdörtgensel dizi |
+| Polar | ❌ | Dairesel dizi |
+| Path | ❌ | Yol boyunca dizi |
+
 ---
 
 ### CHAMFER (CHA) ❌
 **Açıklama:** Köşe pahı. **HENÜZ İMPLEMENTE EDİLMEDİ**
+
+| Parametre | Durum | Açıklama |
+|-----------|-------|----------|
+| Rectangular | ❌ | Dikdörtgensel dizi |
+| Polar | ❌ | Dairesel dizi |
+| Path | ❌ | Yol boyunca dizi |
 
 ---
 
 ### BREAK (BR) ❌
 **Açıklama:** Nesneyi kırma. **HENÜZ İMPLEMENTE EDİLMEDİ**
 
+| Parametre | Durum | Açıklama |
+|-----------|-------|----------|
+| Rectangular | ❌ | Dikdörtgensel dizi |
+| Polar | ❌ | Dairesel dizi |
+| Path | ❌ | Yol boyunca dizi |
+
 ---
 
 ### JOIN (J) ❌
 **Açıklama:** Nesneleri birleştirme. **HENÜZ İMPLEMENTE EDİLMEDİ**
+
+| Parametre | Durum | Açıklama |
+|-----------|-------|----------|
+| Rectangular | ❌ | Dikdörtgensel dizi |
+| Polar | ❌ | Dairesel dizi |
+| Path | ❌ | Yol boyunca dizi |
 
 ---
 
@@ -449,8 +461,8 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 
 | Kategori | Toplam | Tamamlandı | Kısmi | Eksik |
 |----------|--------|------------|-------|-------|
-| Çizim Komutları | 10 | 9 | 0 | 1 |
-| Düzenleme Komutları | 14 | 9 | 1 | 4 |
+| Çizim Komutları | 10 | 6 | 0 | 4 |
+| Düzenleme Komutları | 15 | 8 | 1 | 6 |
 | Seçim Özellikleri | 8 | 4 | 0 | 4 |
 | Snap Türleri | 11 | 7 | 0 | 4 |
 | Ölçü Komutları | 8 | 0 | 0 | 8 |
@@ -460,14 +472,14 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 | Klavye Kısayolları | 14 | 9 | 1 | 4 |
 | Dosya İşlemleri | 5 | 1 | 1 | 3 |
 
-**Genel İlerleme:** ~50% tamamlandı
+**Genel İlerleme:** ~45% tamamlandı
 
 ---
 
 ## 🎯 Öncelikli Geliştirme Önerileri
 
 ### Yüksek Öncelik
-1. **EXTEND** - Trim'in tamamlayıcısı
+1. **EXTEND** - Trim'in tamamlayıcısı (Tamamlandı)
 2. **ARRAY** - Kopyalama işlemleri için
 3. **TEXT** - Not alma özelliği
 4. **HATCH** - Görsel sunum için
@@ -483,4 +495,21 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 
 ---
 
-*Son güncelleme: 2026-01-10*
+## 🏗️ Mimari ve Dosya Yapısı (Architecture)
+
+Refactoring sonrası komutların bulunduğu dosyalar ve engine desteği:
+
+| Kategori | Komutlar | Widget Hook (UI Mantığı) | Engine Desteği |
+|---|---|---|---|
+| **Çizim** | LINE, CIRCLE, PL, REC, ARC, POL | `src/features/cad-2d/hooks/useCADDrawing.ts` | ✅ Native + WASM |
+| **Düzenleme (Temel)** | MOVE, COPY, ROTATE, OFFSET, ERASE | `src/features/cad-2d/hooks/useCADEditing.ts` | ✅ Native + WASM |
+| **Düzenleme (İleri)** | TRIM, EXTEND, SCALE, MIRROR | `src/features/cad-2d/hooks/useCADEditing.ts` | ⚠️ Sadece Native (Electron) |
+| **Seçim** | Click, Window, Crossing | `src/features/cad-2d/hooks/useCADSelection.ts` | ✅ Native + WASM |
+| **Orchestrator** | (Tüm Komut Yönetimi) | `src/features/cad-2d/hooks/useCADCommand.ts` | - |
+| **Parser** | (Komut Ayrıştırma) | `src/features/cad-2d/CommandParser.ts` | - |
+| **Core Engine** | (Tüm Geometrik İşlemler) | `src/core/services/cad-engine/CADEngine.ts` | Native (C++) / WASM (C++) |
+| **Logic Utilities** | (Saf Matematik/Geometri) | `src/features/cad-2d/utils/GeometryHelpers.ts` | - |
+
+---
+
+*Son güncelleme: 2026-01-12*

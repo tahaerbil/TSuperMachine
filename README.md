@@ -126,17 +126,7 @@ TSuperMachine includes an embedded AI assistant powered by **Qwen2.5-3B**. To us
 
 **Fallback:** If no model is found, the system defaults to "T-Brain Mini" (Rule-based simple assistant).
 
-### Desktop App (Tauri)
 
-```bash
-# Prerequisites: Rust installed (https://rustup.rs)
-
-# Run desktop app in development mode
-npm run tauri:dev
-
-# Build desktop app for production
-npm run tauri:build
-```
 
 ## 🎮 Usage
 
@@ -291,7 +281,12 @@ tsupermachinev2/
 │   │   │   ├── Geometry.h          # Entity classes
 │   │   │   ├── Database.h          # Entity storage
 │   │   │   ├── Engine.h            # Engine API
-│   │   │   └── Engine.cpp          # Engine implementation
+│   │   │   ├── Engine.cpp          # Engine implementation
+│   │   │   └── io/                 # Input/Output Modules
+│   │   │       ├── DXFExporter.h   # DXF Export Logic
+│   │   │       ├── DXFExporter.cpp
+│   │   │       ├── JSONSerializer.h # JSON Serialization
+│   │   │       └── JSONSerializer.cpp
 │   │   └── bindings/
 │   │       └── node/
 │   │           └── addon.cpp       # N-API bindings

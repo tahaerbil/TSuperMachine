@@ -13,7 +13,12 @@ native/
 │   │   ├── Geometry.h      # Entity classes (Line, Circle, Arc, etc.)
 │   │   ├── Database.h      # Entity storage
 │   │   ├── Engine.h        # Engine API
-│   │   └── Engine.cpp      # Engine implementation
+│   │   ├── Engine.cpp      # Engine implementation
+│   │   └── io/             # I/O Modules
+│   │       ├── DXFExporter.h
+│   │       ├── DXFExporter.cpp
+│   │       ├── JSONSerializer.h
+│   │       └── JSONSerializer.cpp
 │   │
 │   └── bindings/
 │       └── node/           # Node.js Native Addon

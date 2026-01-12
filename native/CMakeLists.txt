@@ -17,6 +17,8 @@ include_directories(${CMAKE_SOURCE_DIR}/src)
 # ============================================================================
 add_library(cad2d_core STATIC
     src/cad2d/Engine.cpp
+    src/cad2d/io/JSONSerializer.cpp
+    src/cad2d/io/DXFExporter.cpp
 )
 
 target_include_directories(cad2d_core PUBLIC
