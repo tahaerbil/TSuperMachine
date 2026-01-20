@@ -2,8 +2,10 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { cadEngine, SnapType } from '../../core/services/cad-engine/CADEngine';
 import { WasmCanvas } from './components/WasmCanvas';
 import { CommandLine, type CommandLineRef } from './components/CommandLine';
+import { CADTabsBar } from './components/CADTabsBar';
 import { useCADCommand } from './hooks/useCADCommand';
-import { getOutgoingConnections } from '../../store/store';
+import { useCADTabs } from './hooks/useCADTabs';
+import { getOutgoingConnections, useStore } from '../../store/store';
 import { eventBus } from '../../core/services/automation';
 import type { AutomationEvent, TriggerEvent } from '../../core/services/automation';
 
@@ -21,9 +23,43 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => 
     const [isEngineReady, setIsEngineReady] = useState(false);
 
 
+    // Get app mode early for Logic
+    const appMode = useStore(state => state.appMode);
 
     // Command Logic Hook
     const forceUpdate = useCallback(() => setEngineVersion(v => v + 1), []);
+
+    // Tabs Logic
+    const setAppModeAction = useStore(state => state.setAppMode);
+    const widgets = useStore(state => state.widgets);
+    const updateWidget = useStore(state => state.updateWidget);
+    const removeWidget = useStore(state => state.removeWidget);
+
+    // Determine context for Exit logic
+    const handleExit = useCallback(() => {
+        // If we are in Standalone/Single Widget mode, go back to Intro
+        if (appMode === 'cad-standalone' || appMode === 'single-widget') {
+            setAppModeAction('intro');
+            return;
+        }
+
+        // If we are in Workspace mode
+        if (appMode === 'workspace') {
+            const widget = widgets.find(w => w.id === id);
+            if (widget?.isMaximized) {
+                // If maximized, just un-maximize (return to canvas view)
+                updateWidget(id, { isMaximized: false });
+            } else {
+                removeWidget(id);
+            }
+        }
+    }, [appMode, id, widgets, setAppModeAction, updateWidget, removeWidget]);
+
+    const { tabs, activeTabId, addTab, closeTab, switchToTab, reorderTabs } = useCADTabs({
+        onEngineUpdate: forceUpdate,
+        onExit: handleExit
+    });
+
     const commandLineRef = useRef<CommandLineRef>(null);
 
     // Emit automation event to connected widgets
@@ -324,12 +360,14 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => 
     }, [handleDeleteCommand, handleSaveDXF, cancel, commandState.type, isEngineReady, forceUpdate, setCommandHistory]);
 
 
+    // Get app mode to decide whether to show tabs
+    // Note: appMode is already defined at top of component
+    const showTabs = appMode === 'cad-standalone' || appMode === 'single-widget' || (appMode === 'workspace' && isMaximized);
+
     return (
         <div
-            ref={containerRef}
             className="w-full h-full relative overflow-hidden cursor-crosshair"
             style={{ backgroundColor: '#1e1e1e' }}
-            onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={() => { isPanning.current = false; }}
@@ -342,7 +380,27 @@ export const CAD2DWidget: React.FC<CAD2DWidgetProps> = ({ id, isMaximized }) => 
                 }
             }}
         >
-            <div className="absolute inset-0">
+            {/* Tabs Bar - Only visible in maximized/standalone mode for now, or always? 
+                Let's show it always as it's a core feature of this widget now. 
+            */}
+            {showTabs && (
+                <div className="absolute top-0 left-0 right-0 z-50">
+                    <CADTabsBar
+                        tabs={tabs}
+                        activeTabId={activeTabId}
+                        onAdd={addTab}
+                        onClose={closeTab}
+                        onSwitch={switchToTab}
+                        onReorder={reorderTabs}
+                    />
+                </div>
+            )}
+
+            <div
+                ref={containerRef}
+                className={`absolute inset-0 ${showTabs ? 'top-10' : 'top-0'}`}
+                onMouseDown={handleMouseDown}
+            >
                 {!isEngineReady && (
                     <div className="absolute inset-0 flex items-center justify-center text-gray-400">
                         Initializing C++ Engine...

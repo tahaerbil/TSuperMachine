@@ -442,6 +442,19 @@ Bu dosya TSuperMachine 2D CAD modülündeki tüm komutları, parametrelerini ve 
 | Ctrl+V | 🔶 | Yapıştır (Henüz tam değil) |
 | Ctrl+S | ✅ | Kaydet (DXF Export) |
 | F1-F12 | ❌ | Fonksiyon tuşları |
+| Ctrl+T | ✅ | Yeni Çizim Sekmesi Aç |
+| Ctrl+W | ✅ | Aktif Sekmeyi Kapat |
+
+---
+
+## 📑 Sekme Yönetimi
+
+| Özellik | Durum | Açıklama |
+|---------|-------|----------|
+| Multi-Tab | ✅ | Birden fazla çizim dosyası ile aynı anda çalışma |
+| Drag & Drop | ✅ | Sürükle bırak ile sekme sırasını değiştirme |
+| Dirty State | ✅ | Kaydedilmemiş değişiklikleri (*) ile gösterme |
+| Smart Close | ✅ | Son sekmeyi kapatınca ana menüye dönme (Desktop mode için) |
 
 ---
 

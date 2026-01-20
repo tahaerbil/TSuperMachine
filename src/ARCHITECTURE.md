@@ -344,6 +344,29 @@ Focus transitions use a two-phase approach for smooth CSS transitions:
 This ensures the transition property is applied BEFORE the transform changes.
 
 
+## App Modes & Layouts
+
+TSuperMachine now supports multiple application modes managed by the `IntroPortal`:
+
+### 1. Hub / Launcher Mode (Default)
+- Entry point for the application (`src/components/layout/IntroPortal.tsx`)
+- Allows user to choose between:
+  - **Open Project**: Full workspace with project management
+  - **Single Tool**: Quick access to a specific widget (e.g., Calculator, 2D CAD)
+  - **Recent Projects**: Quick resume
+
+### 2. Full Workspace Mode
+- The standard infinite canvas experience (`src/components/layout/WorkspaceLayout.tsx`)
+- Contains all widgets, toolbar, and project management features.
+
+### 3. Single Widget Mode (Standalone)
+- Distraction-free mode for a specific tool (`src/components/layout/SingleWidgetLayout.tsx`)
+- **Features**:
+  - Simplified UI (No main toolbar)
+  - Widget is automatically maximized or centered
+  - specialized "Back to Hub" navigation
+  - ideal for quick tasks (Calculations, quick sketch)
+
 ---
 
 ## Migration History
@@ -378,8 +401,13 @@ This ensures the transition property is applied BEFORE the transform changes.
 - **2026-01-12**: Added `devicePixelRatio` support to `WasmCanvas.tsx` for high-DPI displays
 - **2026-01-12**: Implemented CSS Transform Compensation for accurate mouse coordinates in focus mode
 - **2026-01-12**: Refactored `CanvasRenderer.ts` with viewport-based grid and adaptive step size
-- **2026-01-12**: Fixed zoom calculations with proper world coordinate conversions
+- **2026-01-12**: Refactored `CanvasRenderer.ts` with viewport-based grid and adaptive step size
 - **2026-01-12**: Refactored Native Engine (extracted `io/JSONSerializer`, `io/DXFExporter`)
 - **2026-01-12**: Refactored Frontend CAD (extracted `utils/GeometryHelpers.ts`)
+- **2026-01-13**: **Architecture Overhaul** - Introduced `AppMode` (Hub, Workspace, Standalone)
+- **2026-01-13**: Created `IntroPortal` as the new application entry point
+- **2026-01-13**: Implemented **Single Widget Mode** for isolated tool usage
+- **2026-01-13**: Added **Draggable Tabs** support for both CAD 2D and Workspace
+- **2026-01-13**: Integrated `framer-motion` `Reorder` for high-fidelity tab drag sorting
 
-*Last updated: 2026-01-12*
+*Last updated: 2026-01-13*

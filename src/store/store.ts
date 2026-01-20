@@ -75,6 +75,11 @@ interface AppState {
     activeWidgetId: string | null;
     selectedWidgetIds: string[];
     lastSelectedId: string | null;
+    // Mode State
+    appMode: 'intro' | 'workspace' | 'cad-standalone' | 'single-widget';
+    activeSingleWidgetType: WidgetType | null;
+
+    // Project Metadata
     projectName: string;
     projectMetadata: {
         created: string;
@@ -121,6 +126,10 @@ interface AppState {
     setZoomSensitivity: (sensitivity: number) => void;
     setGridStyle: (style: GridStyle) => void;
 
+    // Mode State Actions
+    setAppMode: (mode: 'intro' | 'workspace' | 'cad-standalone' | 'single-widget') => void;
+    setSingleWidgetMode: (type: WidgetType | null) => void;
+
     // Widget Edit Mode Actions
     enterEditMode: (widgetId: string) => void;
     exitEditMode: () => void;
@@ -142,6 +151,16 @@ interface AppState {
 export const useStore = create<AppState>()(
     persist(
         (set, get) => ({
+            // Mode State
+            appMode: 'intro',
+            activeSingleWidgetType: null,
+            setAppMode: (mode) => set({ appMode: mode }),
+            setSingleWidgetMode: (type) => set({
+                appMode: type ? 'single-widget' : 'intro',
+                activeSingleWidgetType: type
+            }),
+
+            // Widget State
             widgets: [],
             canvas: {
                 scale: 1,

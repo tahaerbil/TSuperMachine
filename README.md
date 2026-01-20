@@ -42,7 +42,13 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 - **Auto-Recovery**: Automatic temp saves to prevent data loss.
 - **Auto-Serialization**: CAD data is automatically serialized to `cadData.json`.
 
-### 📦 13 Specialized Widgets
+
+### 🚀 Hub Launcher & App Modes
+- **Unified Entry Point**: Start new projects, open existing ones, or launch widely-used tools instantly.
+- **Single Widget Mode**: Use TSuperMachine as a standalone tool (e.g., just the Calculator or 2D CAD) without the full workspace overhead.
+- **Draggable Tabs**: Chrome-like drag & drop tab reordering for both Workspace and CAD widgets.
+
+### 📦 14 Specialized Widgets
 
 1. **📝 Note** - Simple notepad with auto-save
 2. **🧮 Calculator** - MathJS-powered engineering calculator (supports `sin`, `cos`, `sqrt`, etc.)

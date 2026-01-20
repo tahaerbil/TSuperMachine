@@ -1,23 +1,20 @@
-import { Canvas } from './components/Canvas';
-import { Toolbar } from './components/Toolbar';
-import { TabBar } from './components/workspace';
-import { ProjectController } from './features/project';
-
+import { AnimatePresence } from 'framer-motion';
 import { useStore } from './store/store';
+import { IntroPortal } from './features/startup/IntroPortal';
+import { WorkspaceLayout } from './layouts/WorkspaceLayout';
+import { CadStandaloneLayout } from './layouts/CadStandaloneLayout';
+import { SingleWidgetLayout } from './layouts/SingleWidgetLayout';
 
 function App() {
-  const { widgets } = useStore();
-  const isAnyWidgetMaximized = widgets.some(w => w.isMaximized);
+  const appMode = useStore((state) => state.appMode);
 
   return (
-    <div className="w-screen h-screen overflow-hidden flex flex-col">
-      <TabBar />
-      <div className="flex-1 relative overflow-hidden">
-        <ProjectController />
-        <Canvas />
-        {!isAnyWidgetMaximized && <Toolbar />}
-      </div>
-    </div>
+    <AnimatePresence mode="wait">
+      {appMode === 'intro' && <IntroPortal key="intro" />}
+      {appMode === 'workspace' && <WorkspaceLayout key="workspace" />}
+      {appMode === 'cad-standalone' && <CadStandaloneLayout key="cad-standalone" />}
+      {appMode === 'single-widget' && <SingleWidgetLayout key="single-widget" />}
+    </AnimatePresence>
   );
 }
 

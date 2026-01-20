@@ -43,7 +43,7 @@ interface WorkspaceState {
     switchTab: (tabId: string) => void;
     renameTab: (tabId: string, name: string) => void;
     duplicateTab: (tabId: string) => string | null;
-    reorderTabs: (fromIndex: number, toIndex: number) => void;
+    reorderTabs: (newOrder: string[]) => void;
     updateActiveTabState: () => void;
     setTabDirty: (tabId: string, dirty: boolean) => void;
     setTabFilePath: (tabId: string, filePath: string | null) => void;
@@ -263,7 +263,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                         if (!confirmed) return false;
                     }
 
-                    // If this is the last tab, create a new empty one
+                    // If this is the last tab, create a new empty one AND exit to portal
                     if (state.tabs.length === 1) {
                         const newTab = createEmptyTab();
                         set({
@@ -272,6 +272,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                             activeTabId: newTab.id
                         });
                         restoreTabState(newTab);
+
+                        // User requested behavior: Closing last tab acts as "Back to Main Menu"
+                        useStore.getState().setAppMode('intro');
                         return true;
                     }
 
@@ -403,11 +406,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                 // =============================================================
                 // REORDER TABS
                 // =============================================================
-                reorderTabs: (fromIndex: number, toIndex: number) => {
-                    const state = get();
-                    const newOrder = [...state.tabOrder];
-                    const [removed] = newOrder.splice(fromIndex, 1);
-                    newOrder.splice(toIndex, 0, removed);
+                reorderTabs: (newOrder: string[]) => {
                     set({ tabOrder: newOrder });
                 },
 
