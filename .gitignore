@@ -59,6 +59,11 @@ Thumbs.db
 *.tsm
 *.pdf
 *.dxf
+*.step
+*.stp
+*.iges
+*.igs
+*.brep
 User_Project_*/
 test-project*/
 project-data/

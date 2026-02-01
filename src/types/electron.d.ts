@@ -12,6 +12,7 @@ interface ElectronAPI {
     platform: string;
     isElectron: boolean;
     hasNativeCAD: boolean;
+    hasNativeCAD3D: boolean;
     onMenuAction: (callback: (action: string) => void) => void;
     onLoadProjectData: (callback: (payload: { data: unknown; filePath: string }) => void) => void;
     saveProject: (data: unknown | Uint8Array, filePath: string | null, saveAs: boolean, asFolder: boolean, projectName?: string) => Promise<{ success: boolean; filePath?: string; error?: string; canceled?: boolean }>;
@@ -54,6 +55,8 @@ interface Window {
     // dependencies. The actual types are enforced in CADEngine.ts at usage site.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     nativeCAD?: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    nativeCAD3D?: any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     createCADEngine?: () => Promise<any>;
 }

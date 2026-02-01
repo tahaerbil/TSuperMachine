@@ -78,7 +78,7 @@ feature-name/
 | `ai-assistant` | 4+ | Medium | node-llama-cpp, Zustand |
 | `automations` | 3+ | High | - |
 | `cad-2d` | 12 | High | C++ Native, WASM |
-| `cad-3d` | 2 | Low | Three.js |
+| `cad-3d` | 15+ | High | OpenCASCADE (Native), Three.js, FeatureManager |
 | `data-vault` | 2 | Low | Electron IPC |
 | `engineering-calculator` | 20 | High | C++ Native, Python |
 | `image-viewer` | 2 | Low | - |
@@ -409,5 +409,9 @@ TSuperMachine now supports multiple application modes managed by the `IntroPorta
 - **2026-01-13**: Implemented **Single Widget Mode** for isolated tool usage
 - **2026-01-13**: Added **Draggable Tabs** support for both CAD 2D and Workspace
 - **2026-01-13**: Integrated `framer-motion` `Reorder` for high-fidelity tab drag sorting
+- **2026-01-20**: **3D CAD Core** - Integrated OpenCASCADE Native Engine with React Three Fiber
+- **2026-01-21**: Implemented `CAD3DEngine.ts` bridge and Mesh generation
+- **2026-01-22**: **Parametric Architecture** - Added `FeatureSystem` (History Tree) & `SketchProtocol`
+- **2026-01-23**: **Pro UX** - Implemented NX-Style Dialog System, Raycasting, and Interactive Sketching
 
-*Last updated: 2026-01-13*
+*Last updated: 2026-01-23*

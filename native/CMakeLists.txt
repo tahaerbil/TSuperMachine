@@ -77,13 +77,70 @@ if(BUILD_NODE_ADDON)
 endif()
 
 # ============================================================================
-# Future: OpenCASCADE 3D Engine (commented out for now)
+# CAD3D Engine Library (OpenCASCADE-based Professional 3D Kernel)
 # ============================================================================
-# find_package(OpenCASCADE REQUIRED)
-# add_library(cad3d_core STATIC
-#     src/cad3d/Kernel.cpp
-# )
-# target_link_libraries(cad3d_core PUBLIC ${OpenCASCADE_LIBRARIES})
+option(WITH_OPENCASCADE "Build with OpenCASCADE support" OFF)
+
+# Try to find OpenCASCADE automatically
+find_package(OpenCASCADE QUIET)
+
+if(OpenCASCADE_FOUND)
+    set(WITH_OPENCASCADE ON CACHE BOOL "Build with OpenCASCADE support" FORCE)
+    message(STATUS "OpenCASCADE found: ${OpenCASCADE_INCLUDE_DIR}")
+endif()
+
+add_library(cad3d_core STATIC
+    src/cad3d/CAD3DEngine.cpp
+)
+
+target_include_directories(cad3d_core PUBLIC
+    ${CMAKE_SOURCE_DIR}/src/cad3d
+)
+
+if(WITH_OPENCASCADE AND OpenCASCADE_FOUND)
+    target_compile_definitions(cad3d_core PUBLIC HAVE_OPENCASCADE)
+    target_include_directories(cad3d_core PUBLIC ${OpenCASCADE_INCLUDE_DIR})
+    target_link_libraries(cad3d_core PUBLIC
+        TKernel TKMath TKG3d TKBRep TKGeomBase TKGeomAlgo
+        TKTopAlgo TKPrim TKMesh TKBO TKShHealing
+        TKFillet TKDE TKDESTEP TKDEIGES
+    )
+    message(STATUS "CAD3D: OpenCASCADE ENABLED (Professional Mode)")
+else()
+    message(STATUS "CAD3D: OpenCASCADE NOT FOUND (Stub Mode - Limited Functionality)")
+endif()
+
+set_target_properties(cad3d_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# ============================================================================
+# CAD3D Node.js Addon
+# ============================================================================
+if(BUILD_NODE_ADDON)
+    add_library(cad3d_addon SHARED
+        src/bindings/node/cad3d_addon.cpp
+    )
+    
+    target_include_directories(cad3d_addon PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    
+    target_link_libraries(cad3d_addon PRIVATE
+        cad3d_core
+        ${CMAKE_JS_LIB}
+    )
+    
+    set_target_properties(cad3d_addon PROPERTIES
+        PREFIX ""
+        SUFFIX ".node"
+        OUTPUT_NAME "cad3d_addon"
+    )
+    
+    if(APPLE)
+        set_target_properties(cad3d_addon PROPERTIES
+            LINK_FLAGS "-undefined dynamic_lookup"
+        )
+    endif()
+endif()
 
 message(STATUS "===========================================")
 message(STATUS "TSuperMachine Native Build Configuration")

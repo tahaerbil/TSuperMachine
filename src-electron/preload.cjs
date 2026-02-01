@@ -4,7 +4,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 const path = require('path');
 
-// Try to load native CAD addon
+// Try to load native CAD addon (2D)
 let cadAddon = null;
 let hasNativeCAD = false;
 
@@ -18,11 +18,25 @@ try {
     console.log('   Will use WASM fallback in renderer');
 }
 
+// Try to load native CAD3D addon (3D OpenCASCADE)
+let cad3dAddon = null;
+let hasNativeCAD3D = false;
+
+try {
+    const addon3dPath = path.join(__dirname, '../native/build/Release/cad3d_addon.node');
+    cad3dAddon = require(addon3dPath);
+    hasNativeCAD3D = true;
+    console.log('✅ [Preload] Native CAD3D addon loaded (OpenCASCADE)');
+} catch (error) {
+    console.warn('⚠️ [Preload] Native CAD3D addon not available:', error.message);
+}
+
 // Expose basic Electron info and File System API
 contextBridge.exposeInMainWorld('electronAPI', {
     platform: process.platform,
     isElectron: true,
     hasNativeCAD: hasNativeCAD,
+    hasNativeCAD3D: hasNativeCAD3D,
 
     // File System Ops
     onMenuAction: (callback) => ipcRenderer.on('menu-action', (_event, action) => callback(action)),
@@ -59,7 +73,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
 });
 
-// Expose native CAD API if available
+// Expose native CAD API if available (2D)
 if (hasNativeCAD && cadAddon) {
     contextBridge.exposeInMainWorld('nativeCAD', {
         // Engine lifecycle
@@ -100,5 +114,54 @@ if (hasNativeCAD && cadAddon) {
 
         // Rendering - returns Float32Array directly (sync, fast!)
         getRenderBuffer: () => cadAddon.getRenderBuffer()
+    });
+}
+
+// Expose native CAD3D API if available (3D OpenCASCADE)
+if (hasNativeCAD3D && cad3dAddon) {
+    contextBridge.exposeInMainWorld('nativeCAD3D', {
+        // Engine lifecycle
+        createEngine: () => cad3dAddon.createEngine(),
+        destroyEngine: () => cad3dAddon.destroyEngine(),
+
+        // Feature Modeling (Phase 2)
+        createDatumPlane: (ox, oy, oz, nx, ny, nz) => cad3dAddon.createDatumPlane(ox, oy, oz, nx, ny, nz),
+        createSketch: (planeId) => cad3dAddon.createSketch(planeId),
+        addSketchLine: (sketchId, x1, y1, x2, y2) => cad3dAddon.addSketchLine(sketchId, x1, y1, x2, y2),
+        addSketchCircle: (sketchId, cx, cy, r) => cad3dAddon.addSketchCircle(sketchId, cx, cy, r),
+        createExtrude: (sketchId, height) => cad3dAddon.createExtrude(sketchId, height),
+        createRevolve: (sketchId, px, py, pz, dx, dy, dz, angle) => cad3dAddon.createRevolve(sketchId, px, py, pz, dx, dy, dz, angle),
+
+        // Primitive creation
+        createBox: (dx, dy, dz) => cad3dAddon.createBox(dx, dy, dz),
+        createCylinder: (radius, height) => cad3dAddon.createCylinder(radius, height),
+        createSphere: (radius) => cad3dAddon.createSphere(radius),
+        createCone: (bottomRadius, topRadius, height) => cad3dAddon.createCone(bottomRadius, topRadius, height),
+        createTorus: (majorRadius, minorRadius) => cad3dAddon.createTorus(majorRadius, minorRadius),
+
+        // Boolean operations
+        booleanFuse: (shapeA, shapeB) => cad3dAddon.booleanFuse(shapeA, shapeB),
+        booleanCut: (shapeA, shapeB) => cad3dAddon.booleanCut(shapeA, shapeB),
+        booleanCommon: (shapeA, shapeB) => cad3dAddon.booleanCommon(shapeA, shapeB),
+
+        // Modifications
+        translateShape: (id, dx, dy, dz) => cad3dAddon.translateShape(id, dx, dy, dz),
+        rotateShape: (id, axisX, axisY, axisZ, angleDeg) => cad3dAddon.rotateShape(id, axisX, axisY, axisZ, angleDeg),
+        filletEdges: (id, radius) => cad3dAddon.filletEdges(id, radius),
+        chamferEdges: (id, distance) => cad3dAddon.chamferEdges(id, distance),
+
+        // Mesh data for Three.js rendering
+        getMeshData: (id, deflection) => cad3dAddon.getMeshData(id, deflection || 0.1),
+
+        // File I/O (STEP, IGES)
+        exportSTEP: (id, filePath) => cad3dAddon.exportSTEP(id, filePath),
+        exportIGES: (id, filePath) => cad3dAddon.exportIGES(id, filePath),
+        importSTEP: (filePath) => cad3dAddon.importSTEP(filePath),
+        importIGES: (filePath) => cad3dAddon.importIGES(filePath),
+
+        // Management
+        deleteShape: (id) => cad3dAddon.deleteShape(id),
+        clear: () => cad3dAddon.clear(),
+        getAllShapeIds: () => cad3dAddon.getAllShapeIds()
     });
 }
