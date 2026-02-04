@@ -8,7 +8,21 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat&logo=tailwind-css&logoColor=white)
 ![C++](https://img.shields.io/badge/C++-00599C?style=flat&logo=c%2B%2B&logoColor=white)
 ![Electron](https://img.shields.io/badge/Electron-47848F?style=flat&logo=electron&logoColor=white)
-![Tauri](https://img.shields.io/badge/Tauri-24C8DB?style=flat&logo=tauri&logoColor=white)
+
+
+## 📷 Gallery
+
+<div align="center">
+  <img src="assets/screenshots/dashboard.png" alt="Dashboard" width="800" />
+  <p><em>Infinite Canvas Dashboard</em></p>
+  <br/>
+  <img src="assets/screenshots/cad-mode.png" alt="2D CAD Mode" width="800" />
+  <p><em>High-Performance 2D CAD Engine</em></p>
+  <br/>
+  <img src="assets/screenshots/canvas.png" alt="Infinite Canvas" width="800" />
+  <p><em>Interactive Infinite Canvas</em></p>
+</div>
+
 
 ## ✨ Features
 
@@ -21,7 +35,7 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 
 ### 🚀 High-Performance CAD Engine
 - **Native C++ Addon** (Electron) - Maximum performance with Node.js N-API bindings
-- **WASM Fallback** (Web/Tauri) - Cross-platform support via WebAssembly
+- **WASM Fallback** (Web) - Cross-platform support via WebAssembly
 - **Hybrid Architecture** - Automatically selects best engine for platform
 - **Full State Saving** - Saves all CAD entities (lines, circles, etc.) to `.tsm` project file via native serialization
 - **High-DPI Rendering** - Sharp lines on Retina/4K displays via `devicePixelRatio` scaling
@@ -214,7 +228,7 @@ Widget fills the entire viewport.
 |----------|-----------|
 | **Framework** | React 19 + TypeScript |
 | **Build Tool** | Vite 7 |
-| **Desktop App** | Electron 39 / Tauri 2 (Rust) |
+| **Desktop App** | Electron 39 |
 | **Styling** | TailwindCSS v4 |
 | **State Management** | Zustand (+ persist) |
 | **Internationalization** | i18next |
@@ -257,9 +271,9 @@ tsupermachinev2/
 │   │   │   └── types/               # Shared types
 │   │   ├── presentation/           # Slide viewer
 │   │   ├── project/                # Project manager
-│   │   ├── project-menu/           # Project menu UI
 │   │   ├── settings/               # App settings
 │   │   ├── spreadsheet/            # Excel-like grid (Fortune Sheet)
+│   │   ├── startup/                # Hub Launcher & App Modes
 │   │   └── todo/                   # Task management
 │   │
 │   ├── store/
@@ -307,10 +321,6 @@ tsupermachinev2/
 │   ├── main.cjs                    # Main process
 │   └── preload.cjs                 # Preload script
 │
-└── src-tauri/                      # Tauri backend (optional)
-    ├── Cargo.toml
-    ├── tauri.conf.json
-    └── src/
 ```
 
 ## ⚡ 2D CAD Engine Architecture
@@ -327,9 +337,8 @@ The 2D CAD engine uses a **hybrid architecture** for optimal performance:
 │    │                    │                    │          │
 │    ▼                    ▼                    ▼          │
 │ ┌──────────┐      ┌──────────┐        ┌──────────┐     │
-│ │  Native  │      │  WASM    │        │  WASM    │     │
-│ │  Addon   │      │ (Tauri)  │        │  (Web)   │     │
-│ │(Electron)│      │          │        │          │     │
+│ │  Addon   │      │ (Web)    │        │  WASM    │     │
+│ │(Electron)│      │          │        │  (Web)   │     │
 │ └──────────┘      └──────────┘        └──────────┘     │
 │      │                 │                   │            │
 │      └─────────────────┼───────────────────┘            │
@@ -345,7 +354,6 @@ The 2D CAD engine uses a **hybrid architecture** for optimal performance:
 | Platform | Engine | Performance |
 |----------|--------|-------------|
 | **Electron** | Native C++ Addon | ⚡⚡⚡ Maximum |
-| **Tauri** | WASM | ⚡⚡ Very Good |
 | **Web Browser** | WASM | ⚡⚡ Very Good |
 
 ## 🎨 Themes
@@ -410,12 +418,6 @@ npm run electron:build
 # Output: out/make/ directory
 ```
 
-### Tauri Distribution
-```bash
-npm run tauri:build
-
-# Output: src-tauri/target/release/bundle/
-```
 
 ### Web Deployment
 ```bash
@@ -425,7 +427,10 @@ npm run build
 
 ## 📝 License
 
-MIT License - feel free to use for personal or commercial projects.
+Copyright (c) 2026 Taha Erbil. All Rights Reserved.
+
+**Strictly Prohibited:** Unauthorized copying, distribution, modification, or use of this source code is not allowed. This software is proprietary and confidential.
+
 
 ## 🤝 Contributing
 

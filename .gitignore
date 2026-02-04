@@ -1,3 +1,10 @@
+# Security & Config
+.env
+.env.*
+*.secret
+*.key
+*.pem
+
 # Logs
 logs
 *.log
