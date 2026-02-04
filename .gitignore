@@ -101,10 +101,10 @@ models/
 vector_db/
 
 # Artifacts & Screenshots
-screenshots/
-videos/
-*.webm
-*.png
-*.jpg
+# screenshots/
+# videos/
+# *.webm
+# *.png
+# *.jpg
 uploaded_image_*
 
