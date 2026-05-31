@@ -83,7 +83,7 @@ const WidgetContentInner: React.FC<{ widget: Widget }> = ({ widget }) => {
         case 'CAD_2D':
             return <CAD2DWidget id={widget.id} isMaximized={widget.isMaximized} />;
         case 'CAD_3D':
-            return <CAD3DWidget id={widget.id} initialShapes={widget.data?.shapes3d} />;
+            return <CAD3DWidget id={widget.id} isMaximized={widget.isMaximized} />;
         case 'SPREADSHEET':
             return <SpreadsheetWidget id={widget.id} initialData={widget.data?.spreadsheet} isMaximized={widget.isMaximized} />;
 
