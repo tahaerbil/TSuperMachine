@@ -82,42 +82,31 @@ Canvas-based machine design tool for engineers and technical designers. An infin
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+ 
-- npm or yarn
-- CMake 3.15+ (for native addon)
-- C++17 compiler (GCC 9+, Clang 10+)
+- **Rust Toolchain** (Edition 2024 / 1.75+)
+- **Node.js** (v18+ for note-frontend development)
 
-### Installation
+### Installation & Execution
+
+#### 1. Geliştirme Modu (Development Mode)
+Geliştirme aşamasında sadece `cargo run` komutunu çalıştırmanız yeterlidir. Rust çekirdeği, `note-frontend` altındaki Vite geliştirme sunucusunu otomatik olarak arka planda başlatacak ve yönetecektir:
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/TSuperMachine.git
-cd TSuperMachine/tsupermachinev2
+# İlk kurulumda frontend bağımlılıklarını yükleyin
+cd note-frontend && npm install && cd ..
 
-# Install dependencies
-npm install
-
-# Build native CAD addon (for Electron) - Using npm Workspaces
-npm run native:build
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
+# Uygulamayı geliştirme modunda çalıştırın
+cargo run
 ```
 
-### Desktop App (Electron) - Recommended
+#### 2. Üretim Modu (Production / Single-Binary Build)
+Uygulamayı harici hiçbir bağımlılığı (Node.js, npm, vb.) olmayan tek bir taşınabilir binary (Single-Binary) olarak derlemek için:
 
 ```bash
-# Run desktop app in development mode
-npm run electron:dev
+# React arayüzünü derleyin
+cd note-frontend && npm run build && cd ..
 
-# Rebuild native addon (if C++ changes)
-npm run native:rebuild
-
-# Build desktop app for production
-npm run electron:build
+# Rust projesini release modunda derleyin ve çalıştırın (Arayüz binary'e gömülür)
+cargo run --release
 ```
 
 ### 🤖 AI Model Setup (Optional but Recommended)

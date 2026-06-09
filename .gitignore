@@ -108,3 +108,11 @@ vector_db/
 # *.jpg
 uploaded_image_*
 
+# Rust
+target/
+**/*.rs.bk
+
+# Frontend
+note-frontend/dist/
+note-frontend/node_modules/
+
