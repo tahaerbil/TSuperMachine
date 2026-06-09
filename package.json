@@ -2,9 +2,7 @@
   "name": "tsupermachine-workspace",
   "private": true,
   "scripts": {
-    "dev": "npm run dev --prefix note-frontend",
-    "build": "npm run build --prefix note-frontend",
-    "native:dev": "cargo run",
-    "native:release": "cargo build --release"
+    "dev": "cargo run",
+    "build": "cargo build --release"
   }
 }
